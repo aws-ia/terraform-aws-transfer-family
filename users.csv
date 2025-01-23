@@ -1,3 +1,3 @@
-username,home_dir,ssh_key
-user1,/user1,"ssh-rsa AAAA..."
-user2,/user2,"ssh-rsa BBBB..."
+username,home_dir
+user1,/user1
+user2,/user2
