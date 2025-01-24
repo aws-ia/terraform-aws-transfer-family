@@ -90,27 +90,9 @@ locals {
   users = csvdecode(file(var.users_file))
 }
 
-### Generate SSH Key Pair ###
-resource "tls_private_key" "sftp_keys" {
-  for_each = { for user in local.users : user.username => user }
-
-  algorithm = "RSA"
-  rsa_bits  = 2048
-}
-
-### Store Private Key in AWS Secrets Manager ###
-resource "aws_secretsmanager_secret" "sftp_private_key" {
-  for_each = { for user in local.users : user.username => user }
-
-  name        = "sftp-user-private-key-${each.key}"
-  description = "Private key for the SFTP user"
-  kms_key_id  = "alias/aws/secretsmanager"
-}
-resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {
-  for_each = { for user in local.users : user.username => user }
-
-  secret_id     = aws_secretsmanager_secret.sftp_private_key[each.key].id
-  secret_string = tls_private_key.sftp_keys[each.key].private_key_pem
+module "sftp_keys" {
+  source = "./modules/sftp-keys"
+  users  = local.users
 }
 
 # Create SFTP users
@@ -134,5 +116,8 @@ resource "aws_transfer_ssh_key" "user_ssh_keys" {
 
   server_id = aws_transfer_server.sftp.id
   user_name = each.value.username
-    body      = tls_private_key.sftp_keys[each.key].public_key_openssh
+    # body      = tls_private_key.sftp_keys[each.key].public_key_openssh
+  body      = module.sftp_keys.public_keys[each.key]
+
+  depends_on = [aws_transfer_user.sftp_users]
 }
