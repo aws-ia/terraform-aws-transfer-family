@@ -4,7 +4,7 @@ locals {
   is_api_gateway       = var.identity_provider.type == "API_GATEWAY"
 }
 
-resource "aws_transfer_server" "sftp" {
+resource "aws_transfer_server" "transfer_server" {
   identity_provider_type    = var.identity_provider.type
   domain                    = var.transfer_server_base.domain
   protocols                 = var.transfer_server_base.protocols
@@ -21,7 +21,7 @@ resource "aws_transfer_server" "sftp" {
   function = local.is_lambda ? var.identity_provider.function_name : null
 
   tags = {
-    Name        = "sftp-server"
+    Name        = "transfer-server"
     Environment = var.transfer_server_base.environment
   }
 }
