@@ -12,26 +12,10 @@ resource "aws_s3_bucket" "sftp_bucket" {
 ###################################################################
 # Create S3 bucket for Transfer Server (Optional if already exists)
 ###################################################################
-module "transfer_server_bucket" {
-  source = "terraform-aws-modules/s3-bucket/aws"
-
-  bucket = var.bucket_name
-  acl    = "private"
-
-  control_object_ownership = true
-  object_ownership         = "ObjectWriter"
-
-  versioning = {
-    enabled = true
-  }
-}
-
-#Versioning disabled as per guidnance from the create SMB file share documentation. Read https://docs.aws.amazon.com/filegateway/latest/files3/CreatingAnSMBFileShare.html
-#tfsec:ignore:aws-s3-enable-versioning
 module "s3_bucket" {
   source                   = "terraform-aws-modules/s3-bucket/aws"
   version                  = ">=3.5.0"
-  bucket                   = var.bucket_name
+  bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp-logs")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
   block_public_acls        = true
@@ -42,19 +26,57 @@ module "s3_bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        kms_master_key_id = aws_kms_key.sgw.arn
+        kms_master_key_id = aws_kms_key.sse_encryption.arn
         sse_algorithm     = "aws:kms"
       }
     }
   }
+
   logging = {
     target_bucket = module.log_delivery_bucket.s3_bucket_id
     target_prefix = "log/"
   }
 
   versioning = {
+    enabled = true # Turn off versioning to save costs if this is not necessary for your use-case
+  }
+}
+
+#######################################################################
+# Create S3 bucket for Server Access Logs (Optional if already exists)
+#######################################################################
+
+#TFSEC Bucket logging for services access logs supressed. 
+#tfsec:ignore:aws-s3-enable-bucket-logging
+module "log_delivery_bucket" {
+  source                   = "terraform-aws-modules/s3-bucket/aws"
+  version                  = ">=3.5.0"
+  bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp-logs")
+  control_object_ownership = true
+  object_ownership         = "BucketOwnerEnforced"
+  block_public_acls        = true
+  block_public_policy      = true
+  ignore_public_acls       = true
+  restrict_public_buckets  = true
+
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        kms_master_key_id = aws_kms_key.sse_encryption.arn
+        sse_algorithm     = "aws:kms"
+      }
+    }
+  }
+
+  versioning = {
     enabled = true
   }
+}
+
+resource "aws_kms_key" "sse_encryption" {
+  description             = "KMS key for encrypting S3 buckets and EBS volumes"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
 }
 
 # Create IAM role for SFTP users
@@ -90,7 +112,8 @@ resource "aws_iam_role_policy" "sftp_user_policy" {
           "s3:ListBucket"
         ]
         Resource = [
-          aws_s3_bucket.sftp_bucket.arn
+          # aws_s3_bucket.sftp_bucket.arn
+          module.s3_bucket.s3_bucket_arn
         ]
       },
       {
@@ -106,8 +129,10 @@ resource "aws_iam_role_policy" "sftp_user_policy" {
           "s3:PutObjectACL"
         ]
         Resource = [
-          "${aws_s3_bucket.sftp_bucket.arn}/*",
-          "${aws_s3_bucket.sftp_bucket.arn}"
+          # "${aws_s3_bucket.sftp_bucket.arn}/*",
+          # "${aws_s3_bucket.sftp_bucket.arn}"
+          "${module.s3_bucket.s3_bucket_arn}/*",
+          "${module.s3_bucket.s3_bucket_arn}"
         ]
       }
     ]
@@ -121,7 +146,7 @@ module "transfer_server" {
     domain        = "S3"
     protocols     = ["SFTP"]
     endpoint_type = "PUBLIC"
-    environment   = "dev"
+    server_name   = "transfer_server"
   }
 
   identity_provider = {
