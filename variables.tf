@@ -1,9 +1,9 @@
 
-# variable "aws_region" {
-#   description = "AWS region"
-#   type        = string
-#   default     = "us-east-1"
-# }
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
 
 # variable "users_file" {
 #   description = "Path to CSV file containing user configurations"
@@ -38,25 +38,25 @@ variable "transfer_server_base" {
   }
 }
 
-# variable "identity_provider" {
-#   description = "Identity provider configuration"
-#   type = object({
-#     type           = string
-#     directory_id   = optional(string)
-#     function_name  = optional(string)
-#     url            = optional(string)
-#     invocation_role = optional(string)
-#   })
+variable "identity_provider" {
+  description = "Identity provider configuration"
+  type = object({
+    type           = string
+    directory_id   = optional(string)
+    function_name  = optional(string)
+    url            = optional(string)
+    invocation_role = optional(string)
+  })
   
-#   default = {
-#     type = "SERVICE_MANAGED"
-#   }
+  default = {
+    type = "SERVICE_MANAGED"
+  }
 
-#   validation {
-#     condition     = contains(["SERVICE_MANAGED", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "API_GATEWAY"], var.identity_provider.type)
-#     error_message = "Identity provider type must be one of: SERVICE_MANAGED, AWS_DIRECTORY_SERVICE, AWS_LAMBDA, API_GATEWAY"
-#   }
-# }
+  validation {
+    condition     = contains(["SERVICE_MANAGED", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "API_GATEWAY"], var.identity_provider.type)
+    error_message = "Identity provider type must be one of: SERVICE_MANAGED, AWS_DIRECTORY_SERVICE, AWS_LAMBDA, API_GATEWAY"
+  }
+}
 
 # variable "custom_hostname" {
 #   description = "Custom hostname configuration"
@@ -79,7 +79,7 @@ variable "iam_logging_role" {
 variable "security_policy_name" {
   description = "(Optional) Specifies the name of the security policy that is attached to the server. If not provided, the default security policy will be used."
   type        = string
-  default     = null
+  default     = "TransferSecurityPolicy-2018-11"
 
   validation {
     condition     = contains([
@@ -97,7 +97,7 @@ variable "security_policy_name" {
       "TransferSecurityPolicy-Restricted-2018-11",
       "TransferSecurityPolicy-Restricted-2020-06",
       "TransferSecurityPolicy-Restricted-2024-06"
-    ], var.security_policy_name.type)
+    ], var.security_policy_name)
     error_message = "Security policy name must be one of the supported security policy names. visit https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html for more information."
   }
 }

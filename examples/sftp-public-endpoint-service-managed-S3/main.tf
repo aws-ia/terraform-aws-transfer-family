@@ -4,9 +4,13 @@
 # to build your own root module that invokes this module
 #####################################################################################
 
-# S3 bucket creation
-resource "aws_s3_bucket" "sftp_bucket" {
-  bucket = var.bucket_name
+######################################
+# Defaults and Locals
+######################################
+
+resource "random_pet" "name" {
+  prefix = "aws-ia"
+  length = 1
 }
 
 ###################################################################
@@ -15,7 +19,7 @@ resource "aws_s3_bucket" "sftp_bucket" {
 module "s3_bucket" {
   source                   = "terraform-aws-modules/s3-bucket/aws"
   version                  = ">=3.5.0"
-  bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp-logs")
+  bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
   block_public_acls        = true
@@ -36,6 +40,10 @@ module "s3_bucket" {
     target_bucket = module.log_delivery_bucket.s3_bucket_id
     target_prefix = "log/"
   }
+
+  depends_on = [
+    module.log_delivery_bucket
+  ]
 
   versioning = {
     enabled = true # Turn off versioning to save costs if this is not necessary for your use-case
@@ -80,8 +88,10 @@ resource "aws_kms_key" "sse_encryption" {
 }
 
 # Create IAM role for SFTP users
-resource "aws_iam_role" "sftp_user_role" {
-  name = "sftp-user-role"
+resource "aws_iam_role" "sftp_user_roles" {
+  for_each = { for user in local.users : user.username => user }
+
+  name = "transfer-user-${each.value.username}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -98,9 +108,11 @@ resource "aws_iam_role" "sftp_user_role" {
 }
 
 # Update the IAM role policy for SFTP users
-resource "aws_iam_role_policy" "sftp_user_policy" {
-  name = "sftp-user-policy"
-  role = aws_iam_role.sftp_user_role.id
+resource "aws_iam_role_policy" "sftp_user_policies" {
+  for_each = { for user in local.users : user.username => user }
+
+  name = "sftp-user-policy-${each.value.username}"
+  role = aws_iam_role.sftp_user_roles[each.key].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -109,12 +121,17 @@ resource "aws_iam_role_policy" "sftp_user_policy" {
         Sid    = "AllowListingOfUserFolder"
         Effect = "Allow"
         Action = [
-          "s3:ListBucket"
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
         ]
         Resource = [
-          # aws_s3_bucket.sftp_bucket.arn
           module.s3_bucket.s3_bucket_arn
         ]
+        # Condition = {
+        #   StringLike = {
+        #     "s3:prefix" = ["${each.value.home_dir}/*", "${each.value.home_dir}", ""]
+        #   }
+        # }
       },
       {
         Sid    = "HomeDirObjectAccess"
@@ -129,10 +146,19 @@ resource "aws_iam_role_policy" "sftp_user_policy" {
           "s3:PutObjectACL"
         ]
         Resource = [
-          # "${aws_s3_bucket.sftp_bucket.arn}/*",
-          # "${aws_s3_bucket.sftp_bucket.arn}"
-          "${module.s3_bucket.s3_bucket_arn}/*",
-          "${module.s3_bucket.s3_bucket_arn}"
+          "${module.s3_bucket.s3_bucket_arn}${each.value.home_dir}/*",
+          "${module.s3_bucket.s3_bucket_arn}${each.value.home_dir}"
+        ]
+      },
+      {
+        Sid    = "AllowKMSAccess"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = [
+          aws_kms_key.sse_encryption.arn
         ]
       }
     ]
@@ -170,12 +196,12 @@ resource "aws_transfer_user" "sftp_users" {
 
   server_id = module.transfer_server.server_id
   user_name = each.value.username
-  role      = aws_iam_role.sftp_user_role.arn
+  role      = aws_iam_role.sftp_user_roles[each.key].arn
 
   home_directory_type = "LOGICAL"
   home_directory_mappings {
     entry  = "/"
-    target = "/${var.bucket_name}${each.value.home_dir}"
+    target = "/${module.s3_bucket.s3_bucket_id}${each.value.home_dir}"
   }
 }
 
