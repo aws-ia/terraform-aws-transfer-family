@@ -19,6 +19,10 @@ crash.log
 #
 *.tfvars
 
+# Exclude all .pem files, which are likely sensitive security keys to log into your server.
+#
+*.pem
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
