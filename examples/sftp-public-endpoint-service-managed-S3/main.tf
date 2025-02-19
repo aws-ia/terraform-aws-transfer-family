@@ -87,83 +87,83 @@ resource "aws_kms_key" "sse_encryption" {
   enable_key_rotation     = true
 }
 
-# Create IAM role for SFTP users
-resource "aws_iam_role" "sftp_user_roles" {
-  for_each = { for user in local.users : user.username => user }
+# # Create IAM role for SFTP users
+# resource "aws_iam_role" "sftp_user_roles" {
+#   for_each = { for user in local.users : user.username => user }
 
-  name = "transfer-user-${each.value.username}"
+#   name = "transfer-user-${each.value.username}"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "transfer.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
+#   assume_role_policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Action = "sts:AssumeRole"
+#         Effect = "Allow"
+#         Principal = {
+#           Service = "transfer.amazonaws.com"
+#         }
+#       }
+#     ]
+#   })
+# }
 
-# Update the IAM role policy for SFTP users
-resource "aws_iam_role_policy" "sftp_user_policies" {
-  for_each = { for user in local.users : user.username => user }
+# # Update the IAM role policy for SFTP users
+# resource "aws_iam_role_policy" "sftp_user_policies" {
+#   for_each = { for user in local.users : user.username => user }
 
-  name = "sftp-user-policy-${each.value.username}"
-  role = aws_iam_role.sftp_user_roles[each.key].id
+#   name = "sftp-user-policy-${each.value.username}"
+#   role = aws_iam_role.sftp_user_roles[each.key].id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowListingOfUserFolder"
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketLocation"
-        ]
-        Resource = [
-          module.s3_bucket.s3_bucket_arn
-        ]
-        # Condition = {
-        #   StringLike = {
-        #     "s3:prefix" = ["${each.value.home_dir}/*", "${each.value.home_dir}", ""]
-        #   }
-        # }
-      },
-      {
-        Sid    = "HomeDirObjectAccess"
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:DeleteObject",
-          "s3:DeleteObjectVersion",
-          "s3:GetObjectVersion",
-          "s3:GetObjectACL",
-          "s3:PutObjectACL"
-        ]
-        Resource = [
-          "${module.s3_bucket.s3_bucket_arn}${each.value.home_dir}/*",
-          "${module.s3_bucket.s3_bucket_arn}${each.value.home_dir}"
-        ]
-      },
-      {
-        Sid    = "AllowKMSAccess"
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey"
-        ]
-        Resource = [
-          aws_kms_key.sse_encryption.arn
-        ]
-      }
-    ]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Sid    = "AllowListingOfUserFolder"
+#         Effect = "Allow"
+#         Action = [
+#           "s3:ListBucket",
+#           "s3:GetBucketLocation"
+#         ]
+#         Resource = [
+#           module.s3_bucket.s3_bucket_arn
+#         ]
+#         # Condition = {
+#         #   StringLike = {
+#         #     "s3:prefix" = ["${each.value.home_dir}/*", "${each.value.home_dir}", ""]
+#         #   }
+#         # }
+#       },
+#       {
+#         Sid    = "HomeDirObjectAccess"
+#         Effect = "Allow"
+#         Action = [
+#           "s3:PutObject",
+#           "s3:GetObject",
+#           "s3:DeleteObject",
+#           "s3:DeleteObjectVersion",
+#           "s3:GetObjectVersion",
+#           "s3:GetObjectACL",
+#           "s3:PutObjectACL"
+#         ]
+#         Resource = [
+#           "${module.s3_bucket.s3_bucket_arn}${each.value.home_dir}/*",
+#           "${module.s3_bucket.s3_bucket_arn}${each.value.home_dir}"
+#         ]
+#       },
+#       {
+#         Sid    = "AllowKMSAccess"
+#         Effect = "Allow"
+#         Action = [
+#           "kms:Decrypt",
+#           "kms:GenerateDataKey"
+#         ]
+#         Resource = [
+#           aws_kms_key.sse_encryption.arn
+#         ]
+#       }
+#     ]
+#   })
+# }
 
 module "transfer_server" {
   source = "../.."
@@ -185,34 +185,44 @@ locals {
   users = csvdecode(file(var.users_file))
 }
 
-module "sftp_keys" {
-  source = "../../modules/sftp-keys"
+module "sftp_users" {
+  source = "../../modules/transfer-user"
   users  = local.users
-}
-
-# Create SFTP users
-resource "aws_transfer_user" "sftp_users" {
-  for_each = { for user in local.users : user.username => user }
 
   server_id = module.transfer_server.server_id
-  user_name = each.value.username
-  role      = aws_iam_role.sftp_user_roles[each.key].arn
 
-  home_directory_type = "LOGICAL"
-  home_directory_mappings {
-    entry  = "/"
-    target = "/${module.s3_bucket.s3_bucket_id}${each.value.home_dir}"
-  }
+  s3_bucket_name = module.s3_bucket.s3_bucket_id
+  s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
 }
 
-# Create SSH keys for users
-resource "aws_transfer_ssh_key" "user_ssh_keys" {
-  for_each = { for user in local.users : user.username => user }
+# module "sftp_keys" {
+#   source = "../../modules/sftp-keys"
+#   users  = local.users
+# }
 
-  server_id = module.transfer_server.server_id
-  user_name = each.value.username
-    # body      = tls_private_key.sftp_keys[each.key].public_key_openssh
-  body      = module.sftp_keys.public_keys[each.key]
+# # Create SFTP users
+# resource "aws_transfer_user" "sftp_users" {
+#   for_each = { for user in local.users : user.username => user }
 
-  depends_on = [aws_transfer_user.sftp_users]
-}
+#   server_id = module.transfer_server.server_id
+#   user_name = each.value.username
+#   role      = aws_iam_role.sftp_user_roles[each.key].arn
+
+#   home_directory_type = "LOGICAL"
+#   home_directory_mappings {
+#     entry  = "/"
+#     target = "/${module.s3_bucket.s3_bucket_id}${each.value.home_dir}"
+#   }
+# }
+
+# # Create SSH keys for users
+# resource "aws_transfer_ssh_key" "user_ssh_keys" {
+#   for_each = { for user in local.users : user.username => user }
+
+#   server_id = module.transfer_server.server_id
+#   user_name = each.value.username
+#     # body      = tls_private_key.sftp_keys[each.key].public_key_openssh
+#   body      = module.sftp_keys.public_keys[each.key]
+
+#   depends_on = [aws_transfer_user.sftp_users]
+# }
