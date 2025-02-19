@@ -5,12 +5,12 @@
 # }
 
 resource "aws_transfer_server" "transfer_server" {
-  identity_provider_type    = var.identity_provider.type
-  domain                    = var.transfer_server_base.domain
-  protocols                 = var.transfer_server_base.protocols
-  endpoint_type             = var.transfer_server_base.endpoint_type
+  identity_provider_type    = var.identity_provider
+  domain                    = var.domain
+  protocols                 = var.protocols
+  endpoint_type             = var.endpoint_type
   security_policy_name      = var.security_policy_name
-  logging_role              = var.iam_logging_role
+  logging_role              = var.enable_logging ? aws_iam_role.logging[0].arn : null
 
   # # API Gateway specific configurations
   # url              = local.is_api_gateway ? var.identity_provider.url : null
@@ -25,7 +25,7 @@ resource "aws_transfer_server" "transfer_server" {
   tags = merge(
     var.tags,
     {
-      Name = var.transfer_server_base.server_name
+      Name = var.server_name
     }
   )
 }

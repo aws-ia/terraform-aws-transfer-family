@@ -168,16 +168,12 @@ resource "aws_kms_key" "sse_encryption" {
 module "transfer_server" {
   source = "../.."
   
-  transfer_server_base = {
-    domain        = "S3"
-    protocols     = ["SFTP"]
-    endpoint_type = "PUBLIC"
-    server_name   = "transfer_server"
-  }
+  domain        = "S3"
+  protocols     = ["SFTP"]
+  endpoint_type = "PUBLIC"
+  server_name   = "transfer_server"
 
-  identity_provider = {
-    type = "SERVICE_MANAGED"
-  }
+  identity_provider = "SERVICE_MANAGED"
 }
 
 # Read users from CSV
@@ -186,13 +182,15 @@ locals {
 }
 
 module "sftp_users" {
-  source = "../../modules/transfer-user"
+  source = "../../modules/transfer-users"
   users  = local.users
 
   server_id = module.transfer_server.server_id
 
   s3_bucket_name = module.s3_bucket.s3_bucket_id
   s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
+
+  sse_encryption_arn = aws_kms_key.sse_encryption.arn
 }
 
 # module "sftp_keys" {

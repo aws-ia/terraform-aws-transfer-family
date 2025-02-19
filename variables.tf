@@ -1,83 +1,50 @@
-
-variable "aws_region" {
-  description = "AWS region"
+variable "server_name" {
+  description = "The name of the Transfer Family server"
   type        = string
-  default     = "us-east-1"
+  default     = "transfer-server"
 }
 
-# variable "users_file" {
-#   description = "Path to CSV file containing user configurations"
-#   type        = string
-#   default     = "users.csv"
-# }
-
-variable "transfer_server_base" {
-  description = "Base configuration for Transfer Server"
-  type = object({
-    domain         = string
-    protocols      = list(string)
-    endpoint_type  = string
-    server_name    = string
-  })
-  
-  default = {
-    domain         = "S3"
-    protocols      = ["SFTP"]
-    endpoint_type  = "PUBLIC"
-    server_name    = "transfer-server"
-  }
+variable "domain" {
+  description = "The domain of the storage system that is used for file transfers"
+  type        = string
+  default     = "S3"
 
   validation {
-    condition     = contains(["S3", "EFS"], var.transfer_server_base.domain)
-    error_message = "Domain must be either S3 or EFS"
+    condition     = contains(["S3"], var.domain)
+    error_message = "Domain must be either S3"
   }
+}
+
+variable "protocols" {
+  description = "Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint"
+  type        = list(string)
+  default     = ["SFTP"]
+}
+
+variable "endpoint_type" {
+  description = "The type of endpoint that you want your transfer server to use"
+  type        = string
+  default     = "PUBLIC"
 
   validation {
-    condition     = contains(["PUBLIC", "VPC", "VPC_ENDPOINT"], var.transfer_server_base.endpoint_type)
-    error_message = "Endpoint type must be PUBLIC, VPC, or VPC_ENDPOINT"
+    condition     = contains(["PUBLIC"], var.endpoint_type)
+    error_message = "Endpoint type must be PUBLIC"
   }
 }
 
 variable "identity_provider" {
   description = "Identity provider configuration"
-  type = object({
-    type           = string
-    directory_id   = optional(string)
-    function_name  = optional(string)
-    url            = optional(string)
-    invocation_role = optional(string)
-  })
-  
-  default = {
-    type = "SERVICE_MANAGED"
-  }
+  type        = string
+  default     = "SERVICE_MANAGED"
 
   validation {
-    condition     = contains(["SERVICE_MANAGED", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "API_GATEWAY"], var.identity_provider.type)
-    error_message = "Identity provider type must be one of: SERVICE_MANAGED, AWS_DIRECTORY_SERVICE, AWS_LAMBDA, API_GATEWAY"
+    condition     = contains(["SERVICE_MANAGED"], var.identity_provider)
+    error_message = "Identity provider type must be: SERVICE_MANAGED"
   }
-}
-
-# variable "custom_hostname" {
-#   description = "Custom hostname configuration"
-#   type = object({
-#     enabled  = bool
-#     hostname = optional(string)
-#   })
-  
-#   default = {
-#     enabled = false
-#   }
-# }
-
-variable "iam_logging_role" {
-  description = "(Optional) The ARN of the IAM role for Transfer Family logging. If not provided, logging will be disabled."
-  type        = string
-  default     = null
 }
 
 variable "security_policy_name" {
-  description = "(Optional) Specifies the name of the security policy that is attached to the server. If not provided, the default security policy will be used."
+  description = "Specifies the name of the security policy that is attached to the server. If not provided, the default security policy will be used."
   type        = string
   default     = "TransferSecurityPolicy-2018-11"
 
@@ -106,4 +73,10 @@ variable "tags" {
   description = "A map of tags to assign to the resource"
   type        = map(string)
   default     = {}
+}
+
+variable "enable_logging" {
+  description = "Enable CloudWatch logging for the transfer server"
+  type        = bool
+  default     = false
 }

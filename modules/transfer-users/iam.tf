@@ -69,7 +69,7 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
           "kms:GenerateDataKey"
         ]
         Resource = [
-          aws_kms_key.sse_encryption.arn
+          var.sse_encryption_arn
         ]
       }
     ]

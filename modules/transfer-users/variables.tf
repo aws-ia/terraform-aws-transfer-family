@@ -21,6 +21,11 @@ variable "s3_bucket_arn" {
   type        = string
 }
 
+variable "sse_encryption_arn" {
+  description = "ARN of the SSE encryption key for S3 bucket"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
