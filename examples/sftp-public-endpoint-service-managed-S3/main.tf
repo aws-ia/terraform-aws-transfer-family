@@ -13,6 +13,17 @@ resource "random_pet" "name" {
   length = 1
 }
 
+locals {
+  domain            = "S3"
+  protocols         = ["SFTP"]
+  endpoint_type     = "PUBLIC"
+  server_name       = "transfer_server"
+  dns_provider      = "route53"
+  base_domain       = "souvrard.people.aws.dev"
+  custom_hostname   = "test.sftp.${local.base_domain}"
+  identity_provider = "SERVICE_MANAGED"
+}
+
 ###################################################################
 # Create S3 bucket for Transfer Server (Optional if already exists)
 ###################################################################
@@ -50,15 +61,14 @@ resource "aws_kms_key" "sse_encryption" {
 module "transfer_server" {
   source = "../.."
   
-  domain                    = "S3"
-  protocols                 = ["SFTP"]
-  endpoint_type             = "PUBLIC"
-  server_name               = "transfer_server"
-  dns_provider              = "route53"
-  custom_hostname           = "test.sftp.souvrard.people.aws.dev" 
-  route53_hosted_zone_name  = "souvrard.people.aws.dev" 
-
-  identity_provider         = "SERVICE_MANAGED"
+  domain                   = local.domain
+  protocols                = local.protocols
+  endpoint_type            = local.endpoint_type
+  server_name              = local.server_name
+  dns_provider             = local.dns_provider
+  custom_hostname          = local.custom_hostname
+  route53_hosted_zone_name = local.base_domain
+  identity_provider        = local.identity_provider
 }
 
 # Read users from CSV
