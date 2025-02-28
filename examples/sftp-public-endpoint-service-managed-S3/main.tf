@@ -50,12 +50,15 @@ resource "aws_kms_key" "sse_encryption" {
 module "transfer_server" {
   source = "../.."
   
-  domain        = "S3"
-  protocols     = ["SFTP"]
-  endpoint_type = "PUBLIC"
-  server_name   = "transfer_server"
+  domain                    = "S3"
+  protocols                 = ["SFTP"]
+  endpoint_type             = "PUBLIC"
+  server_name               = "transfer_server"
+  dns_provider              = "route53"
+  custom_hostname           = "test.sftp.souvrard.people.aws.dev" 
+  route53_hosted_zone_name  = "souvrard.people.aws.dev" 
 
-  identity_provider = "SERVICE_MANAGED"
+  identity_provider         = "SERVICE_MANAGED"
 }
 
 # Read users from CSV

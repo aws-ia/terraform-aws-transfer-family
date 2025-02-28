@@ -80,3 +80,25 @@ variable "enable_logging" {
   type        = bool
   default     = false
 }
+
+variable "dns_provider" {
+  type        = string
+  description = "The DNS provider for the custom hostname. Use 'none' for no custom hostname"
+  default     = null
+  validation {
+    condition     = var.dns_provider == null ? true : contains(["route53", "other"], var.dns_provider)
+    error_message = "The dns_provider value must be either null, 'route53', or 'other'."
+  }
+}
+
+variable "custom_hostname" {
+  type        = string
+  description = "The custom hostname for the Transfer Family server"
+  default     = null
+}
+
+variable "route53_hosted_zone_name" {
+  description = "The name of the Route53 hosted zone to use (must end with a period, e.g., 'example.com.')"
+  type        = string
+  default     = null
+}

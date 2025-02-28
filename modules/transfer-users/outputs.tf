@@ -4,10 +4,10 @@ output "user_details" {
     for username, user in aws_transfer_user.transfer_users : username => {
       user_arn       = user.arn
       home_directory = user.home_directory
-      public_key     = module.sftp_keys.public_keys[username]
+      public_key     = tls_private_key.sftp_keys[username].public_key_openssh
       private_key_secret = {
-        arn       = module.sftp_keys.private_key_secrets[username].arn
-        secret_id = module.sftp_keys.private_key_secrets[username].secret_id
+        arn       = aws_secretsmanager_secret.sftp_private_key[username].arn
+        secret_id = aws_secretsmanager_secret.sftp_private_key[username].id
       }
     }
   }
