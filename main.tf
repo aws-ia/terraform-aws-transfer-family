@@ -58,6 +58,7 @@ check "dns_provider_configuration" {
 ######################################
 
 resource "aws_transfer_server" "transfer_server" {
+#checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
   identity_provider_type    = var.identity_provider
   domain                    = var.domain
   protocols                 = var.protocols
@@ -111,7 +112,6 @@ resource "aws_transfer_tag" "with_custom_domain_route53_zone_id" {
   count         = local.route53_enabled ? 1 : 0
   resource_arn  = aws_transfer_server.transfer_server.arn
   key           = "aws:transfer:route53HostedZoneId"
-  # value        = "/hostedzone/${var.route53_zone_id}"
   value         = "/hostedzone/${data.aws_route53_zone.selected[0].zone_id}"
 }
 

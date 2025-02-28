@@ -1,8 +1,3 @@
-# module "sftp_keys" {
-#   source = "../sftp-keys"
-#   users  = var.users
-# }
-
 ######################################
 # IAM Role for SFTP users
 ######################################
