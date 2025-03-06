@@ -1,27 +1,6 @@
 ######################################
 # IAM Role for SFTP users
 ######################################
-
-# Create IAM role for SFTP users
-# resource "aws_iam_role" "sftp_user_roles" {
-#   for_each = { for user in var.users : user.username => user }
-
-#   name = "transfer-user-${each.value.username}"
-
-#   assume_role_policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Action = "sts:AssumeRole"
-#         Effect = "Allow"
-#         Principal = {
-#           Service = "transfer.amazonaws.com"
-#         }
-#       }
-#     ]
-#   })
-# }
-
 resource "aws_iam_role" "sftp_user_role" {
   name = "basic-transfer-user"
 
@@ -38,53 +17,6 @@ resource "aws_iam_role" "sftp_user_role" {
     ]
   })
 }
-
-# Update the IAM role policy for SFTP users
-# resource "aws_iam_role_policy" "sftp_user_policies" {
-#   for_each = { for user in var.users : user.username => user }
-
-#   name = "sftp-user-policy-${each.value.username}"
-#   role = aws_iam_role.sftp_user_roles[each.key].id
-
-#   policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Sid    = "AllowListingOfUserFolder"
-#         Effect = "Allow"
-#         Action = [
-#           "s3:ListBucket"
-#         ]
-#         Resource = [
-#           var.s3_bucket_arn
-#         ]
-#       },
-#       {
-#         Sid    = "HomeDirObjectAccess"
-#         Effect = "Allow"
-#         Action = [
-#           "s3:PutObject",
-#           "s3:GetObject",
-#           "s3:DeleteObject",
-#         ]
-#         Resource = [
-#           "${var.s3_bucket_arn}${each.value.home_dir}/*",
-#         ]
-#       },
-#       {
-#         Sid    = "AllowKMSAccess"
-#         Effect = "Allow"
-#         Action = [
-#           "kms:Decrypt",
-#           "kms:GenerateDataKey"
-#         ]
-#         Resource = [
-#           var.sse_encryption_arn
-#         ]
-#       }
-#     ]
-#   })
-# }
 
 resource "aws_iam_role_policy" "sftp_user_policies" {
   name = "sftp-user-policy"
@@ -171,8 +103,6 @@ resource "aws_transfer_user" "transfer_users" {
 
   server_id = var.server_id
   user_name = each.value.username
-  # role      = aws_iam_role.sftp_user_roles[each.key].arn
-  # role      = each.value.role_arn != (null || "") ? each.value.role_arn : aws_iam_role.sftp_user_role.arn
   role      = each.value.role_arn == null || each.value.role_arn == "" ? aws_iam_role.sftp_user_role.arn : each.value.role_arn
 
   home_directory_type = "LOGICAL"
