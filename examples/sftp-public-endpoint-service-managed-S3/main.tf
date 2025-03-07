@@ -18,9 +18,9 @@ locals {
   protocols         = ["SFTP"]
   endpoint_type     = "PUBLIC"
   server_name       = "transfer_server"
-  dns_provider      = "route53"
-  base_domain       = "souvrard.people.aws.dev"
-  custom_hostname   = "test.sftp.${local.base_domain}"
+  # dns_provider      = "route53"
+  # base_domain       = "souvrard.people.aws.dev"
+  # custom_hostname   = "test.sftp.${local.base_domain}"
   identity_provider = "SERVICE_MANAGED"
 }
 
@@ -65,9 +65,9 @@ module "transfer_server" {
   protocols                = local.protocols
   endpoint_type            = local.endpoint_type
   server_name              = local.server_name
-  dns_provider             = local.dns_provider
-  custom_hostname          = local.custom_hostname
-  route53_hosted_zone_name = local.base_domain
+  # dns_provider             = local.dns_provider
+  # custom_hostname          = local.custom_hostname
+  # route53_hosted_zone_name = local.base_domain
   identity_provider        = local.identity_provider
 }
 
