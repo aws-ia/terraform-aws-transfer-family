@@ -79,6 +79,7 @@ locals {
 module "sftp_users" {
   source = "../../modules/transfer-users"
   users  = local.users
+  create_test_user = true
 
   server_id = module.transfer_server.server_id
 

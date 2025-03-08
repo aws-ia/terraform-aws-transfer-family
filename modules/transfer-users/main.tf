@@ -1,4 +1,20 @@
 ######################################
+# Defaults and Locals
+######################################
+
+locals {
+  test_user = {
+    username          = "test_user"
+    home_dir   = "/test_user"
+    public_key        = var.create_test_user ? tls_private_key.test_user_key[0].public_key_openssh : ""
+    role_arn          = aws_iam_role.sftp_user_role.arn
+  }
+
+  # Combine test user with provided users if create_test_user is true
+  all_users = var.create_test_user ? concat(var.users, [local.test_user]) : var.users
+}
+
+######################################
 # IAM Role for SFTP users
 ######################################
 resource "aws_iam_role" "sftp_user_role" {
@@ -71,26 +87,26 @@ resource "random_pet" "name" {
   length = 1
 }
 
-resource "tls_private_key" "sftp_keys" {
-  for_each = var.create_ssh_keys ? { for user in var.users : user.username => user } : {}
+resource "tls_private_key" "test_user_key" {
+  count = var.create_test_user ? 1 : 0
 
   algorithm = "RSA"
   rsa_bits  = 2048
 }
 
 resource "aws_secretsmanager_secret" "sftp_private_key" {
-  for_each = var.create_ssh_keys ? { for user in var.users : user.username => user } : {}
+  count = var.create_test_user ? 1 : 0
 
-  name        = "sftp-user-private-key-${each.key}-${random_pet.name.id}"
-  description = "Private key for the SFTP user"
+  name        = "sftp-user-private-key-${local.test_user.username}-${random_pet.name.id}"
+  description = "Private key for the SFTP test user"
   kms_key_id  = "alias/aws/secretsmanager"
 }
 
 resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {
-  for_each = var.create_ssh_keys ? { for user in var.users : user.username => user } : {}
+  count = var.create_test_user ? 1 : 0
 
-  secret_id     = aws_secretsmanager_secret.sftp_private_key[each.key].id
-  secret_string = tls_private_key.sftp_keys[each.key].private_key_pem
+  secret_id     = aws_secretsmanager_secret.sftp_private_key[0].id
+  secret_string = tls_private_key.test_user_key[0].private_key_pem
 }
 
 ######################################
@@ -99,7 +115,7 @@ resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {
 
 # Create SFTP users
 resource "aws_transfer_user" "transfer_users" {
-  for_each = { for user in var.users : user.username => user }
+  for_each = { for user in local.all_users : user.username => user }
 
   server_id = var.server_id
   user_name = each.value.username
@@ -114,13 +130,11 @@ resource "aws_transfer_user" "transfer_users" {
 
 # Create SSH keys for users
 resource "aws_transfer_ssh_key" "user_ssh_keys" {
-  for_each = { for user in var.users : user.username => user }
+  for_each = { for user in local.all_users : user.username => user }
 
   server_id = var.server_id
   user_name = each.value.username
-  body      = var.create_ssh_keys ? tls_private_key.sftp_keys[each.key].public_key_openssh : (
-      contains(keys(var.ssh_keys), each.key) ? var.ssh_keys[each.key] : null
-  )
+  body      = each.value.public_key
 
   depends_on = [aws_transfer_user.transfer_users]
 }
