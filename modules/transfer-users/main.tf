@@ -2,6 +2,15 @@
 # Defaults and Locals
 ######################################
 
+resource "random_string" "suffix" {
+  length  = 4
+  special = false  # no special characters
+  upper   = false  # no uppercase letters
+  number  = false   # include numbers
+}
+
+
+
 locals {
   test_user = {
     username          = "test_user"
@@ -18,7 +27,7 @@ locals {
 # IAM Role for SFTP users
 ######################################
 resource "aws_iam_role" "sftp_user_role" {
-  name = "basic-transfer-user"
+  name = "basic-transfer-user-${random_string.suffix.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

@@ -17,12 +17,14 @@ locals {
   domain            = "S3"
   protocols         = ["SFTP"]
   endpoint_type     = "PUBLIC"
-  server_name       = "transfer_server"
+  server_name       = "demo-transfer-server"
   # dns_provider      = "route53"
   # base_domain       = "souvrard.people.aws.dev"
   # custom_hostname   = "test.sftp.${local.base_domain}"
   identity_provider = "SERVICE_MANAGED"
   create_test_user  = true
+  enable_logging = true
+  log_retention_days = 14
 }
 
 ###################################################################
@@ -70,6 +72,8 @@ module "transfer_server" {
   # custom_hostname          = local.custom_hostname
   # route53_hosted_zone_name = local.base_domain
   identity_provider        = local.identity_provider
+  enable_logging           = local.enable_logging
+  log_retention_days       = local.log_retention_days
 }
 
 # Read users from CSV
