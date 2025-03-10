@@ -22,6 +22,7 @@ locals {
   # base_domain       = "souvrard.people.aws.dev"
   # custom_hostname   = "test.sftp.${local.base_domain}"
   identity_provider = "SERVICE_MANAGED"
+  create_test_user  = true
 }
 
 ###################################################################
@@ -73,12 +74,13 @@ module "transfer_server" {
 
 # Read users from CSV
 locals {
-  users = csvdecode(file(var.users_file))
+  users = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : []
 }
 
 module "sftp_users" {
   source = "../../modules/transfer-users"
   users  = local.users
+  create_test_user = local.create_test_user
 
   server_id = module.transfer_server.server_id
 

@@ -1,10 +1,26 @@
+variable "create_test_user" {
+  description = "Whether to create a test SFTP user"
+  type        = bool
+  default     = false
+}
+
 variable "users" {
   description = "List of SFTP users"
   type = list(object({
-    username = string
-    home_dir = string
-    role_arn  = optional(string)
+    username    = string
+    home_dir    = string
+    public_key  = string
+    role_arn    = optional(string)
   }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for user in var.users :
+        can(regex("^(ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521)\\s+[A-Za-z0-9+/]+={0,2}\\s*$", user.public_key))
+    ])
+    error_message = "Public key must be in the format '<key-type> <base64-encoded-key>' where key-type is one of: ssh-rsa, ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, or ecdsa-sha2-nistp521. Comments are not allowed."
+  }
 
   validation {
     condition = alltrue([
