@@ -5,7 +5,7 @@
 locals {
   test_user = {
     username          = "test_user"
-    home_dir   = "/test_user"
+    home_dir          = "/test_user"
     public_key        = var.create_test_user ? tls_private_key.test_user_key[0].public_key_openssh : ""
     role_arn          = aws_iam_role.sftp_user_role.arn
   }
