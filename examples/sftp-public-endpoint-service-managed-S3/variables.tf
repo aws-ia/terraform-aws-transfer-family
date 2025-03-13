@@ -9,9 +9,3 @@ variable "users_file" {
   type        = string
   default     = "users.csv"
 }
-
-variable log_retention_days {
-  description = "Log retention days"
-  type        = number
-  default     = 30
-}

@@ -17,7 +17,7 @@ locals {
   domain            = "S3"
   protocols         = ["SFTP"]
   endpoint_type     = "PUBLIC"
-  server_name       = "demo-transfer-server"
+  server_name       = "demo-transfer-server-${random_pet.name.id}"
   # dns_provider      = "route53"
   # base_domain       = "souvrard.people.aws.dev"
   # custom_hostname   = "test.sftp.${local.base_domain}"
