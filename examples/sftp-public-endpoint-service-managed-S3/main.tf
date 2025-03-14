@@ -14,11 +14,44 @@ resource "random_pet" "name" {
 }
 
 locals {
-  server_name = "${var.server_name}-${random_pet.name.id}"
+  server_name = "transfer-server-${random_pet.name.id}"
+  users = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
 }
 
 data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
+
+###################################################################
+# Transfer Server example usage
+###################################################################
+module "transfer_server" {
+  source = "../.."
+  
+  domain                   = "S3"
+  protocols                = ["SFTP"]
+  endpoint_type            = "PUBLIC"
+  server_name              = local.server_name
+  dns_provider             = var.dns_provider
+  custom_hostname          = var.custom_hostname
+  route53_hosted_zone_name = var.route53_hosted_zone_name
+  identity_provider        = "SERVICE_MANAGED"
+  security_policy_name     = "TransferSecurityPolicy-2024-01"
+  enable_logging           = true
+  log_retention_days       = 30
+  log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
+}
+
+module "sftp_users" {
+  source = "../../modules/transfer-users"
+  users  = local.users
+  create_test_user = true
+
+  server_id = module.transfer_server.server_id
+
+  s3_bucket_name = module.s3_bucket.s3_bucket_id
+  s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
+
+  kms_key_id = aws_kms_key.transfer_family_key.arn
+}
 
 ###################################################################
 # Create S3 bucket for Transfer Server (Optional if already exists)
@@ -47,6 +80,9 @@ module "s3_bucket" {
   }
 }
 
+###################################################################
+# Kms key for Transfer Server
+###################################################################
 resource "aws_kms_key" "transfer_family_key" {
   description             = "KMS key for encrypting S3 bucket and cloudwatch log group"
   deletion_window_in_days = 7
@@ -68,7 +104,7 @@ resource "aws_kms_key" "transfer_family_key" {
         Sid    = "Allow CloudWatch Logs"
         Effect = "Allow"
         Principal = {
-          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          Service = "logs.${var.aws_region}.amazonaws.com"
         }
         Action = [
           "kms:Encrypt*",
@@ -81,39 +117,4 @@ resource "aws_kms_key" "transfer_family_key" {
       }
     ]
   })
-}
-
-module "transfer_server" {
-  source = "../.."
-  
-  domain                   = var.domain
-  protocols                = var.protocols
-  endpoint_type            = var.endpoint_type
-  server_name              = local.server_name
-  dns_provider             = var.dns_provider
-  custom_hostname          = var.custom_hostname
-  route53_hosted_zone_name = var.route53_hosted_zone_name
-  identity_provider        = var.identity_provider
-  security_policy_name     = var.security_policy_name
-  enable_logging           = var.enable_logging
-  log_retention_days       = var.log_retention_days
-  log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
-}
-
-# Read users from CSV
-locals {
-  users = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : []
-}
-
-module "sftp_users" {
-  source = "../../modules/transfer-users"
-  users  = local.users
-  create_test_user = var.create_test_user
-
-  server_id = module.transfer_server.server_id
-
-  s3_bucket_name = module.s3_bucket.s3_bucket_id
-  s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
-
-  kms_key_id = aws_kms_key.transfer_family_key.arn
 }

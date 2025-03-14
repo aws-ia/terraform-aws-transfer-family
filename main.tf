@@ -22,9 +22,10 @@ locals {
   )
 
   # Validate if the custom hostname is a subdomain of the Route53 hosted zone
-  is_valid_route53_domain = (
+  is_valid_route53_domain = try(
     endswith(var.custom_hostname, replace(var.route53_hosted_zone_name, "/[.]$/", "")) && 
-    var.custom_hostname != var.route53_hosted_zone_name
+    var.custom_hostname != var.route53_hosted_zone_name,
+    false
   )
 }
 
@@ -44,7 +45,7 @@ check "route53_configuration" {
   assert {
     condition     = !(var.dns_provider == local.dns_providers.route53 && !local.is_valid_route53_domain)
     error_message = <<-EOT
-      When using Route53, the custom hostname '${var.custom_hostname}' must be a subdomain of the hosted zone '${var.route53_hosted_zone_name}'
+      When using Route53, the custom hostname must be a subdomain of the hosted zone
       The transfer server will be created without a custom hostname for the endpoint.
     EOT
   }
