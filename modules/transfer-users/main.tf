@@ -2,6 +2,11 @@
 # Defaults and Locals
 ######################################
 
+resource "random_pet" "name" {
+  prefix = "aws-ia"
+  length = 1
+}
+
 locals {
   test_user = {
     username          = "test_user"
@@ -18,7 +23,7 @@ locals {
 # IAM Role for SFTP users
 ######################################
 resource "aws_iam_role" "sftp_user_role" {
-  name = "basic-transfer-user"
+  name = "${random_pet.name.id}-basic-transfer-user"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -35,7 +40,7 @@ resource "aws_iam_role" "sftp_user_role" {
 }
 
 resource "aws_iam_role_policy" "sftp_user_policies" {
-  name = "sftp-user-policy"
+  name = "${random_pet.name.id}-sftp-user-policy"
   role = aws_iam_role.sftp_user_role.id
 
   policy = jsonencode({
@@ -81,11 +86,6 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
 ######################################
 # SSH Key Creation (Optional)
 ######################################
-
-resource "random_pet" "name" {
-  prefix = "aws-ia"
-  length = 1
-}
 
 resource "tls_private_key" "test_user_key" {
   count = var.create_test_user ? 1 : 0
