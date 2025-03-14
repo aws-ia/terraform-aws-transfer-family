@@ -48,11 +48,6 @@ variable "s3_bucket_arn" {
   type        = string
 }
 
-variable "sse_encryption_arn" {
-  description = "ARN of the SSE encryption key for S3 bucket"
-  type        = string
-}
-
 variable "create_ssh_keys" {
   description = "Whether to create new ssh keys for the SFTP Users"
   type        = bool
@@ -68,4 +63,10 @@ variable "ssh_keys" {
     condition     = alltrue([for k, v in var.ssh_keys : can(regex("^ssh-rsa AAAA[0-9A-Za-z+/]+[=]{0,3}( [^@]+@[^@]+)?$", v))])
     error_message = "All SSH keys must be valid RSA public keys in the format 'ssh-rsa AAAA...'."
   }
+}
+
+variable "kms_key_id" {
+  description = "encryption key"
+  type        = string
+  default     = null
 }

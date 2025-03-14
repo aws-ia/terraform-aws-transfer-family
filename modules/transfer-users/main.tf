@@ -76,7 +76,7 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
           "kms:GenerateDataKey"
         ]
         Resource = [
-          var.sse_encryption_arn
+          var.kms_key_id
         ]
       }
     ]
@@ -99,7 +99,7 @@ resource "aws_secretsmanager_secret" "sftp_private_key" {
 
   name        = "sftp-user-private-key-${local.test_user.username}-${random_pet.name.id}"
   description = "Private key for the SFTP test user"
-  kms_key_id  = "alias/aws/secretsmanager"
+  kms_key_id  = var.kms_key_id
 }
 
 resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {

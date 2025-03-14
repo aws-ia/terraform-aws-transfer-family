@@ -20,6 +20,12 @@ locals {
     var.custom_hostname != null && 
     var.route53_hosted_zone_name != null
   )
+
+  # Validate if the custom hostname is a subdomain of the Route53 hosted zone
+  is_valid_route53_domain = (
+    endswith(var.custom_hostname, replace(var.route53_hosted_zone_name, "/[.]$/", "")) && 
+    var.custom_hostname != var.route53_hosted_zone_name
+  )
 }
 
 ######################################
@@ -29,21 +35,38 @@ locals {
 check "route53_configuration" {
   assert {
     condition     = !(var.dns_provider == local.dns_providers.route53 && !local.route53_enabled)
-    error_message = "When dns_provider is 'route53', both custom_hostname and route53_hosted_zone_name must be provided"
+    error_message = <<-EOT
+      When dns_provider is 'route53', both custom_hostname and route53_hosted_zone_name must be provided.
+      The transfer server will be created without a custom hostname for the endpoint.
+      EOT
+  }
+
+  assert {
+    condition     = !(var.dns_provider == local.dns_providers.route53 && !local.is_valid_route53_domain)
+    error_message = <<-EOT
+      When using Route53, the custom hostname '${var.custom_hostname}' must be a subdomain of the hosted zone '${var.route53_hosted_zone_name}'
+      The transfer server will be created without a custom hostname for the endpoint.
+    EOT
   }
 }
 
 check "custom_hostname_configuration" {
   assert {
-    condition     = var.dns_provider == null || var.custom_hostname != null
-    error_message = "When dns_provider is set, custom_hostname must be provided"
+    condition     = var.dns_provider != local.dns_providers.other || var.custom_hostname != null
+    error_message = <<-EOT
+      When dns_provider is 'other', custom_hostname must be provided.
+      The transfer server will be created without a custom hostname for the endpoint.
+      EOT
   }
 }
 
 check "dns_provider_configuration" {
   assert {
     condition     = var.dns_provider == null ? (var.custom_hostname == null && var.route53_hosted_zone_name == null) : true
-    error_message = "When dns_provider is null, custom_hostname and route53_hosted_zone_name must also be null"
+    error_message = <<-EOT
+      When dns_provider is null, custom_hostname and route53_hosted_zone_name must also be null.
+      The transfer server will be created without a custom hostname for the endpoint.
+      EOT
   }
 }
 
@@ -73,16 +96,9 @@ resource "aws_transfer_server" "transfer_server" {
 ###########################################
 
 data "aws_route53_zone" "selected" {
-  count = local.route53_enabled ? 1 : 0
+  count = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
   name  = var.route53_hosted_zone_name
   private_zone = false
-
-  lifecycle {
-    precondition {
-      condition = endswith(var.custom_hostname, replace(var.route53_hosted_zone_name, "/[.]$/", ""))
-      error_message = "The custom hostname '${var.custom_hostname}' must be a subdomain of the hosted zone '${var.route53_hosted_zone_name}'"
-    }
-  }
 }
 
 resource "aws_transfer_tag" "with_custom_domain_name" {
@@ -93,7 +109,7 @@ resource "aws_transfer_tag" "with_custom_domain_name" {
 }
 
 resource "aws_transfer_tag" "with_custom_domain_route53_zone_id" {
-  count         = local.route53_enabled ? 1 : 0
+  count         = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
   resource_arn  = aws_transfer_server.transfer_server.arn
   key           = "aws:transfer:route53HostedZoneId"
   value         = "/hostedzone/${data.aws_route53_zone.selected[0].zone_id}"
@@ -101,7 +117,7 @@ resource "aws_transfer_tag" "with_custom_domain_route53_zone_id" {
 
 # Route 53 record
 resource "aws_route53_record" "sftp" {
-  count   = local.route53_enabled ? 1 : 0
+  count   = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
   zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = var.custom_hostname
   type    = "CNAME"
@@ -109,11 +125,18 @@ resource "aws_route53_record" "sftp" {
   records = [aws_transfer_server.transfer_server.endpoint]
 }
 
+###########################################
+# Cloudwatch log group 
+###########################################
+
+# Cloudwatch log group
 resource "aws_cloudwatch_log_group" "transfer" {
+# checkov:skip=CKV_AWS_338: Default retention period set to 30 days. Change value per your own requirements 
   count             = var.enable_logging ? 1 : 0
   name              = "/aws/transfer/${var.server_name}"
   retention_in_days = var.log_retention_days
   tags              = var.tags
+  kms_key_id        = var.log_group_kms_key_id
 }
 
 # IAM Role with managed policy

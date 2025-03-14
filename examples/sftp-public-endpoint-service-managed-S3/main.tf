@@ -14,25 +14,17 @@ resource "random_pet" "name" {
 }
 
 locals {
-  domain            = "S3"
-  protocols         = ["SFTP"]
-  endpoint_type     = "PUBLIC"
-  server_name       = "demo-transfer-server-${random_pet.name.id}"
-  # dns_provider      = "route53"
-  # base_domain       = "souvrard.people.aws.dev"
-  # custom_hostname   = "test.sftp.${local.base_domain}"
-  identity_provider = "SERVICE_MANAGED"
-  create_test_user  = true
-  enable_logging = true
-  log_retention_days = 14
+  server_name = "${var.server_name}-${random_pet.name.id}"
 }
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 ###################################################################
 # Create S3 bucket for Transfer Server (Optional if already exists)
 ###################################################################
 module "s3_bucket" {
-  source                   = "terraform-aws-modules/s3-bucket/aws"
-  version                  = ">=3.5.0"
+  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=fc09cc6fb779b262ce1bee5334e85808a107d8a3"
   bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
@@ -44,36 +36,68 @@ module "s3_bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        kms_master_key_id = aws_kms_key.sse_encryption.arn
+        kms_master_key_id = aws_kms_key.transfer_family_key.arn
         sse_algorithm     = "aws:kms"
       }
     }
   }
 
   versioning = {
-    enabled = true # Turn off versioning to save costs if this is not necessary for your use-case
+    enabled = false # Turn on versioning if needed
   }
 }
 
-resource "aws_kms_key" "sse_encryption" {
-  description             = "KMS key for encrypting S3 buckets and EBS volumes"
+resource "aws_kms_key" "transfer_family_key" {
+  description             = "KMS key for encrypting S3 bucket and cloudwatch log group"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow CloudWatch Logs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 module "transfer_server" {
   source = "../.."
   
-  domain                   = local.domain
-  protocols                = local.protocols
-  endpoint_type            = local.endpoint_type
+  domain                   = var.domain
+  protocols                = var.protocols
+  endpoint_type            = var.endpoint_type
   server_name              = local.server_name
-  # dns_provider             = local.dns_provider
-  # custom_hostname          = local.custom_hostname
-  # route53_hosted_zone_name = local.base_domain
-  identity_provider        = local.identity_provider
-  enable_logging           = local.enable_logging
-  log_retention_days       = local.log_retention_days
+  dns_provider             = var.dns_provider
+  custom_hostname          = var.custom_hostname
+  route53_hosted_zone_name = var.route53_hosted_zone_name
+  identity_provider        = var.identity_provider
+  security_policy_name     = var.security_policy_name
+  enable_logging           = var.enable_logging
+  log_retention_days       = var.log_retention_days
+  log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
 }
 
 # Read users from CSV
@@ -84,12 +108,12 @@ locals {
 module "sftp_users" {
   source = "../../modules/transfer-users"
   users  = local.users
-  create_test_user = local.create_test_user
+  create_test_user = var.create_test_user
 
   server_id = module.transfer_server.server_id
 
   s3_bucket_name = module.s3_bucket.s3_bucket_id
   s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
 
-  sse_encryption_arn = aws_kms_key.sse_encryption.arn
+  kms_key_id = aws_kms_key.transfer_family_key.arn
 }

@@ -11,7 +11,7 @@ variable "domain" {
 
   validation {
     condition     = contains(["S3"], var.domain)
-    error_message = "Domain must be either S3"
+    error_message = "Domain must be S3"
   }
 }
 
@@ -19,6 +19,18 @@ variable "protocols" {
   description = "Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint"
   type        = list(string)
   default     = ["SFTP"]
+
+  validation {
+    condition = alltrue([
+      for protocol in var.protocols : contains(["SFTP"], protocol)
+    ])
+    error_message = "Valid protocols are: SFTP."
+  }
+
+  validation {
+    condition     = length(var.protocols) > 0
+    error_message = "At least one protocol must be specified."
+  }
 }
 
 variable "endpoint_type" {
@@ -107,4 +119,10 @@ variable "log_retention_days" {
   description = "Number of days to retain logs for"
   type        = number
   default     = 30
+}
+
+variable "log_group_kms_key_id" {
+  description = "encryption key for cloudwatch log group"
+  type        = string
+  default     = null
 }
