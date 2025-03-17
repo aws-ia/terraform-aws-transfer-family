@@ -8,8 +8,8 @@ plugin "aws" {
 }
 
 config {
-  call_module_type = "local"
-  force = false
+  module = true
+  force  = false
 }
 
 rule "terraform_required_providers" {
