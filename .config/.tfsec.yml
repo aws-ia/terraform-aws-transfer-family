@@ -2,7 +2,7 @@
   "minimum_severity": "MEDIUM",
   "exclude": [
     {
-      "text": "Unsupported block type; Blocks of type \"check\" are not expected here"
+      "path": "main.tf"
     }
   ]
 }
