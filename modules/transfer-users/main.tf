@@ -9,10 +9,10 @@ resource "random_pet" "name" {
 
 locals {
   test_user = {
-    username          = "test_user"
-    home_dir          = "/test_user"
-    public_key        = var.create_test_user ? tls_private_key.test_user_key[0].public_key_openssh : ""
-    role_arn          = aws_iam_role.sftp_user_role.arn
+    username   = "test_user"
+    home_dir   = "/test_user"
+    public_key = var.create_test_user ? tls_private_key.test_user_key[0].public_key_openssh : ""
+    role_arn   = aws_iam_role.sftp_user_role.arn
   }
 
   # Combine test user with provided users if create_test_user is true
@@ -94,6 +94,7 @@ resource "tls_private_key" "test_user_key" {
   rsa_bits  = 2048
 }
 
+#checkov:skip=CKV2_AWS_57: "Rotation not required for SFTP user keys"
 resource "aws_secretsmanager_secret" "sftp_private_key" {
   count = var.create_test_user ? 1 : 0
 
