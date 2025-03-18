@@ -5,25 +5,25 @@
 locals {
   dns_providers = {
     route53 = "route53"
-    other = "other"
+    other   = "other"
   }
 
   # Validate custom hostname configuration
   custom_hostname_enabled = (
-    var.dns_provider != null && 
+    var.dns_provider != null &&
     var.custom_hostname != null
   )
 
   # Validate Route53 configuration
   route53_enabled = (
-    var.dns_provider == local.dns_providers.route53 && 
-    var.custom_hostname != null && 
+    var.dns_provider == local.dns_providers.route53 &&
+    var.custom_hostname != null &&
     var.route53_hosted_zone_name != null
   )
 
   # Validate if the custom hostname is a subdomain of the Route53 hosted zone
   is_valid_route53_domain = try(
-    endswith(var.custom_hostname, replace(var.route53_hosted_zone_name, "/[.]$/", "")) && 
+    endswith(var.custom_hostname, replace(var.route53_hosted_zone_name, "/[.]$/", "")) &&
     var.custom_hostname != var.route53_hosted_zone_name,
     false
   )
@@ -76,13 +76,13 @@ check "dns_provider_configuration" {
 ######################################
 
 resource "aws_transfer_server" "transfer_server" {
-#checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
-  identity_provider_type    = var.identity_provider
-  domain                    = var.domain
-  protocols                 = var.protocols
-  endpoint_type             = var.endpoint_type
-  security_policy_name      = var.security_policy_name
-  logging_role              = var.enable_logging ? aws_iam_role.logging[0].arn : null
+  #checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
+  identity_provider_type = var.identity_provider
+  domain                 = var.domain
+  protocols              = var.protocols
+  endpoint_type          = var.endpoint_type
+  security_policy_name   = var.security_policy_name
+  logging_role           = var.enable_logging ? aws_iam_role.logging[0].arn : null
 
   tags = merge(
     var.tags,
@@ -97,8 +97,8 @@ resource "aws_transfer_server" "transfer_server" {
 ###########################################
 
 data "aws_route53_zone" "selected" {
-  count = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
-  name  = var.route53_hosted_zone_name
+  count        = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
+  name         = var.route53_hosted_zone_name
   private_zone = false
 }
 
@@ -110,10 +110,10 @@ resource "aws_transfer_tag" "with_custom_domain_name" {
 }
 
 resource "aws_transfer_tag" "with_custom_domain_route53_zone_id" {
-  count         = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
-  resource_arn  = aws_transfer_server.transfer_server.arn
-  key           = "aws:transfer:route53HostedZoneId"
-  value         = "/hostedzone/${data.aws_route53_zone.selected[0].zone_id}"
+  count        = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
+  resource_arn = aws_transfer_server.transfer_server.arn
+  key          = "aws:transfer:route53HostedZoneId"
+  value        = "/hostedzone/${data.aws_route53_zone.selected[0].zone_id}"
 }
 
 # Route 53 record
@@ -132,7 +132,7 @@ resource "aws_route53_record" "sftp" {
 
 # Cloudwatch log group
 resource "aws_cloudwatch_log_group" "transfer" {
-# checkov:skip=CKV_AWS_338: Default retention period set to 30 days. Change value per your own requirements 
+  # checkov:skip=CKV_AWS_338: Default retention period set to 30 days. Change value per your own requirements 
   count             = var.enable_logging ? 1 : 0
   name              = "/aws/transfer/${var.server_name}"
   retention_in_days = var.log_retention_days

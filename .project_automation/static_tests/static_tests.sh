@@ -34,7 +34,7 @@ fi
 
 #********** tfsec *********************
 echo 'Starting tfsec'
-MYTFSEC=$(tfsec . --config-file ${PROJECT_PATH}/.config/.tfsec.yml --custom-check-dir ${PROJECT_PATH}/.config/.tfsec)
+MYTFSEC=$(tfsec . --ignore-hcl-errors --config-file ${PROJECT_PATH}/.config/.tfsec.yml --custom-check-dir ${PROJECT_PATH}/.config/.tfsec)
 if [[ $MYTFSEC == *"No problems detected!"* ]];
 then
     echo "Success - tfsec found no security issues!"

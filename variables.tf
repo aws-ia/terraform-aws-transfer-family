@@ -61,7 +61,7 @@ variable "security_policy_name" {
   default     = "TransferSecurityPolicy-2024-01"
 
   validation {
-    condition     = contains([
+    condition = contains([
       "TransferSecurityPolicy-2018-11",
       "TransferSecurityPolicy-2020-06",
       "TransferSecurityPolicy-2022-03",
