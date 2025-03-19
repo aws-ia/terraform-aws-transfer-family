@@ -1,29 +1,159 @@
 <!-- BEGIN_TF_DOCS -->
+
+# AWS Transfer Family: SFTP Server with Public Endpoint with Service Managed Users
+
+This example demonstrates an AWS Transfer Family SFTP server deployment with a public endpoint with service managed users, and S3 storage integration.
+
+## Overview
+
+This example configures:
+- Public SFTP endpoint with service-managed users
+- Secure S3 bucket with KMS encryption
+- User management through CSV configuration
+- CloudWatch logging with customizable retention
+
+## Features
+
+### Server Configuration
+- Public SFTP endpoint deployment
+- Service-managed authentication system
+- Configurable logging retention
+- Random resource name generation for uniqueness
+
+### Storage Layer
+- S3 bucket with:
+  - KMS server-side encryption
+  - Public access blocking
+  - Versioning support
+  - Secure bucket policies
+
+### Security Implementation
+- KMS encryption with automatic key rotation
+- Service-managed authentication
+- CloudWatch audit logging
+- IAM role-based access control
+
+## User Management
+
+### CSV-Based User Configuration
+
+Users are configured using a CSV file (`users.csv`) for bulk import (Optional)
+
+#### users.csv Structure
+```csv
+username,home_dir,public_key,role_arn
+user1,/user1,ssh-rsa AAAA...,arn:aws:iam::123456789012:role/user1-role
+```
+    
+#### Column Details
+
+    username: Unique identifier for SFTP access
+    home\_dir: S3 bucket path (must start with /)
+    public\_key: SSH public key for authentication (ssh-rsa or ecdsa-sha2-nistp256/384/521)
+    role\_arn: (Optional) Custom IAM role ARN
+
+#### Implementation
+
+    The user management is handled by the transfer-users module, which is called by the SFTP public endpoint example:
+
+    Located in: modules/transfer-users
+    Called by: examples/sftp-public-endpoint-service-managed-S3
+
+Configuration in the example module:
+
+    
+module "sftp\_users" {
+  source = "../../modules/transfer-users"
+  users           = local.users
+  create\_test\_user = local.create\_test\_user
+  server\_id       = module.transfer\_server.server\_id
+  s3\_bucket\_name  = module.s3\_bucket.s3\_bucket\_id
+  s3\_bucket\_arn   = module.s3\_bucket.s3\_bucket\_arn
+  sse\_encryption\_arn = aws\_kms\_key.sse\_encryption.arn
+}
+    
+
+#### Considerations
+
+    CSV changes require terraform apply
+    Validate SSH key formats and IAM role ARNs
+    Ensure unique usernames and valid paths
+    Keep CSV file updated and backed up
+
+### DNS Configuration (Optional)
+
+This example supports Route 53 integration for custom domain management. To enable:
+
+1. Uncomment and configure DNS settings in locals:
+
+locals {
+  # dns\_provider      = "route53"
+  # base\_domain       = "example.com"
+  # custom\_hostname   = "sftp.${local.base\_domain}"
+}
+
+    Pass values to transfer server module:
+
+    
+module "transfer\_server" {
+  
+  dns\_provider             = local.dns\_provider
+  custom\_hostname          = local.custom\_hostname
+  route53\_hosted\_zone\_name = local.base\_domain
+}
+
+## Security Considerations
+
+- All S3 bucket public access is blocked
+- KMS encryption is enabled for all stored objects
+- CloudWatch logging captures all SFTP activities
+- IAM roles follow least privilege principle
+- SSH keys are securely managed
+
 ## Requirements
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 0.14.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 3.72.0 |
-| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 0.11.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0.7 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.83.0 |
+| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 0.24.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0.0 |
 
 ## Providers
 
-No providers.
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.83.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_s3_bucket"></a> [s3\_bucket](#module\_s3\_bucket) | terraform-aws-modules/s3-bucket/aws | >=3.5.0 |
+| <a name="module_sftp_users"></a> [sftp\_users](#module\_sftp\_users) | ../../modules/transfer-users | n/a |
+| <a name="module_transfer_server"></a> [transfer\_server](#module\_transfer\_server) | ../.. | n/a |
 
 ## Resources
 
-No resources.
+| Name | Type |
+|------|------|
+| [aws_kms_key.sse_encryption](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
+| [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 
 ## Inputs
 
-No inputs.
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
+| <a name="input_users_file"></a> [users\_file](#input\_users\_file) | Path to CSV file containing user configurations | `string` | `"users.csv"` | no |
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+|------|-------------|
+| <a name="output_server_endpoint"></a> [server\_endpoint](#output\_server\_endpoint) | The endpoint of the created Transfer Family server |
+| <a name="output_server_id"></a> [server\_id](#output\_server\_id) | The ID of the created Transfer Family server |
+| <a name="output_sftp_bucket_name"></a> [sftp\_bucket\_name](#output\_sftp\_bucket\_name) | The name of the S3 bucket used for SFTP storage |
+| <a name="output_user_details"></a> [user\_details](#output\_user\_details) | Map of users with their details including secret names and ARNs |
 <!-- END_TF_DOCS -->
