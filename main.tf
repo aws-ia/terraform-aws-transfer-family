@@ -105,14 +105,14 @@ data "aws_route53_zone" "selected" {
 resource "aws_transfer_tag" "with_custom_domain_name" {
   count        = local.custom_hostname_enabled ? 1 : 0
   resource_arn = aws_transfer_server.transfer_server.arn
-  key          = "aws:transfer:customHostname"
+  key          = "aws:transfer:customHostname" # This is a necessary tag to set a custom hostname with you transfer server endpoint. See https://docs.aws.amazon.com/transfer/latest/userguide/requirements-dns.html#tag-custom-hostname-cdk for full documentation.
   value        = var.custom_hostname
 }
 
 resource "aws_transfer_tag" "with_custom_domain_route53_zone_id" {
   count        = (local.route53_enabled && local.is_valid_route53_domain) ? 1 : 0
   resource_arn = aws_transfer_server.transfer_server.arn
-  key          = "aws:transfer:route53HostedZoneId"
+  key          = "aws:transfer:route53HostedZoneId" # This is a necessary tag for Route53 to work with you transfer server endpoint. See https://docs.aws.amazon.com/transfer/latest/userguide/requirements-dns.html#tag-custom-hostname-cdk for full documentation.
   value        = "/hostedzone/${data.aws_route53_zone.selected[0].zone_id}"
 }
 

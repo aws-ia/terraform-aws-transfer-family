@@ -12,7 +12,7 @@ variable "users_file" {
 
 variable "dns_provider" {
   type        = string
-  description = "The DNS provider for the custom hostname. Use 'none' for no custom hostname"
+  description = "The DNS provider for the custom hostname. Use null for no custom hostname"
   default     = null
 }
 
