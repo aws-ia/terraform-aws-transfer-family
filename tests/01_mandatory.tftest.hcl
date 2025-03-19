@@ -6,13 +6,13 @@
 run "mandatory_plan_basic" {
   command = plan
   module {
-    source = "./examples/basic"
+    source = "./examples/sftp-public-endpoint-service-managed-S3"
   }
 }
 
 run "mandatory_apply_basic" {
   command = apply
   module {
-    source = "./examples/basic"
+    source = "./examples/sftp-public-endpoint-service-managed-S3"
   }
 }
