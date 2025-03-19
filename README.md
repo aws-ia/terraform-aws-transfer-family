@@ -30,7 +30,7 @@ module "transfer_sftp" {
 
 ### High-Level Architecture
 
-![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/docs/overall-readme/images/AWS Transfer Family Architecture.png)
+![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/docs/overall-readme/images/AWS%20Transfer%20Family%20Architecture.png)
 
 *Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module*
 
@@ -46,10 +46,31 @@ module "transfer_sftp" {
 - Integration with CloudWatch for logging and monitoring
 
 ### DNS Management
-- Flexible DNS provider options (Route53 or other providers)
-- Custom hostname configuration
-- Route53 hosted zone integration
-- Automatic CNAME record creation (when using Route53)
+#### DNS Configuration
+
+This module supports custom DNS configurations for your Transfer Family server using Route 53 or other DNS providers.
+
+#### Route 53 Integration
+
+module "transfer\_server" {
+  source = "path/to/module"
+  dns\_provider             = "route53"
+  custom\_hostname          = "sftp.example.com"
+  route53\_hosted\_zone\_name = "example.com."
+}
+
+For Other Provider:
+
+module "transfer\_server" {
+  source = "path/to/module"
+  dns\_provider    = "other"
+  custom\_hostname = "sftp.example.com"
+}
+
+#### The module checks:
+
+    Route 53 configurations are complete when selected
+    Custom hostname is provided when a DNS provider is specified
 
 ### Logging Features
 - Optional CloudWatch logging
@@ -72,14 +93,6 @@ The module includes several built-in checks to ensure proper configuration:
 - DNS provider configuration checks
 - Domain name compatibility verification
 - Security policy name validation
-
-## Prerequisites
-
-- Terraform v1.0.7 or later
-- AWS Provider v5.83.0 or later
-- For custom hostname (based on the code):
-  - If using Route53: A public Route53 hosted zone (seen in `data "aws_route53_zone"` with `private_zone = false`)
-  - Custom hostname must be a subdomain of the hosted zone (enforced by the lifecycle precondition)
 
 ## Best Practices
 
