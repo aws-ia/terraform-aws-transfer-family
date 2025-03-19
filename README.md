@@ -3,20 +3,13 @@
 
 This repository contains Terraform code which creates resources required to run a Transfer Family Server within AWS.
 
-# AWS Transfer Family Terraform Modules
-
-![Terraform Version](https://img.shields.io/badge/Terraform-%3E%3D1.0.7-blue.svg)
-[![AWS Provider Version](https://img.shields.io/badge/AWS%20Provider-%3E%3D5.83.0-orange.svg)](https://registry.terraform.io/providers/hashicorp/aws/latest)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](./LICENSE)
-
 ## Overview
 
 This module creates and configures an AWS Transfer Server with the following features:
 
 - Basic Transfer Server setup with SFTP protocol and security policies
-- Custom hostname support through AWS Route53 or other DNS providers
+- Custom hostname support through AWS Route53 or other DNS providers(Optional)
 - CloudWatch logging configuration with customizable retention
-- Built-in validation checks for DNS and hostname configurations
 
 ## Quick Start
 
@@ -37,7 +30,7 @@ module "transfer_sftp" {
 
 ### High-Level Architecture
 
-![High-Level Architecture](/Users/divvy/terraform\_project/images/hlarch.png)
+![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/docs/overall-readme/images/AWS Transfer Family Architecture.png)
 
 *Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module*
 

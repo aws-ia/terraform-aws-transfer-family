@@ -28,7 +28,7 @@ locals {
 }
 
 ###################################################################
-# Create S3 bucket for Transfer Server (Optional if already exists)
+# Create S3 bucket for Transfer Server (Optional if already exists)A
 ###################################################################
 module "s3_bucket" {
   source                   = "terraform-aws-modules/s3-bucket/aws"
