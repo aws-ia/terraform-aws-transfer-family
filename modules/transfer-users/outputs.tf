@@ -18,9 +18,9 @@ output "test_user_secret" {
   description = "Test user private key secret"
   value = var.create_test_user ? {
     private_key_secret = {
-        arn       = aws_secretsmanager_secret.sftp_private_key[0].arn
-        secret_id = aws_secretsmanager_secret.sftp_private_key[0].id
-      }
+      arn       = aws_secretsmanager_secret.sftp_private_key[0].arn
+      secret_id = aws_secretsmanager_secret.sftp_private_key[0].id
+    }
   } : null
 
   sensitive = true
