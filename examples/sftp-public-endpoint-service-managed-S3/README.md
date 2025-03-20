@@ -82,26 +82,32 @@ module "sftp\_users" {
 
 ### DNS Configuration (Optional)
 
-This example supports Route 53 integration for custom domain management. To enable:
+1. This example supports Route 53 integration for custom domain management. To enable:
 
-1. Uncomment and configure DNS settings in locals:
+Set the variables `dns_provider='route53'`, `custom_hostname=<YOUR_CUSTOM_HOSTNAME>`, `route53_hosted_zone_name=<YOUR_ROUTE53_HOSTED_ZONE>`
 
-locals {
-  # dns\_provider      = "route53"
-  # base\_domain       = "example.com"
-  # custom\_hostname   = "sftp.${local.base\_domain}"
+```hcl
+module "transfer_server" {
+  # Other configurations go here
+
+  dns_provider             = var.dns_provider
+  custom_hostname          = var.custom_hostname
+  route53_hosted_zone_name = var.route53_hosted_zone_name
 }
+```
 
-    Pass values to transfer server module:
+2. This example also supports integration for custom domain management with other DNS providers. To enable:
 
-    
-module "transfer\_server" {
-  
-  dns\_provider             = local.dns\_provider
-  custom\_hostname          = local.custom\_hostname
-  route53\_hosted\_zone\_name = local.base\_domain
+Set the variables `dns_provider='other'`, `custom_hostname=<YOUR_CUSTOM_HOSTNAME>`
+
+```hcl
+module "transfer_server" {
+  # Other configurations go here
+
+  dns_provider             = var.dns_provider
+  custom_hostname          = var.custom_hostname
 }
-
+```
 ## Security Considerations
 
 - All S3 bucket public access is blocked
