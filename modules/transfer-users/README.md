@@ -75,8 +75,6 @@ The module creates IAM roles with permissions for:
 - Be cautious with the `create_test_user` option in production environments
 - Regularly review and update IAM policies to maintain least privilege
 
-##TEST - DELETE THIS
-
 ## Requirements
 
 | Name | Version |
@@ -118,11 +116,11 @@ No modules.
 | <a name="input_s3_bucket_arn"></a> [s3\_bucket\_arn](#input\_s3\_bucket\_arn) | ARN of the S3 bucket for SFTP storage | `string` | n/a | yes |
 | <a name="input_s3_bucket_name"></a> [s3\_bucket\_name](#input\_s3\_bucket\_name) | Name of the S3 bucket for SFTP storage | `string` | n/a | yes |
 | <a name="input_server_id"></a> [server\_id](#input\_server\_id) | ID of the Transfer Family server | `string` | n/a | yes |
-| <a name="input_sse_encryption_arn"></a> [sse\_encryption\_arn](#input\_sse\_encryption\_arn) | ARN of the SSE encryption key for S3 bucket | `string` | n/a | yes |
 | <a name="input_create_ssh_keys"></a> [create\_ssh\_keys](#input\_create\_ssh\_keys) | Whether to create new ssh keys for the SFTP Users | `bool` | `true` | no |
 | <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Whether to create a test SFTP user | `bool` | `false` | no |
+| <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | encryption key | `string` | `null` | no |
 | <a name="input_ssh_keys"></a> [ssh\_keys](#input\_ssh\_keys) | Map of username to SSH public key content | `map(string)` | `{}` | no |
-| <a name="input_users"></a> [users](#input\_users) | List of SFTP users | <pre>list(object({<br/>    username    = string<br/>    home_dir    = string<br/>    public_key  = string<br/>    role_arn    = optional(string)<br/>  }))</pre> | `[]` | no |
+| <a name="input_users"></a> [users](#input\_users) | List of SFTP users | <pre>list(object({<br/>    username   = string<br/>    home_dir   = string<br/>    public_key = string<br/>    role_arn   = optional(string)<br/>  }))</pre> | `[]` | no |
 
 ## Outputs
 
