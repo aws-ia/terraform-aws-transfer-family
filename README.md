@@ -16,9 +16,11 @@ This module creates and configures an AWS Transfer Server with the following fea
 ```hcl
 module "transfer_sftp" {
   source = "github.com/aws-samples/aws-transfer-family-terraform-modules//modules/sftp-public-endpoint"
+
   identity_provider_type = "SERVICE_MANAGED"
   protocols             = ["SFTP"]
   domain               = "S3"
+
   tags = {
     Environment = "Dev"
     Project     = "File Transfer"
@@ -32,11 +34,12 @@ module "transfer_sftp" {
 
 ![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/docs/overall-readme/images/AWS%20Transfer%20Family%20Architecture.png)
 
-*Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module*
+\_Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module\_
 
 ## Features
 
 ### Transfer Server Configuration
+
 - Deploy SFTP server endpoints with public endpoint type
 - Server name customization (default: "transfer-server")
 - S3 domain support
@@ -46,6 +49,7 @@ module "transfer_sftp" {
 - Integration with CloudWatch for logging and monitoring
 
 ### DNS Management
+
 #### DNS Configuration
 
 This module supports custom DNS configurations for your Transfer Family server using Route 53 or other DNS providers.
@@ -53,18 +57,20 @@ This module supports custom DNS configurations for your Transfer Family server u
 #### Route 53 Integration
 
 module "transfer\_server" {
-  source = "path/to/module"
-  dns\_provider             = "route53"
-  custom\_hostname          = "sftp.example.com"
-  route53\_hosted\_zone\_name = "example.com."
+source = "path/to/module"
+
+dns\_provider = "route53"
+custom\_hostname = "sftp.example.com"
+route53\_hosted\_zone\_name = "example.com."
 }
 
 For Other Provider:
 
 module "transfer\_server" {
-  source = "path/to/module"
-  dns\_provider    = "other"
-  custom\_hostname = "sftp.example.com"
+source = "path/to/module"
+
+dns\_provider = "other"
+custom\_hostname = "sftp.example.com"
 }
 
 #### The module checks:
@@ -73,13 +79,16 @@ module "transfer\_server" {
     Custom hostname is provided when a DNS provider is specified
 
 ### Logging Features
+
 - Optional CloudWatch logging
 - Configurable log retention period (default: 30 days)
 - Automated IAM role and policy configuration for logging
 - AWS managed logging policy attachment
 
 ## Security Policy Support
+
 Supports multiple AWS Transfer security policies including:
+
 - Standard policies (2018-11 through 2024-01)
 - FIPS-compliant policies
 - PQ-SSH Experimental policies
@@ -88,6 +97,7 @@ Supports multiple AWS Transfer security policies including:
 ## Validation Checks
 
 The module includes several built-in checks to ensure proper configuration:
+
 - Route53 configuration validation
 - Custom hostname verification
 - DNS provider configuration checks
@@ -136,6 +146,7 @@ To use these modules in your Terraform configuration:
 ```hcl
 module "transfer_server" {
   source = "https://github.com/aws-ia/terraform-aws-transfer-family"
+
   # Module parameters
   # ...
 }
@@ -166,12 +177,14 @@ terraform apply
 ```hcl
 module "transfer_server" {
   source = "path/to/module"
+
   # Basic server configuration
   server_name       = "demo-transfer-server"
   domain           = "S3"
   protocols        = ["SFTP"]
   endpoint_type    = "PUBLIC"
   identity_provider = "SERVICE_MANAGED"
+
   # Enable logging
   enable_logging    = true
   log_retention_days = 14

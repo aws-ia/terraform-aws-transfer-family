@@ -1,5 +1,4 @@
 <!-- BEGIN_TF_DOCS -->
-
 # AWS Transfer Family: SFTP Server with Public Endpoint with Service Managed Users
 
 This example demonstrates an AWS Transfer Family SFTP server deployment with a public endpoint with service managed users, and S3 storage integration.
@@ -7,6 +6,7 @@ This example demonstrates an AWS Transfer Family SFTP server deployment with a p
 ## Overview
 
 This example configures:
+
 - Public SFTP endpoint with service-managed users
 - Secure S3 bucket with KMS encryption
 - User management through CSV configuration
@@ -15,12 +15,14 @@ This example configures:
 ## Features
 
 ### Server Configuration
+
 - Public SFTP endpoint deployment
 - Service-managed authentication system
 - Configurable logging retention
 - Random resource name generation for uniqueness
 
 ### Storage Layer
+
 - S3 bucket with:
   - KMS server-side encryption
   - Public access blocking
@@ -28,6 +30,7 @@ This example configures:
   - Secure bucket policies
 
 ### Security Implementation
+
 - KMS encryption with automatic key rotation
 - Service-managed authentication
 - CloudWatch audit logging
@@ -40,11 +43,12 @@ This example configures:
 Users are configured using a CSV file (`users.csv`) for bulk import (Optional)
 
 #### users.csv Structure
+
 ```csv
 username,home_dir,public_key,role_arn
 user1,/user1,ssh-rsa AAAA...,arn:aws:iam::123456789012:role/user1-role
 ```
-    
+
 #### Column Details
 
     username: Unique identifier for SFTP access
@@ -61,17 +65,16 @@ user1,/user1,ssh-rsa AAAA...,arn:aws:iam::123456789012:role/user1-role
 
 Configuration in the example module:
 
-    
 module "sftp\_users" {
-  source = "../../modules/transfer-users"
-  users           = local.users
-  create\_test\_user = local.create\_test\_user
-  server\_id       = module.transfer\_server.server\_id
-  s3\_bucket\_name  = module.s3\_bucket.s3\_bucket\_id
-  s3\_bucket\_arn   = module.s3\_bucket.s3\_bucket\_arn
-  sse\_encryption\_arn = aws\_kms\_key.sse\_encryption.arn
+source = "../../modules/transfer-users"
+
+users = local.users
+create\_test\_user = local.create\_test\_user
+server\_id = module.transfer\_server.server\_id
+s3\_bucket\_name = module.s3\_bucket.s3\_bucket\_id
+s3\_bucket\_arn = module.s3\_bucket.s3\_bucket\_arn
+sse\_encryption\_arn = aws\_kms\_key.sse\_encryption.arn
 }
-    
 
 #### Considerations
 
@@ -88,6 +91,7 @@ Set the variables `dns_provider='route53'`, `custom_hostname=<YOUR_CUSTOM_HOSTNA
 
 ```hcl
 module "transfer_server" {
+
   # Other configurations go here
 
   dns_provider             = var.dns_provider
@@ -102,12 +106,14 @@ Set the variables `dns_provider='other'`, `custom_hostname=<YOUR_CUSTOM_HOSTNAME
 
 ```hcl
 module "transfer_server" {
+
   # Other configurations go here
 
   dns_provider             = var.dns_provider
   custom_hostname          = var.custom_hostname
 }
 ```
+
 ## Security Considerations
 
 - All S3 bucket public access is blocked
