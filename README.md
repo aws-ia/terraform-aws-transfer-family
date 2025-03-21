@@ -74,6 +74,7 @@ custom\_hostname = "sftp.example.com"
 }
 
 #### The module checks
+
 ```
 Route 53 configurations are complete when selected
 Custom hostname is provided when a DNS provider is specified

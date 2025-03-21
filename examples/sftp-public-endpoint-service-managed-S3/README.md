@@ -50,6 +50,7 @@ user1,/user1,ssh-rsa AAAA...,arn:aws:iam::123456789012:role/user1-role
 ```
 
 #### Column Details
+
 ```
 username: Unique identifier for SFTP access
 home_dir: S3 bucket path (must start with /)
@@ -58,6 +59,7 @@ role_arn: (Optional) Custom IAM role ARN
 ```
 
 #### Implementation
+
 ```
 The user management is handled by the transfer-users module, which is called by the SFTP public endpoint example:
 
@@ -79,6 +81,7 @@ sse\_encryption\_arn = aws\_kms\_key.sse\_encryption.arn
 }
 
 #### Considerations
+
 ```
 CSV changes require terraform apply
 Validate SSH key formats and IAM role ARNs
