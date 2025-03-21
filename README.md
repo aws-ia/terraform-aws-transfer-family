@@ -34,7 +34,7 @@ module "transfer_sftp" {
 
 ![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/docs/overall-readme/images/AWS%20Transfer%20Family%20Architecture.png)
 
-\_Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module\_
+Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module
 
 ## Features
 
@@ -73,10 +73,11 @@ dns\_provider = "other"
 custom\_hostname = "sftp.example.com"
 }
 
-#### The module checks:
-
-    Route 53 configurations are complete when selected
-    Custom hostname is provided when a DNS provider is specified
+#### The module checks
+```
+Route 53 configurations are complete when selected
+Custom hostname is provided when a DNS provider is specified
+```
 
 ### Logging Features
 

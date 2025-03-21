@@ -50,18 +50,20 @@ user1,/user1,ssh-rsa AAAA...,arn:aws:iam::123456789012:role/user1-role
 ```
 
 #### Column Details
-
-    username: Unique identifier for SFTP access
-    home\_dir: S3 bucket path (must start with /)
-    public\_key: SSH public key for authentication (ssh-rsa or ecdsa-sha2-nistp256/384/521)
-    role\_arn: (Optional) Custom IAM role ARN
+```
+username: Unique identifier for SFTP access
+home_dir: S3 bucket path (must start with /)
+public_key: SSH public key for authentication (ssh-rsa or ecdsa-sha2-nistp256/384/521)
+role_arn: (Optional) Custom IAM role ARN
+```
 
 #### Implementation
+```
+The user management is handled by the transfer-users module, which is called by the SFTP public endpoint example:
 
-    The user management is handled by the transfer-users module, which is called by the SFTP public endpoint example:
-
-    Located in: modules/transfer-users
-    Called by: examples/sftp-public-endpoint-service-managed-S3
+Located in: modules/transfer-users
+Called by: examples/sftp-public-endpoint-service-managed-S3
+```
 
 Configuration in the example module:
 
@@ -77,11 +79,12 @@ sse\_encryption\_arn = aws\_kms\_key.sse\_encryption.arn
 }
 
 #### Considerations
-
-    CSV changes require terraform apply
-    Validate SSH key formats and IAM role ARNs
-    Ensure unique usernames and valid paths
-    Keep CSV file updated and backed up
+```
+CSV changes require terraform apply
+Validate SSH key formats and IAM role ARNs
+Ensure unique usernames and valid paths
+Keep CSV file updated and backed up
+```
 
 ### DNS Configuration (Optional)
 
