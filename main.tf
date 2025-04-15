@@ -76,6 +76,7 @@ check "dns_provider_configuration" {
 ######################################
 
 resource "aws_transfer_server" "transfer_server" {
+  #checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
   identity_provider_type = var.identity_provider
   domain                 = var.domain
   protocols              = var.protocols
@@ -131,6 +132,7 @@ resource "aws_route53_record" "sftp" {
 
 # Cloudwatch log group
 resource "aws_cloudwatch_log_group" "transfer" {
+  # checkov:skip=CKV_AWS_338: Default retention period set to 30 days. Change value per your own requirements
   count             = var.enable_logging ? 1 : 0
   name              = "/aws/transfer/${var.server_name}"
   retention_in_days = var.log_retention_days
