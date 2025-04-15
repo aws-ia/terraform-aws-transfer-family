@@ -43,7 +43,7 @@ module "transfer_server" {
 module "sftp_users" {
   source = "../../modules/transfer-users"
   users  = local.users
-  create_test_user = true #NOTE: Test user is for demo purposes. Key and Access Management required for the created secrets 
+  create_test_user = true #Test user is for demo purposes. Key and Access Management required for the created secrets 
 
   server_id = module.transfer_server.server_id
 
@@ -76,7 +76,7 @@ module "s3_bucket" {
   }
 
   versioning = {
-    enabled = false # Turn on versioning if needed
+    enabled = false #Turn on versioning if needed
   }
 }
 

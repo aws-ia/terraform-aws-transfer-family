@@ -87,7 +87,6 @@ resource "tls_private_key" "test_user_key" {
 }
 
 resource "aws_secretsmanager_secret" "sftp_private_key" {
-  #checkov:skip=CKV2_AWS_57: "Rotation not required for SFTP user keys"
   count = var.create_test_user ? 1 : 0
 
   name        = "sftp-user-private-key-${local.test_user.username}-${random_pet.name.id}"
