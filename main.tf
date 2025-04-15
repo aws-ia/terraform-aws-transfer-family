@@ -82,7 +82,7 @@ resource "aws_transfer_server" "transfer_server" {
   protocols              = var.protocols
   endpoint_type          = var.endpoint_type
   security_policy_name   = var.security_policy_name
-  logging_role           = var.enable_logging ? aws_iam_role.logging[0].arn : null
+  structured_log_destinations = var.enable_logging ? [ "${aws_cloudwatch_log_group.transfer[0].arn}:*" ] : []
 
   tags = merge(
     var.tags,
@@ -138,30 +138,4 @@ resource "aws_cloudwatch_log_group" "transfer" {
   retention_in_days = var.log_retention_days
   tags              = var.tags
   kms_key_id        = var.log_group_kms_key_id
-}
-
-# IAM Role with managed policy
-resource "aws_iam_role" "logging" {
-  count = var.enable_logging ? 1 : 0
-  name  = "${var.server_name}-logging-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "transfer.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-# Attach AWS managed policy
-resource "aws_iam_role_policy_attachment" "logging" {
-  count      = var.enable_logging ? 1 : 0
-  role       = aws_iam_role.logging[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSTransferLoggingAccess"
 }

@@ -43,7 +43,7 @@ module "transfer_server" {
 module "sftp_users" {
   source = "../../modules/transfer-users"
   users  = local.users
-  create_test_user = true
+  create_test_user = true #NOTE: Test user is for demo purposes. Key and Access Management required for the created secrets 
 
   server_id = module.transfer_server.server_id
 
@@ -80,41 +80,4 @@ module "s3_bucket" {
   }
 }
 
-###################################################################
-# Kms key for Transfer Server
-###################################################################
-resource "aws_kms_key" "transfer_family_key" {
-  description             = "KMS key for encrypting S3 bucket and cloudwatch log group"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-  
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "Enable IAM User Permissions"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-        }
-        Action   = "kms:*"
-        Resource = "*"
-      },
-      {
-        Sid    = "Allow CloudWatch Logs"
-        Effect = "Allow"
-        Principal = {
-          Service = "logs.${var.aws_region}.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt*",
-          "kms:Decrypt*",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:Describe*"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
+# KMS resources moved to kms.tf

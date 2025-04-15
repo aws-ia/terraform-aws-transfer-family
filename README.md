@@ -106,7 +106,6 @@ The module includes several built-in checks to ensure proper configuration:
 
 - Enable CloudWatch logging for audit and monitoring purposes (optional, configurable via enable\_logging variable)
 - Use the latest security policies (default is TransferSecurityPolicy-2024-01, configurable with validation)
-- Follow the principle of least privilege for logging IAM roles (using AWS managed policy AWSTransferLoggingAccess)
 - Configure proper DNS settings when using custom hostnames (validated through check blocks)
 - Utilize built-in validation checks for DNS provider and custom hostname configurations
 - Use proper tagging for resources (supported via tags variable)
@@ -216,8 +215,6 @@ No modules.
 | Name | Type |
 |------|------|
 | [aws_cloudwatch_log_group.transfer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
-| [aws_iam_role.logging](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy_attachment.logging](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_route53_record.sftp](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
 | [aws_transfer_server.transfer_server](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_server) | resource |
 | [aws_transfer_tag.with_custom_domain_name](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_tag) | resource |

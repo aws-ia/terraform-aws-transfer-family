@@ -1,135 +1,4 @@
 <!-- BEGIN_TF_DOCS -->
-# AWS Transfer Family: SFTP Server with Public Endpoint with Service Managed Users
-
-This example demonstrates an AWS Transfer Family SFTP server deployment with a public endpoint with service managed users, and S3 storage integration.
-
-## Overview
-
-This example configures:
-
-- Public SFTP endpoint with service-managed users
-- Secure S3 bucket with KMS encryption
-- User management through CSV configuration
-- CloudWatch logging with customizable retention
-
-## Features
-
-### Server Configuration
-
-- Public SFTP endpoint deployment
-- Service-managed authentication system
-- Configurable logging retention
-- Random resource name generation for uniqueness
-
-### Storage Layer
-
-- S3 bucket with:
-  - KMS server-side encryption
-  - Public access blocking
-  - Versioning support
-  - Secure bucket policies
-
-### Security Implementation
-
-- KMS encryption with automatic key rotation
-- Service-managed authentication
-- CloudWatch audit logging
-- IAM role-based access control
-
-## User Management
-
-### CSV-Based User Configuration
-
-Users are configured using a CSV file (`users.csv`) for bulk import (Optional)
-
-#### users.csv Structure
-
-```csv
-username,home_dir,public_key,role_arn
-user1,/user1,ssh-rsa AAAA...,arn:aws:iam::123456789012:role/user1-role
-```
-
-#### Column Details
-
-```
-username: Unique identifier for SFTP access
-home_dir: S3 bucket path (must start with /)
-public_key: SSH public key for authentication (ssh-rsa or ecdsa-sha2-nistp256/384/521)
-role_arn: (Optional) Custom IAM role ARN
-```
-
-#### Implementation
-
-The user management is handled by the transfer-users module, which is called by the SFTP public endpoint example:
-
-```
-Located in: modules/transfer-users
-Called by: examples/sftp-public-endpoint-service-managed-S3
-```
-
-Configuration in the example module:
-
-```
-module "sftp_users" {
-    source = "../../modules/transfer-users"
-    
-    users = local.users
-    create_test_user = local.create_test_user
-    server_id = module.transfer_server.server_id
-    s3_bucket_name = module.s3_bucket.s3_bucket_id
-    s3_bucket_arn = module.s3_bucket.s3_bucket_arn
-    sse_encryption_arn = aws_kms_key.sse_encryption.arn
-}
-```
-
-#### Considerations
-
-```
-CSV changes require terraform apply
-Validate SSH key formats and IAM role ARNs
-Ensure unique usernames and valid paths
-Keep CSV file updated and backed up
-```
-
-### DNS Configuration (Optional)
-
-1. This example supports Route 53 integration for custom domain management. To enable:
-
-Set the variables `dns_provider='route53'`, `custom_hostname=<YOUR_CUSTOM_HOSTNAME>`, `route53_hosted_zone_name=<YOUR_ROUTE53_HOSTED_ZONE>`
-
-```hcl
-module "transfer_server" {
-
-  # Other configurations go here
-
-  dns_provider             = var.dns_provider
-  custom_hostname          = var.custom_hostname
-  route53_hosted_zone_name = var.route53_hosted_zone_name
-}
-```
-
-2. This example also supports integration for custom domain management with other DNS providers. To enable:
-
-Set the variables `dns_provider='other'`, `custom_hostname=<YOUR_CUSTOM_HOSTNAME>`
-
-```hcl
-module "transfer_server" {
-
-  # Other configurations go here
-
-  dns_provider             = var.dns_provider
-  custom_hostname          = var.custom_hostname
-}
-```
-
-## Security Considerations
-
-- All S3 bucket public access is blocked
-- KMS encryption is enabled for all stored objects
-- CloudWatch logging captures all SFTP activities
-- IAM roles follow least privilege principle
-- SSH keys are securely managed
-
 ## Requirements
 
 | Name | Version |
@@ -143,8 +12,8 @@ module "transfer_server" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.83.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.94.1 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.7.1 |
 
 ## Modules
 
@@ -158,7 +27,9 @@ module "transfer_server" {
 
 | Name | Type |
 |------|------|
+| [aws_kms_alias.transfer_family_key_alias](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.transfer_family_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
+| [aws_kms_key_policy.transfer_family_key_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy) | resource |
 | [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 
