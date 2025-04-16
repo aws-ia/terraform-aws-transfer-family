@@ -1,0 +1,3 @@
+username,home_dir,public_key,role_arn
+user1,/user1,public key here,role arn for the user
+user2,/user2,public key here,role arn for the user

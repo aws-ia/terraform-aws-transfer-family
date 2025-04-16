@@ -14,4 +14,5 @@ repos:
           - "--lockfile=false"
           - "--recursive"
           - "--recursive-path=examples/"
+          - "--recursive-path=modules/"
           - "./"

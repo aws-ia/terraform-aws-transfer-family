@@ -1,7 +1,13 @@
 <!-- BEGIN_TF_DOCS -->
-# AWS Transfer Family Terraform Module
+# Transfer Server Module (main module)
 
-This repository contains Terraform code which creates resources required to run a Transfer Family Server within AWS.
+- Purpose: Creates and configures the AWS Transfer Server
+- Key features:
+  - SFTP protocol support
+  - Public endpoint configuration
+  - CloudWatch logging setup
+  - Service-managed authentication
+  - Custom hostname support (optional)
 
 ## Overview
 
@@ -27,26 +33,6 @@ module "transfer_sftp" {
   }
 }
 ```
-
-## Architecture
-
-### High-Level Architecture
-
-![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/dev/images/AWS%20Transfer%20Family%20Architecture.png)
-
-Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module
-
-## Features
-
-### Transfer Server Configuration
-
-- Deploy SFTP server endpoints with public endpoint type
-- Server name customization (default: "transfer-server")
-- S3 domain support
-- SFTP protocol support
-- Service-managed identity provider
-- Support for custom hostnames and DNS configurations
-- Integration with CloudWatch for logging and monitoring
 
 ### DNS Management
 
@@ -83,15 +69,6 @@ Custom hostname is provided when a DNS provider is specified
 - Automated IAM role and policy configuration for logging
 - AWS managed logging policy attachment
 
-## Security Policy Support
-
-Supports multiple AWS Transfer security policies including:
-
-- Standard policies (2018-11 through 2024-01)
-- FIPS-compliant policies
-- PQ-SSH Experimental policies
-- Restricted security policies
-
 ## Validation Checks
 
 The module includes several built-in checks to ensure proper configuration:
@@ -109,89 +86,6 @@ The module includes several built-in checks to ensure proper configuration:
 - Configure proper DNS settings when using custom hostnames (validated through check blocks)
 - Utilize built-in validation checks for DNS provider and custom hostname configurations
 - Use proper tagging for resources (supported via tags variable)
-
-## Modules
-
-This project utilizes multiple modules to create a complete AWS Transfer Family SFTP solution:
-
-### Core Transfer Server Module (main module)
-
-- Purpose: Creates and configures the AWS Transfer Server
-- Key features:
-  - SFTP protocol support
-  - Public endpoint configuration
-  - CloudWatch logging setup
-  - Service-managed authentication
-  - Custom hostname support (optional)
-
-### Transfer Users Module
-
-- Purpose: Manages SFTP user access and permissions
-- Key features:
-  - CSV-based user configuration support
-  - Optional test user creation
-  - IAM role and policy management
-  - Integration with S3 bucket permissions
-  - KMS encryption key access management
-
-## Installation
-
-To use these modules in your Terraform configuration:
-
-1. Reference the modules in your Terraform code:
-
-```hcl
-module "transfer_server" {
-  source = "https://github.com/aws-ia/terraform-aws-transfer-family"
-
-  # Module parameters
-  # ...
-}
-```
-
-2. Initialize your Terraform workspace:
-
-```bash
-terraform init
-```
-
-3. Review the planned changes:
-
-```bash
-terraform plan
-```
-
-4. Apply the configuration:
-
-```bash
-terraform apply
-```
-
-## Basic Usage
-
-### Simple SFTP Server Setup
-
-```hcl
-module "transfer_server" {
-  source = "path/to/module"
-
-  # Basic server configuration
-  server_name       = "demo-transfer-server"
-  domain           = "S3"
-  protocols        = ["SFTP"]
-  endpoint_type    = "PUBLIC"
-  identity_provider = "SERVICE_MANAGED"
-
-  # Enable logging
-  enable_logging    = true
-  log_retention_days = 14
-
-  tags = {
-    Environment = "Demo"
-    Project     = "SFTP"
-  }
-}
-```
 
 ## Requirements
 
@@ -233,7 +127,7 @@ No modules.
 | <a name="input_identity_provider"></a> [identity\_provider](#input\_identity\_provider) | Identity provider configuration | `string` | `"SERVICE_MANAGED"` | no |
 | <a name="input_log_group_kms_key_id"></a> [log\_group\_kms\_key\_id](#input\_log\_group\_kms\_key\_id) | encryption key for cloudwatch log group | `string` | `null` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs for | `number` | `30` | no |
-| <a name="input_protocols"></a> [protocols](#input\_protocols) | Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint | `list(string)` | <pre>[<br>  "SFTP"<br>]</pre> | no |
+| <a name="input_protocols"></a> [protocols](#input\_protocols) | Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint | `list(string)` | <pre>[<br/>  "SFTP"<br/>]</pre> | no |
 | <a name="input_route53_hosted_zone_name"></a> [route53\_hosted\_zone\_name](#input\_route53\_hosted\_zone\_name) | The name of the Route53 hosted zone to use (must end with a period, e.g., 'example.com.') | `string` | `null` | no |
 | <a name="input_security_policy_name"></a> [security\_policy\_name](#input\_security\_policy\_name) | Specifies the name of the security policy that is attached to the server. If not provided, the default security policy will be used. | `string` | `"TransferSecurityPolicy-2024-01"` | no |
 | <a name="input_server_name"></a> [server\_name](#input\_server\_name) | The name of the Transfer Family server | `string` | `"transfer-server"` | no |
