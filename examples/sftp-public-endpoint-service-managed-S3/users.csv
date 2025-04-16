@@ -1,3 +1,3 @@
 username,home_dir,public_key,role_arn
-user1,/user1,public key here,valid role arn here
-user2,/user2,public key here,valid role arn here
+user1,/user1,public key here,valid role arn here (optional)
+user2,/user2,public key here,valid role arn here (optional)
