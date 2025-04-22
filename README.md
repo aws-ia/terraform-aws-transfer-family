@@ -15,7 +15,7 @@ This module creates and configures an AWS Transfer Server with the following fea
 
 ```hcl
 module "transfer_sftp" {
-  source = "github.com/aws-ia/terraform-aws-transfer-family/tree/main/modules/transfer-server"
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
 
   identity_provider_type = "SERVICE_MANAGED"
   protocols             = ["SFTP"]
@@ -142,7 +142,7 @@ To use these modules in your Terraform configuration:
 
 ```hcl
 module "transfer_server" {
-  source = "github.com/aws-ia/terraform-aws-transfer-family/tree/main/modules/transfer-server"
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
 
   # Module parameters
   # ...
@@ -173,7 +173,7 @@ terraform apply
 
 ```hcl
 module "transfer_server" {
-  source = "github.com/aws-ia/terraform-aws-transfer-family/tree/main/modules/transfer-server"
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
 
   # Basic server configuration
   server_name       = "demo-transfer-server"
