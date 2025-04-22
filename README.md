@@ -15,7 +15,7 @@ This module creates and configures an AWS Transfer Server with the following fea
 
 ```hcl
 module "transfer_sftp" {
-  source = "github.com/aws-samples/aws-transfer-family-terraform-modules//modules/sftp-public-endpoint"
+  source = "aws-ia/aws-transfer-family-terraform-modules/aws//modules/transfer-server"
 
   identity_provider_type = "SERVICE_MANAGED"
   protocols             = ["SFTP"]
@@ -142,7 +142,7 @@ To use these modules in your Terraform configuration:
 
 ```hcl
 module "transfer_server" {
-  source = "https://github.com/aws-ia/terraform-aws-transfer-family"
+  source = "aws-ia/aws-transfer-family-terraform-modules/aws//modules/transfer-server"
 
   # Module parameters
   # ...
@@ -173,7 +173,7 @@ terraform apply
 
 ```hcl
 module "transfer_server" {
-  source = "path/to/module"
+  source = "aws-ia/aws-transfer-family-terraform-modules/aws//modules/transfer-server"
 
   # Basic server configuration
   server_name       = "demo-transfer-server"
@@ -204,7 +204,7 @@ module "transfer_server" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.83.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.94.1 |
 
 ## Modules
 
@@ -233,7 +233,7 @@ No modules.
 | <a name="input_identity_provider"></a> [identity\_provider](#input\_identity\_provider) | Identity provider configuration | `string` | `"SERVICE_MANAGED"` | no |
 | <a name="input_log_group_kms_key_id"></a> [log\_group\_kms\_key\_id](#input\_log\_group\_kms\_key\_id) | encryption key for cloudwatch log group | `string` | `null` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs for | `number` | `30` | no |
-| <a name="input_protocols"></a> [protocols](#input\_protocols) | Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint | `list(string)` | <pre>[<br>  "SFTP"<br>]</pre> | no |
+| <a name="input_protocols"></a> [protocols](#input\_protocols) | Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint | `list(string)` | <pre>[<br/>  "SFTP"<br/>]</pre> | no |
 | <a name="input_route53_hosted_zone_name"></a> [route53\_hosted\_zone\_name](#input\_route53\_hosted\_zone\_name) | The name of the Route53 hosted zone to use (must end with a period, e.g., 'example.com.') | `string` | `null` | no |
 | <a name="input_security_policy_name"></a> [security\_policy\_name](#input\_security\_policy\_name) | Specifies the name of the security policy that is attached to the server. If not provided, the default security policy will be used. | `string` | `"TransferSecurityPolicy-2024-01"` | no |
 | <a name="input_server_name"></a> [server\_name](#input\_server\_name) | The name of the Transfer Family server | `string` | `"transfer-server"` | no |
