@@ -142,7 +142,7 @@ To use these modules in your Terraform configuration:
 
 ```hcl
 module "transfer_server" {
-  source = "https://github.com/aws-ia/terraform-aws-transfer-family"
+  source = "aws-ia/aws-transfer-family-terraform-modules/aws//modules/transfer-server"
 
   # Module parameters
   # ...
@@ -173,7 +173,7 @@ terraform apply
 
 ```hcl
 module "transfer_server" {
-  source = "path/to/module"
+  source = "aws-ia/aws-transfer-family-terraform-modules/aws//modules/transfer-server"
 
   # Basic server configuration
   server_name       = "demo-transfer-server"
@@ -204,7 +204,7 @@ module "transfer_server" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.83.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.94.1 |
 
 ## Modules
 
