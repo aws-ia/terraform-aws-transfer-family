@@ -23,9 +23,9 @@ This module creates and configures an AWS Transfer Server with the following fea
 module "transfer_sftp" {
   source = "aws-ia/transfer-family/aws//modules/transfer-server"
 
-  identity_provider_type = "SERVICE_MANAGED"
-  protocols             = ["SFTP"]
-  domain               = "S3"
+  identity_provider = "SERVICE_MANAGED"
+  protocols         = ["SFTP"]
+  domain            = "S3"
 
   tags = {
     Environment = "Dev"
