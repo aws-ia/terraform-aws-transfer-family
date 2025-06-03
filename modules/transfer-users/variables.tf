@@ -17,9 +17,9 @@ variable "users" {
   validation {
     condition = alltrue([
       for user in var.users :
-      can(regex("^(ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521)\\s+[A-Za-z0-9+/]+={0,2}\\s*$", user.public_key))
+      can(regex("^(ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|ssh-ed25519)\\s+[A-Za-z0-9+/]+={0,2}\\s*$", user.public_key))
     ])
-    error_message = "Public key must be in the format '<key-type> <base64-encoded-key>' where key-type is one of: ssh-rsa, ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, or ecdsa-sha2-nistp521. Comments are not allowed."
+    error_message = "Public key must be in the format '<key-type> <base64-encoded-key>' where key-type is one of: ssh-rsa, ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521 or ssh-ed25519. Comments are not allowed."
   }
 
   validation {
