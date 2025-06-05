@@ -72,6 +72,7 @@ variable "security_policy_name" {
       "TransferSecurityPolicy-FIPS-2023-05",
       "TransferSecurityPolicy-FIPS-2024-01",
       "TransferSecurityPolicy-FIPS-2024-05",
+      "TransferSecurityPolicy-FIPS-2025-03",
       "TransferSecurityPolicy-PQ-SSH-Experimental-2023-04",
       "TransferSecurityPolicy-PQ-SSH-FIPS-Experimental-2023-04",
       "TransferSecurityPolicy-Restricted-2018-11",
