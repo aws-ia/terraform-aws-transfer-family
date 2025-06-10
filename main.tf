@@ -77,12 +77,34 @@ check "dns_provider_configuration" {
 
 resource "aws_transfer_server" "transfer_server" {
   #checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
-  identity_provider_type = var.identity_provider
-  domain                 = var.domain
-  protocols              = var.protocols
-  endpoint_type          = var.endpoint_type
-  security_policy_name   = var.security_policy_name
-  structured_log_destinations = var.enable_logging ? [ "${aws_cloudwatch_log_group.transfer[0].arn}:*" ] : []
+  identity_provider_type      = var.identity_provider
+  domain                      = var.domain
+  protocols                   = var.protocols
+  endpoint_type               = var.endpoint_type
+  security_policy_name        = var.security_policy_name
+  structured_log_destinations = var.enable_logging ? ["${aws_cloudwatch_log_group.transfer[0].arn}:*"] : []
+  logging_role                = var.logging_role
+
+  dynamic "workflow_details" {
+    for_each = var.workflow_details != null ? [1] : []
+    content {
+      dynamic "on_upload" {
+        for_each = var.workflow_details.on_upload != null ? [1] : []
+        content {
+          execution_role = var.workflow_details.on_upload.execution_role
+          workflow_id    = var.workflow_details.on_upload.workflow_id
+        }
+      }
+
+      dynamic "on_partial_upload" {
+        for_each = var.workflow_details.on_partial_upload != null ? [1] : []
+        content {
+          execution_role = var.workflow_details.on_partial_upload.execution_role
+          workflow_id    = var.workflow_details.on_partial_upload.workflow_id
+        }
+      }
+    }
+  }
 
   tags = merge(
     var.tags,

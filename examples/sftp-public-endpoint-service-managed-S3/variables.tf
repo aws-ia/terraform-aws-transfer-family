@@ -27,3 +27,24 @@ variable "route53_hosted_zone_name" {
   type        = string
   default     = null
 }
+
+variable "logging_role" {
+  description = "IAM role ARN that the Transfer Server assumes to write logs to CloudWatch Logs"
+  type        = string
+  default     = null
+}
+
+variable "workflow_details" {
+  description = "Workflow details to attach to the transfer server"
+  type = object({
+    on_upload = optional(object({
+      execution_role = string
+      workflow_id    = string
+    }))
+    on_partial_upload = optional(object({
+      execution_role = string
+      workflow_id    = string
+    }))
+  })
+  default = null
+}

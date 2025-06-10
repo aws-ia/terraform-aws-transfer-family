@@ -38,6 +38,8 @@ module "transfer_server" {
   enable_logging           = true
   log_retention_days       = 30 # This can be modified based on requirements
   log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
+  logging_role             = var.logging_role
+  workflow_details         = var.workflow_details 
 }
 
 module "sftp_users" {
@@ -97,7 +99,7 @@ resource "aws_kms_key" "transfer_family_key" {
 
 # KMS Key Alias
 resource "aws_kms_alias" "transfer_family_key_alias" {
-  name          = "alias/transfer-family-key"
+  name          = "alias/transfer-family-key-${random_pet.name.id}"
   target_key_id = aws_kms_key.transfer_family_key.key_id
 }
 
