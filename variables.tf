@@ -39,8 +39,8 @@ variable "endpoint_type" {
   default     = "PUBLIC"
 
   validation {
-    condition     = contains(["PUBLIC"], var.endpoint_type)
-    error_message = "Endpoint type must be PUBLIC"
+    condition     = contains(["PUBLIC", "VPC"], var.endpoint_type)
+    error_message = "Endpoint type must be one of: PUBLIC or VPC."
   }
 }
 
@@ -134,6 +134,18 @@ variable "logging_role" {
   description = "IAM role ARN that the Transfer Server assumes to write logs to CloudWatch Logs"
   type        = string
   default     = null
+}
+
+variable "endpoint_details" {
+  description = "VPC endpoint configuration block for the Transfer Server"
+  type = object({
+    address_allocation_ids = optional(list(string))
+    security_group_ids     = optional(list(string))
+    subnet_ids             = optional(list(string))
+    vpc_endpoint_id        = optional(string)
+    vpc_id                 = optional(string)
+  })
+  default = null
 }
 
 variable "workflow_details" {

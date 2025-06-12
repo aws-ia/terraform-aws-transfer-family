@@ -16,3 +16,17 @@ run "mandatory_apply_basic" {
     source = "./examples/sftp-public-endpoint-service-managed-S3"
   }
 }
+
+run "mandatory_plan_vpc" {
+  command = plan
+  module {
+    source = "./examples/sftp-vpc-endpoint-service-managed-S3"
+  }
+}
+
+run "mandatory_apply_vpc" {
+  command = apply
+  module {
+    source = "./examples/sftp-vpc-endpoint-service-managed-S3"
+  }
+}
