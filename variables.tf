@@ -146,6 +146,8 @@ variable "endpoint_details" {
     vpc_id                 = optional(string)
   })
   default = null
+
+  # TODO Validation rules for the endpoint_details object
 }
 
 variable "workflow_details" {

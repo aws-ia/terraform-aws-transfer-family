@@ -20,6 +20,61 @@ locals {
 
 data "aws_caller_identity" "current" {}
 
+###################################################################
+# Transfer Server example usage
+###################################################################
+module "transfer_server" {
+  source = "../.."
+  
+  domain                   = "S3"
+  protocols                = ["SFTP"]
+  endpoint_type            = "VPC"
+  server_name              = local.server_name
+  dns_provider             = var.dns_provider
+  custom_hostname          = var.custom_hostname
+  route53_hosted_zone_name = var.route53_hosted_zone_name
+  identity_provider        = "SERVICE_MANAGED"
+  security_policy_name     = "TransferSecurityPolicy-2024-01" # https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html#security-policy-transfer-2024-01
+  enable_logging           = true
+  log_retention_days       = 30 # This can be modified based on requirements
+  log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
+  logging_role             = var.logging_role
+  workflow_details         = var.workflow_details
+
+  endpoint_details = {
+    vpc_id                 = var.vpc_id
+    subnet_ids             = var.public_subnets
+    security_group_ids     = [aws_security_group.sftp.id]
+    address_allocation_ids = aws_eip.sftp[*].allocation_id
+  }
+}
+
+module "sftp_users" {
+  source = "../../modules/transfer-users"
+  users  = local.users
+  create_test_user = true # Test user is for demo purposes. Key and Access Management required for the created secrets 
+
+  server_id = module.transfer_server.server_id
+
+  s3_bucket_name = module.s3_bucket.s3_bucket_id
+  s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
+
+  kms_key_id = aws_kms_key.transfer_family_key.arn
+}
+
+###################################################################
+# VPC for Transfer Server
+###################################################################
+#TODO
+
+###################################################################
+# Public Subnets for Transfer Server
+###################################################################
+#TODO
+
+###################################################################
+# Security Group Setup for VPC Endpoint
+###################################################################
 # checkov:skip=CKV_AWS_24: example allows SSH ingress from 0.0.0.0/0 for demonstration purposes
 # checkov:skip=CKV_AWS_382: example allows all outbound traffic for demonstration purposes
 resource "aws_security_group" "sftp" {
@@ -55,47 +110,6 @@ resource "aws_security_group" "sftp" {
 resource "aws_eip" "sftp" {
   count = length(var.public_subnets)
   vpc   = true
-}
-
-###################################################################
-# Transfer Server example usage
-###################################################################
-module "transfer_server" {
-  source = "../.."
-  
-  domain                   = "S3"
-  protocols                = ["SFTP"]
-  endpoint_type            = "VPC"
-  endpoint_details = {
-    vpc_id                 = var.vpc_id
-    subnet_ids             = var.public_subnets
-    security_group_ids     = [aws_security_group.sftp.id]
-    address_allocation_ids = aws_eip.sftp[*].allocation_id
-  }
-  server_name              = local.server_name
-  dns_provider             = var.dns_provider
-  custom_hostname          = var.custom_hostname
-  route53_hosted_zone_name = var.route53_hosted_zone_name
-  identity_provider        = "SERVICE_MANAGED"
-  security_policy_name     = "TransferSecurityPolicy-2024-01" # https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html#security-policy-transfer-2024-01
-  enable_logging           = true
-  log_retention_days       = 30 # This can be modified based on requirements
-  log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
-  logging_role             = var.logging_role
-  workflow_details         = var.workflow_details 
-}
-
-module "sftp_users" {
-  source = "../../modules/transfer-users"
-  users  = local.users
-  create_test_user = true # Test user is for demo purposes. Key and Access Management required for the created secrets 
-
-  server_id = module.transfer_server.server_id
-
-  s3_bucket_name = module.s3_bucket.s3_bucket_id
-  s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
-
-  kms_key_id = aws_kms_key.transfer_family_key.arn
 }
 
 ###################################################################
