@@ -148,17 +148,12 @@ variable "endpoint_details" {
   default = null
 
   validation {
-    condition     = var.endpoint_details == null || var.endpoint_type == "VPC"
-    error_message = "endpoint_details can only be provided when endpoint_type is \"VPC\"."
-  }
-
-  validation {
-    condition     = var.endpoint_details == null || (var.endpoint_details.vpc_id != null && var.endpoint_details.subnet_ids != null && length(var.endpoint_details.subnet_ids) > 0)
+    condition     = var.endpoint_details == null || (try(var.endpoint_details.vpc_id, null) != null && try(length(var.endpoint_details.subnet_ids), 0) > 0)
     error_message = "When endpoint_details is set, vpc_id and subnet_ids must be provided."
   }
 
   validation {
-    condition     = var.endpoint_details == null || var.endpoint_details.address_allocation_ids == null || length(var.endpoint_details.address_allocation_ids) == length(var.endpoint_details.subnet_ids)
+    condition     = var.endpoint_details == null || try(length(var.endpoint_details.address_allocation_ids), 0) == try(length(var.endpoint_details.subnet_ids), 0)
     error_message = "If address_allocation_ids is provided, it must have the same length as subnet_ids."
   }
 }

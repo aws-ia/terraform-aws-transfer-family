@@ -71,6 +71,13 @@ check "dns_provider_configuration" {
   }
 }
 
+check "endpoint_details_configuration" {
+  assert {
+    condition     = var.endpoint_details == null || var.endpoint_type == "VPC"
+    error_message = "endpoint_details can only be provided when endpoint_type is 'VPC'."
+  }
+}
+
 ######################################
 # Transfer Module
 ######################################

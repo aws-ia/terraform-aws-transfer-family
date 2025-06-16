@@ -27,6 +27,8 @@ data "aws_availability_zones" "az" {}
 
 # VPC for SFTP endpoint example
 resource "aws_vpc" "example" {
+  # checkov:skip=CKV2_AWS_11: VPC flow logging not enabled in this minimal example
+  # checkov:skip=CKV2_AWS_12: default security group restrictions omitted for demonstration
   cidr_block = "10.0.0.0/16"
   tags = {
     Name        = "${local.server_name}-vpc"
@@ -36,6 +38,7 @@ resource "aws_vpc" "example" {
 
 # Public subnets
 resource "aws_subnet" "public" {
+  # checkov:skip=CKV_AWS_130: this example intentionally maps public IPs for demonstration purposes
   count                   = 2
   vpc_id                  = aws_vpc.example.id
   cidr_block              = cidrsubnet(aws_vpc.example.cidr_block, 8, count.index)
@@ -89,7 +92,7 @@ resource "aws_vpc_security_group_egress_rule" "sftp_egress" {
 
 resource "aws_eip" "sftp" {
   count = length(local.public_subnets)
-
+  # checkov:skip=CKV2_AWS_19: EIPs attached to Transfer endpoints, not EC2
   tags = {
     Name = "${local.server_name}-sftp-eip-${count.index + 1}"
   }
