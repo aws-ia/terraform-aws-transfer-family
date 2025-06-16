@@ -15,36 +15,43 @@ resource "random_pet" "name" {
 
 locals {
   server_name = "transfer-server-${random_pet.name.id}"
-  users = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
+  users           = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
+  vpc_id          = aws_vpc.example.id
+  public_subnets  = aws_subnet.public[*].id
 }
 
 data "aws_caller_identity" "current" {}
 
-# checkov:skip=CKV_AWS_24: example allows SSH ingress from 0.0.0.0/0 for demonstration purposes
-# checkov:skip=CKV_AWS_382: example allows all outbound traffic for demonstration purposes
+# Data for available AZs
+data "aws_availability_zones" "az" {}
+
+# VPC for SFTP endpoint example
+resource "aws_vpc" "example" {
+  cidr_block = "10.0.0.0/16"
+  tags = {
+    Name        = "${local.server_name}-vpc"
+    Environment = var.stage
+  }
+}
+
+# Public subnets
+resource "aws_subnet" "public" {
+  count                   = 2
+  vpc_id                  = aws_vpc.example.id
+  cidr_block              = cidrsubnet(aws_vpc.example.cidr_block, 8, count.index)
+  map_public_ip_on_launch = true
+  availability_zone       = data.aws_availability_zones.az.names[count.index]
+  tags = {
+    Name        = "${local.server_name}-public-subnet-${count.index + 1}"
+    Environment = var.stage
+  }
+}
+
 resource "aws_security_group" "sftp" {
   name                    = "${local.server_name}-sftp-sg"
   description             = "Security group for VPC endpoint of AWS Transfer Family SFTP"
-  vpc_id                  = var.vpc_id
+  vpc_id                  = local.vpc_id
   revoke_rules_on_delete  = true
-
-  ingress {
-    # checkov:skip=CKV_AWS_24: example allows SSH ingress from 0.0.0.0/0 for demonstration purposes
-    description = "Allow inbound SFTP (TCP/22) from any IP"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    # checkov:skip=CKV_AWS_382: example allows all outbound traffic for demonstration purposes
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   tags = {
     Environment = var.stage
@@ -52,9 +59,40 @@ resource "aws_security_group" "sftp" {
   }
 }
 
+# Separate Ingress Rule for SFTP
+resource "aws_vpc_security_group_ingress_rule" "sftp_ingress" {
+  # checkov:skip=CKV_AWS_24: example allows SSH ingress from 0.0.0.0/0 for demonstration purposes
+  security_group_id = aws_security_group.sftp.id
+  description       = "Allow inbound SFTP (TCP/22) from any IP"
+  ip_protocol       = "tcp"
+  from_port         = 22
+  to_port           = 22
+  cidr_ipv4         = "0.0.0.0/0"
+
+  tags = {
+    Name = "${local.server_name}-sftp-ingress"
+  }
+}
+
+# Separate Egress Rule for SFTP
+resource "aws_vpc_security_group_egress_rule" "sftp_egress" {
+  # checkov:skip=CKV_AWS_382: example allows all outbound traffic for demonstration purposes
+  security_group_id = aws_security_group.sftp.id
+  description       = "Allow all outbound traffic"
+  ip_protocol       = "-1"
+  cidr_ipv4         = "0.0.0.0/0"
+
+  tags = {
+    Name = "${local.server_name}-sftp-egress"
+  }
+}
+
 resource "aws_eip" "sftp" {
-  count = length(var.public_subnets)
-  vpc   = true
+  count = length(local.public_subnets)
+
+  tags = {
+    Name = "${local.server_name}-sftp-eip-${count.index + 1}"
+  }
 }
 
 ###################################################################
@@ -67,8 +105,8 @@ module "transfer_server" {
   protocols                = ["SFTP"]
   endpoint_type            = "VPC"
   endpoint_details = {
-    vpc_id                 = var.vpc_id
-    subnet_ids             = var.public_subnets
+    vpc_id                 = local.vpc_id
+    subnet_ids             = local.public_subnets
     security_group_ids     = [aws_security_group.sftp.id]
     address_allocation_ids = aws_eip.sftp[*].allocation_id
   }

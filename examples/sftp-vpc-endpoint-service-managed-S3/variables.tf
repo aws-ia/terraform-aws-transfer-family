@@ -34,16 +34,6 @@ variable "logging_role" {
   default     = null
 }
 
-variable "vpc_id" {
-  description = "ID of the VPC to host the SFTP endpoint"
-  type        = string
-}
-
-variable "public_subnets" {
-  description = "List of public subnet IDs in the VPC"
-  type        = list(string)
-}
-
 variable "stage" {
   description = "Deployment stage"
   type        = string
