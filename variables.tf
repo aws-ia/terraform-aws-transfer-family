@@ -139,22 +139,32 @@ variable "logging_role" {
 variable "endpoint_details" {
   description = "VPC endpoint configuration block for the Transfer Server"
   type = object({
+    access                 = string
     address_allocation_ids = optional(list(string))
-    security_group_ids     = optional(list(string))
-    subnet_ids             = optional(list(string))
-    vpc_endpoint_id        = optional(string)
-    vpc_id                 = optional(string)
+    security_group_ids     = list(string)
+    subnet_ids             = list(string)
+    vpc_id                 = string
   })
   default = null
 
   validation {
-    condition     = var.endpoint_details == null || (try(var.endpoint_details.vpc_id, null) != null && try(length(var.endpoint_details.subnet_ids), 0) > 0)
-    error_message = "When endpoint_details is set, vpc_id and subnet_ids must be provided."
+    condition     = var.endpoint_details == null || try(var.endpoint_details.access == "INTERNAL", false) || try(var.endpoint_details.access == "INTERNET_FACING" && length(coalesce(var.endpoint_details.address_allocation_ids, [])) == length(var.endpoint_details.subnet_ids), false)
+    error_message = "If the access is INTERNET_FACING, address_allocation_ids must have the same length as subnet_ids."
   }
 
   validation {
-    condition     = var.endpoint_details == null || try(length(var.endpoint_details.address_allocation_ids), 0) == try(length(var.endpoint_details.subnet_ids), 0)
-    error_message = "If address_allocation_ids is provided, it must have the same length as subnet_ids."
+    condition     = var.endpoint_details == null || try(contains(["INTERNAL", "INTERNET_FACING"], var.endpoint_details.access), false)
+    error_message = "VPC endpoint access must be one of: INTERNAL or INTERNET_FACING."
+  }
+
+  validation {
+    condition     = var.endpoint_details == null || try(length(var.endpoint_details.security_group_ids) > 0, false)
+    error_message = "At least one security group ID must be provided in security_group_ids."
+  }
+
+  validation {
+    condition     = var.endpoint_details == null || try(length(var.endpoint_details.subnet_ids) > 0, false)
+    error_message = "At least one subnet ID must be provided in subnet_ids."
   }
 }
 
