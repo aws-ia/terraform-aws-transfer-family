@@ -35,7 +35,6 @@ module "transfer_server" {
   protocols                = ["SFTP"]
   endpoint_type            = "VPC"
   endpoint_details = {
-    access                 = "INTERNET_FACING"
     address_allocation_ids = aws_eip.sftp[*].allocation_id
     security_group_ids     = [aws_security_group.sftp.id]
     subnet_ids             = local.public_subnets
