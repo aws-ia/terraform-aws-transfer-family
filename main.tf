@@ -71,6 +71,20 @@ check "dns_provider_configuration" {
   }
 }
 
+check "endpoint_details_configuration" {
+  assert {
+    condition     = var.endpoint_details == null || var.endpoint_type == "VPC"
+    error_message = "endpoint_details can only be provided when endpoint_type is 'VPC'."
+  }
+}
+
+check "vpc_endpoint_requirements" {
+  assert {
+    condition     = var.endpoint_type != "VPC" || (var.endpoint_details != null)
+    error_message = "When endpoint_type is 'VPC', endpoint_details must be provided."
+  }
+}
+
 ######################################
 # Transfer Module
 ######################################
@@ -84,6 +98,16 @@ resource "aws_transfer_server" "transfer_server" {
   security_policy_name        = var.security_policy_name
   structured_log_destinations = var.enable_logging ? ["${aws_cloudwatch_log_group.transfer[0].arn}:*"] : []
   logging_role                = var.logging_role
+
+  dynamic "endpoint_details" {
+    for_each = var.endpoint_details != null ? [1] : []
+    content {
+      address_allocation_ids = var.endpoint_details.address_allocation_ids
+      security_group_ids     = var.endpoint_details.security_group_ids
+      subnet_ids             = var.endpoint_details.subnet_ids
+      vpc_id                 = var.endpoint_details.vpc_id
+    }
+  }
 
   dynamic "workflow_details" {
     for_each = var.workflow_details != null ? [1] : []
