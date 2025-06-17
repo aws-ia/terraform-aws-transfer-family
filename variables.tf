@@ -58,7 +58,7 @@ variable "identity_provider" {
 variable "security_policy_name" {
   description = "Specifies the name of the security policy that is attached to the server. If not provided, the default security policy will be used."
   type        = string
-  default     = "TransferSecurityPolicy-2024-01"
+  default     = "TransferSecurityPolicy-2025-03"
 
   validation {
     condition = contains([

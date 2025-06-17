@@ -16,8 +16,9 @@ resource "random_pet" "name" {
 locals {
   server_name     = "transfer-server-${random_pet.name.id}"
   users           = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
-  vpc_id          = aws_vpc.example.id
-  public_subnets  = aws_subnet.public[*].id
+  vpc_id          = module.vpc.vpc_attributes.id
+  public_subnets  = flatten([for _, value in module.vpc.public_subnet_attributes_by_az : [value.id]])
+  az_count        = 2
 }
 
 data "aws_caller_identity" "current" {}
@@ -45,7 +46,7 @@ module "transfer_server" {
   custom_hostname          = var.custom_hostname
   route53_hosted_zone_name = var.route53_hosted_zone_name
   identity_provider        = "SERVICE_MANAGED"
-  security_policy_name     = "TransferSecurityPolicy-2024-01" # https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html#security-policy-transfer-2024-01
+  security_policy_name     = "TransferSecurityPolicy-2025-03" # https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html#security-policy-transfer-2024-01
   enable_logging           = true
   log_retention_days       = 30 # This can be modified based on requirements
   log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
@@ -69,72 +70,93 @@ module "sftp_users" {
 ###################################################################
 # Create Public Subnets for Transfer Server
 ###################################################################
-resource "aws_subnet" "public" {
-  # checkov:skip=CKV_AWS_130: this example intentionally maps public IPs for demonstration purposes
-  count                   = 2
-  vpc_id                  = aws_vpc.example.id
-  cidr_block              = cidrsubnet(aws_vpc.example.cidr_block, 8, count.index)
-  map_public_ip_on_launch = true
-  availability_zone       = data.aws_availability_zones.az.names[count.index]
-  tags = {
-    Name        = "${local.server_name}-public-subnet-${count.index + 1}"
-    Environment = var.stage
+# resource "aws_subnet" "public" {
+#   # checkov:skip=CKV_AWS_130: this example intentionally maps public IPs for demonstration purposes
+#   count                   = 2
+#   vpc_id                  = aws_vpc.example.id
+#   cidr_block              = cidrsubnet(aws_vpc.example.cidr_block, 8, count.index)
+#   map_public_ip_on_launch = true
+#   availability_zone       = data.aws_availability_zones.az.names[count.index]
+#   tags = {
+#     Name        = "${local.server_name}-public-subnet-${count.index + 1}"
+#     Environment = var.stage
+#   }
+# }
+
+###################################################################
+# Create VPC for Transfer Server
+###################################################################
+module "vpc" {
+  source   = "git::https://github.com/aws-ia/terraform-aws-vpc.git?ref=da49a30fbfeb3890076b783be0abf8639f96f431"
+
+  name                          = "${local.server_name}-vpc"
+  cidr_block                    = "10.0.0.0/16"
+  az_count                      = local.az_count
+
+  subnets = {
+    # Dual-stack subnet
+    public = {
+      name_prefix               = "${local.server_name}-public-subnet"
+      netmask                   = 24
+      nat_gateway_configuration = "all_azs" # options: "single_az", "none"
+    }
+    # IPv4 only subnet
+    private = {
+      name_prefix               = "${local.server_name}-private-subnet"
+      netmask                   = 24
+      connect_to_public_natgw   = true
+    }
   }
 }
 
 resource "aws_eip" "sftp" {
-  count = length(local.public_subnets)
-  # checkov:skip=CKV2_AWS_19: EIPs attached to Transfer endpoints, not EC2
+  # checkov:skip=CKV2_AWS_19: EIPs are used for AWS Transfer Family VPC endpoints, not EC2 instances
+  count = local.az_count
   tags = {
     Name = "${local.server_name}-sftp-eip-${count.index + 1}"
   }
 }
 
-###################################################################
-# Create VPC for Transfer Server
-###################################################################
-# VPC for SFTP endpoint example
-resource "aws_vpc" "example" {
-  # checkov:skip=CKV2_AWS_11: VPC flow logging not enabled in this minimal example
-  # checkov:skip=CKV2_AWS_12: default security group restrictions omitted for demonstration
-  cidr_block = "10.0.0.0/16"
-  tags = {
-    Name        = "${local.server_name}-vpc"
-    Environment = var.stage
-  }
-}
+# # VPC for SFTP endpoint example
+# resource "aws_vpc" "example" {
+#   cidr_block = "10.0.0.0/16"
+#   tags = {
+#     Name        = "${local.server_name}-vpc"
+#     Environment = var.stage
+#   }
+# }
 
-# Internet Gateway for public internet access
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.example.id
-  tags = {
-    Name        = "${local.server_name}-igw"
-    Environment = var.stage
-  }
-}
+# # Internet Gateway for public internet access
+# resource "aws_internet_gateway" "igw" {
+#   vpc_id = aws_vpc.example.id
+#   tags = {
+#     Name        = "${local.server_name}-igw"
+#     Environment = var.stage
+#   }
+# }
 
-# Route table for public subnets
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.example.id
-  tags = {
-    Name        = "${local.server_name}-public-rt"
-    Environment = var.stage
-  }
-}
+# # Route table for public subnets
+# resource "aws_route_table" "public" {
+#   vpc_id = aws_vpc.example.id
+#   tags = {
+#     Name        = "${local.server_name}-public-rt"
+#     Environment = var.stage
+#   }
+# }
 
-# Route for internet access
-resource "aws_route" "internet_access" {
-  route_table_id         = aws_route_table.public.id
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.igw.id
-}
+# # Route for internet access
+# resource "aws_route" "internet_access" {
+#   route_table_id         = aws_route_table.public.id
+#   destination_cidr_block = "0.0.0.0/0"
+#   gateway_id             = aws_internet_gateway.igw.id
+# }
 
-# Associate route table with public subnets
-resource "aws_route_table_association" "public" {
-  count          = length(local.public_subnets)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
+# # Associate route table with public subnets
+# resource "aws_route_table_association" "public" {
+#   count          = length(local.public_subnets)
+#   subnet_id      = aws_subnet.public[count.index].id
+#   route_table_id = aws_route_table.public.id
+# }
 
 resource "aws_security_group" "sftp" {
   name                    = "${local.server_name}-sftp-sg"
@@ -150,13 +172,12 @@ resource "aws_security_group" "sftp" {
 
 # Separate Ingress Rule for SFTP
 resource "aws_vpc_security_group_ingress_rule" "sftp_ingress" {
-  # checkov:skip=CKV_AWS_24: example allows SSH ingress from 0.0.0.0/0 for demonstration purposes
   security_group_id = aws_security_group.sftp.id
   description       = "Allow inbound SFTP (TCP/22) from any IP"
   ip_protocol       = "tcp"
   from_port         = 22
   to_port           = 22
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.sftp_ingress_cidr_block
 
   tags = {
     Name = "${local.server_name}-sftp-ingress"
@@ -165,11 +186,10 @@ resource "aws_vpc_security_group_ingress_rule" "sftp_ingress" {
 
 # Separate Egress Rule for SFTP
 resource "aws_vpc_security_group_egress_rule" "sftp_egress" {
-  # checkov:skip=CKV_AWS_382: example allows all outbound traffic for demonstration purposes
   security_group_id = aws_security_group.sftp.id
   description       = "Allow all outbound traffic"
   ip_protocol       = "-1"
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.sftp_egress_cidr_block
 
   tags = {
     Name = "${local.server_name}-sftp-egress"

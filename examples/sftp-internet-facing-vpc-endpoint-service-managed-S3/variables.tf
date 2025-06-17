@@ -54,3 +54,15 @@ variable "workflow_details" {
   })
   default = null
 }
+
+variable "sftp_ingress_cidr_block" {
+  description = "Security group ingress rule cidr block for vpc endpoint"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "sftp_egress_cidr_block" {
+  description = "Security group egress rule cidr block for vpc endpoint"
+  type        = string
+  default     = "0.0.0.0/0"
+}
