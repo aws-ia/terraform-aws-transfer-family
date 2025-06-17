@@ -14,11 +14,13 @@ resource "random_pet" "name" {
 }
 
 locals {
-  server_name     = "transfer-server-${random_pet.name.id}"
-  users           = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
-  vpc_id          = module.vpc.vpc_attributes.id
-  public_subnets  = flatten([for _, value in module.vpc.public_subnet_attributes_by_az : [value.id]])
-  az_count        = 2
+  server_name               = "transfer-server-${random_pet.name.id}"
+  users                     = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
+  vpc_id                    = module.vpc.vpc_attributes.id
+  public_subnets            = flatten([for _, value in module.vpc.public_subnet_attributes_by_az : [value.id]])
+  ingress_cidr_blocks_list  = [for cidr in split(",", var.sftp_ingress_cidr_block) : trimspace(cidr)]
+  egress_cidr_blocks_list   = [for cidr in split(",", var.sftp_egress_cidr_block) : trimspace(cidr)]
+  az_count                  = 2
 }
 
 data "aws_caller_identity" "current" {}
@@ -105,29 +107,30 @@ resource "aws_security_group" "sftp" {
   }
 }
 
-# Separate Ingress Rule for SFTP
 resource "aws_vpc_security_group_ingress_rule" "sftp_ingress" {
+  for_each          = toset(local.ingress_cidr_blocks_list)
   security_group_id = aws_security_group.sftp.id
-  description       = "Allow inbound SFTP (TCP/22) from any IP"
+  description       = "Allow inbound SFTP (TCP/22) from ${each.value}"
   ip_protocol       = "tcp"
   from_port         = 22
   to_port           = 22
-  cidr_ipv4         = var.sftp_ingress_cidr_block
+  cidr_ipv4         = each.value
 
   tags = {
-    Name = "${local.server_name}-sftp-ingress"
+    Name = "${local.server_name}-sftp-ingress-${index(local.ingress_cidr_blocks_list, each.value)}"
   }
 }
 
 # Separate Egress Rule for SFTP
 resource "aws_vpc_security_group_egress_rule" "sftp_egress" {
+  for_each          = toset(local.egress_cidr_blocks_list)
   security_group_id = aws_security_group.sftp.id
-  description       = "Allow all outbound traffic"
+  description       = "Allow outbound traffic"
   ip_protocol       = "-1"
-  cidr_ipv4         = var.sftp_egress_cidr_block
+  cidr_ipv4         = each.value
 
   tags = {
-    Name = "${local.server_name}-sftp-egress"
+    Name = "${local.server_name}-sftp-egress-${index(local.egress_cidr_blocks_list, each.value)}"
   }
 }
 
