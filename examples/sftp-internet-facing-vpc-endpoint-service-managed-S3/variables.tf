@@ -58,7 +58,6 @@ variable "workflow_details" {
 variable "sftp_ingress_cidr_block" {
   description = "Security group ingress rule cidr block for vpc endpoint"
   type        = string
-  default     = "10.0.0.0/16"
 }
 
 variable "sftp_egress_cidr_block" {

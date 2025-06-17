@@ -23,7 +23,6 @@ locals {
 
 data "aws_caller_identity" "current" {}
 
-# Data for available AZs
 data "aws_availability_zones" "az" {}
 
 ###################################################################
@@ -68,22 +67,6 @@ module "sftp_users" {
 }
 
 ###################################################################
-# Create Public Subnets for Transfer Server
-###################################################################
-# resource "aws_subnet" "public" {
-#   # checkov:skip=CKV_AWS_130: this example intentionally maps public IPs for demonstration purposes
-#   count                   = 2
-#   vpc_id                  = aws_vpc.example.id
-#   cidr_block              = cidrsubnet(aws_vpc.example.cidr_block, 8, count.index)
-#   map_public_ip_on_launch = true
-#   availability_zone       = data.aws_availability_zones.az.names[count.index]
-#   tags = {
-#     Name        = "${local.server_name}-public-subnet-${count.index + 1}"
-#     Environment = var.stage
-#   }
-# }
-
-###################################################################
 # Create VPC for Transfer Server
 ###################################################################
 module "vpc" {
@@ -94,17 +77,10 @@ module "vpc" {
   az_count                      = local.az_count
 
   subnets = {
-    # Dual-stack subnet
     public = {
       name_prefix               = "${local.server_name}-public-subnet"
       netmask                   = 24
       nat_gateway_configuration = "all_azs" # options: "single_az", "none"
-    }
-    # IPv4 only subnet
-    private = {
-      name_prefix               = "${local.server_name}-private-subnet"
-      netmask                   = 24
-      connect_to_public_natgw   = true
     }
   }
 }
@@ -116,47 +92,6 @@ resource "aws_eip" "sftp" {
     Name = "${local.server_name}-sftp-eip-${count.index + 1}"
   }
 }
-
-# # VPC for SFTP endpoint example
-# resource "aws_vpc" "example" {
-#   cidr_block = "10.0.0.0/16"
-#   tags = {
-#     Name        = "${local.server_name}-vpc"
-#     Environment = var.stage
-#   }
-# }
-
-# # Internet Gateway for public internet access
-# resource "aws_internet_gateway" "igw" {
-#   vpc_id = aws_vpc.example.id
-#   tags = {
-#     Name        = "${local.server_name}-igw"
-#     Environment = var.stage
-#   }
-# }
-
-# # Route table for public subnets
-# resource "aws_route_table" "public" {
-#   vpc_id = aws_vpc.example.id
-#   tags = {
-#     Name        = "${local.server_name}-public-rt"
-#     Environment = var.stage
-#   }
-# }
-
-# # Route for internet access
-# resource "aws_route" "internet_access" {
-#   route_table_id         = aws_route_table.public.id
-#   destination_cidr_block = "0.0.0.0/0"
-#   gateway_id             = aws_internet_gateway.igw.id
-# }
-
-# # Associate route table with public subnets
-# resource "aws_route_table_association" "public" {
-#   count          = length(local.public_subnets)
-#   subnet_id      = aws_subnet.public[count.index].id
-#   route_table_id = aws_route_table.public.id
-# }
 
 resource "aws_security_group" "sftp" {
   name                    = "${local.server_name}-sftp-sg"
