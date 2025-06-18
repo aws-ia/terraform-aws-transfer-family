@@ -89,9 +89,9 @@ The module creates IAM roles with permissions for:
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.91.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.7.1 |
-| <a name="provider_tls"></a> [tls](#provider\_tls) | 4.0.6 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.83.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
+| <a name="provider_tls"></a> [tls](#provider\_tls) | >= 4.0.0 |
 
 ## Modules
 
@@ -119,7 +119,7 @@ No modules.
 | <a name="input_server_id"></a> [server\_id](#input\_server\_id) | ID of the Transfer Family server | `string` | n/a | yes |
 | <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Whether to create a test SFTP user | `bool` | `false` | no |
 | <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | encryption key | `string` | `null` | no |
-| <a name="input_users"></a> [users](#input\_users) | List of SFTP users | <pre>list(object({<br/>    username   = string<br/>    home_dir   = string<br/>    public_key = string<br/>    role_arn   = optional(string)<br/>  }))</pre> | `[]` | no |
+| <a name="input_users"></a> [users](#input\_users) | List of SFTP users | <pre>list(object({<br>    username   = string<br>    home_dir   = string<br>    public_key = string<br>    role_arn   = optional(string)<br>  }))</pre> | `[]` | no |
 
 ## Outputs
 
