@@ -34,7 +34,7 @@ module "transfer_server" {
   custom_hostname          = var.custom_hostname
   route53_hosted_zone_name = var.route53_hosted_zone_name
   identity_provider        = "SERVICE_MANAGED"
-  security_policy_name     = "TransferSecurityPolicy-2025-03" # https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html#security-policy-transfer-2024-01
+  security_policy_name     = "TransferSecurityPolicy-2024-01" # https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html#security-policy-transfer-2024-01
   enable_logging           = true
   log_retention_days       = 30 # This can be modified based on requirements
   log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
