@@ -67,18 +67,15 @@ variable "security_policy_name" {
       "TransferSecurityPolicy-2022-03",
       "TransferSecurityPolicy-2023-05",
       "TransferSecurityPolicy-2024-01",
-      "TransferSecurityPolicy-2025-03",
       "TransferSecurityPolicy-FIPS-2020-06",
       "TransferSecurityPolicy-FIPS-2023-05",
       "TransferSecurityPolicy-FIPS-2024-01",
       "TransferSecurityPolicy-FIPS-2024-05",
-      "TransferSecurityPolicy-FIPS-2025-03",
       "TransferSecurityPolicy-PQ-SSH-Experimental-2023-04",
       "TransferSecurityPolicy-PQ-SSH-FIPS-Experimental-2023-04",
       "TransferSecurityPolicy-Restricted-2018-11",
       "TransferSecurityPolicy-Restricted-2020-06",
-      "TransferSecurityPolicy-Restricted-2024-06",
-      "TransferSecurityPolicy-SshAuditCompliant-2025-02"
+      "TransferSecurityPolicy-Restricted-2024-06"
     ], var.security_policy_name)
     error_message = "Security policy name must be one of the supported security policy names. visit https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html for more information."
   }
@@ -139,7 +136,6 @@ variable "logging_role" {
 variable "endpoint_details" {
   description = "VPC endpoint configuration block for the Transfer Server"
   type = object({
-    access                 = string
     address_allocation_ids = optional(list(string))
     security_group_ids     = list(string)
     subnet_ids             = list(string)
@@ -148,13 +144,8 @@ variable "endpoint_details" {
   default = null
 
   validation {
-    condition     = var.endpoint_details == null || try(var.endpoint_details.access == "INTERNAL", false) || try(var.endpoint_details.access == "INTERNET_FACING" && length(coalesce(var.endpoint_details.address_allocation_ids, [])) == length(var.endpoint_details.subnet_ids), false)
-    error_message = "If the access is INTERNET_FACING, address_allocation_ids must have the same length as subnet_ids."
-  }
-
-  validation {
-    condition     = var.endpoint_details == null || try(contains(["INTERNAL", "INTERNET_FACING"], var.endpoint_details.access), false)
-    error_message = "VPC endpoint access must be one of: INTERNAL or INTERNET_FACING."
+    condition     = var.endpoint_details == null || try(var.endpoint_details.address_allocation_ids == null, true) || try(length(var.endpoint_details.address_allocation_ids) == length(var.endpoint_details.subnet_ids), true)
+    error_message = "If address_allocation_ids is provided (INTERNET_FACING access), it must have the same length as subnet_ids."
   }
 
   validation {

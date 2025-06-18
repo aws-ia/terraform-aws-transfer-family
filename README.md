@@ -101,6 +101,7 @@ The module includes several built-in checks to ensure proper configuration:
 - DNS provider configuration checks
 - Domain name compatibility verification
 - Security policy name validation
+- Mandatory Elastic IP address allocation and association checks for Internet-facing VPC deployments
 
 ## Best Practices
 
@@ -119,7 +120,7 @@ This project utilizes multiple modules to create a complete AWS Transfer Family 
 - Purpose: Creates and configures the AWS Transfer Server
 - Key features:
   - SFTP protocol support
-  - Public endpoint configuration
+  - Hosting Server using Public or VPC configuration
   - CloudWatch logging setup
   - Service-managed authentication
   - Custom hostname support (optional)
@@ -192,6 +193,31 @@ module "transfer_server" {
   }
 }
 ```
+
+## Example for Internet Facing VPC Endpoint Configuration
+
+This example demonstrates an internet-facing VPC endpoint configuration:
+
+```hcl
+module "transfer_server" {
+  # Other configurations go here
+
+  endpoint_type = "VPC"
+  endpoint_details = {
+    address_allocation_ids = aws_eip.sftp[*].allocation_id  # Makes the endpoint internet-facing
+    security_group_ids     = [aws_security_group.sftp.id]
+    subnet_ids             = local.public_subnets
+    vpc_id                 = local.vpc_id
+  }
+}
+```
+
+Key points about VPC endpoint types:
+
+- **Internet-facing endpoint**: Created when `address_allocation_ids` are specified (as shown in this example)
+- Internet-facing endpoints require Elastic IPs and public subnets
+- **Internal endpoint**: Created when `address_allocation_ids` are omitted
+- Internal endpoints are only accessible from within the VPC or connected networks
 
 ## Requirements
 

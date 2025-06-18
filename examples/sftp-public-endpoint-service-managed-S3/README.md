@@ -147,7 +147,7 @@ module "transfer_server" {
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_s3_bucket"></a> [s3\_bucket](#module\_s3\_bucket) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | fc09cc6fb779b262ce1bee5334e85808a107d8a3 |
+| <a name="module_s3_bucket"></a> [s3\_bucket](#module\_s3\_bucket) | git::<https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git> | fc09cc6fb779b262ce1bee5334e85808a107d8a3 |
 | <a name="module_sftp_users"></a> [sftp\_users](#module\_sftp\_users) | ../../modules/transfer-users | n/a |
 | <a name="module_transfer_server"></a> [transfer\_server](#module\_transfer\_server) | ../.. | n/a |
 

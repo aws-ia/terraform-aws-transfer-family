@@ -1,13 +1,7 @@
 <!-- BEGIN_TF_DOCS -->
-# Transfer Server Module (main module)
+# AWS Transfer Family Terraform Module
 
-- Purpose: Creates and configures the AWS Transfer Server
-- Key features:
-  - SFTP protocol support
-  - Public endpoint configuration
-  - CloudWatch logging setup
-  - Service-managed authentication
-  - Custom hostname support (optional)
+This repository contains Terraform code which creates resources required to run a Transfer Family Server within AWS.
 
 ## Overview
 
@@ -33,6 +27,26 @@ module "transfer_sftp" {
   }
 }
 ```
+
+## Architecture
+
+### High-Level Architecture
+
+![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/dev/images/AWS%20Transfer%20Family%20Architecture.png)
+
+Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module
+
+## Features
+
+### Transfer Server Configuration
+
+- Deploy SFTP server endpoints with public endpoint type
+- Server name customization (default: "transfer-server")
+- S3 domain support
+- SFTP protocol support
+- Service-managed identity provider
+- Support for custom hostnames and DNS configurations
+- Integration with CloudWatch for logging and monitoring
 
 ### DNS Management
 
@@ -69,6 +83,15 @@ Custom hostname is provided when a DNS provider is specified
 - Automated IAM role and policy configuration for logging
 - AWS managed logging policy attachment
 
+## Security Policy Support
+
+Supports multiple AWS Transfer security policies including:
+
+- Standard policies (2018-11 through 2024-01)
+- FIPS-compliant policies
+- PQ-SSH Experimental policies
+- Restricted security policies
+
 ## Validation Checks
 
 The module includes several built-in checks to ensure proper configuration:
@@ -86,6 +109,112 @@ The module includes several built-in checks to ensure proper configuration:
 - Configure proper DNS settings when using custom hostnames (validated through check blocks)
 - Utilize built-in validation checks for DNS provider and custom hostname configurations
 - Use proper tagging for resources (supported via tags variable)
+
+## Modules
+
+This project utilizes multiple modules to create a complete AWS Transfer Family SFTP solution:
+
+### Core Transfer Server Module (main module)
+
+- Purpose: Creates and configures the AWS Transfer Server
+- Key features:
+  - SFTP protocol support
+  - Public endpoint configuration
+  - CloudWatch logging setup
+  - Service-managed authentication
+  - Custom hostname support (optional)
+
+### Transfer Users Module
+
+- Purpose: Manages SFTP user access and permissions
+- Key features:
+  - CSV-based user configuration support
+  - Optional test user creation
+  - IAM role and policy management
+  - Integration with S3 bucket permissions
+  - KMS encryption key access management
+
+## Installation
+
+To use these modules in your Terraform configuration:
+
+1. Reference the modules in your Terraform code:
+
+```hcl
+module "transfer_server" {
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
+
+  # Module parameters
+  # ...
+}
+```
+
+2. Initialize your Terraform workspace:
+
+```bash
+terraform init
+```
+
+3. Review the planned changes:
+
+```bash
+terraform plan
+```
+
+4. Apply the configuration:
+
+```bash
+terraform apply
+```
+
+## Basic Usage
+
+### Simple SFTP Server Setup
+
+```hcl
+module "transfer_server" {
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
+
+  # Basic server configuration
+  server_name       = "demo-transfer-server"
+  domain           = "S3"
+  protocols        = ["SFTP"]
+  endpoint_type    = "PUBLIC"
+  identity_provider = "SERVICE_MANAGED"
+
+  # Enable logging
+  enable_logging    = true
+  log_retention_days = 14
+
+  tags = {
+    Environment = "Demo"
+    Project     = "SFTP"
+  }
+}
+```
+
+## Example for Internet Facing VPC Endpoint Configuration
+
+This example demonstrates an internet-facing VPC endpoint configuration:
+
+```hcl
+module "transfer_server" {
+  # Other configurations go here
+  endpoint_type = "VPC"
+  endpoint_details = {
+    address_allocation_ids = aws_eip.sftp[*].allocation_id  # Makes the endpoint internet-facing
+    security_group_ids     = [aws_security_group.sftp.id]
+    subnet_ids             = local.public_subnets
+    vpc_id                 = local.vpc_id
+  }
+}
+```
+
+Key points about VPC endpoint types:
+- **Internet-facing endpoint**: Created when `address_allocation_ids` are specified (as shown in this example)
+- Internet-facing endpoints require Elastic IPs and public subnets
+- **Internal endpoint**: Created when `address_allocation_ids` are omitted
+- Internal endpoints are only accessible from within the VPC or connected networks
 
 ## Requirements
 
@@ -123,7 +252,7 @@ No modules.
 | <a name="input_dns_provider"></a> [dns\_provider](#input\_dns\_provider) | The DNS provider for the custom hostname. Use 'none' for no custom hostname | `string` | `null` | no |
 | <a name="input_domain"></a> [domain](#input\_domain) | The domain of the storage system that is used for file transfers | `string` | `"S3"` | no |
 | <a name="input_enable_logging"></a> [enable\_logging](#input\_enable\_logging) | Enable CloudWatch logging for the transfer server | `bool` | `false` | no |
-| <a name="input_endpoint_details"></a> [endpoint\_details](#input\_endpoint\_details) | VPC endpoint configuration block for the Transfer Server | <pre>object({<br>    access                 = string<br>    address_allocation_ids = optional(list(string))<br>    security_group_ids     = list(string)<br>    subnet_ids             = list(string)<br>    vpc_id                 = string<br>  })</pre> | `null` | no |
+| <a name="input_endpoint_details"></a> [endpoint\_details](#input\_endpoint\_details) | VPC endpoint configuration block for the Transfer Server | <pre>object({<br>    address_allocation_ids = optional(list(string))<br>    security_group_ids     = list(string)<br>    subnet_ids             = list(string)<br>    vpc_id                 = string<br>  })</pre> | `null` | no |
 | <a name="input_endpoint_type"></a> [endpoint\_type](#input\_endpoint\_type) | The type of endpoint that you want your transfer server to use | `string` | `"PUBLIC"` | no |
 | <a name="input_identity_provider"></a> [identity\_provider](#input\_identity\_provider) | Identity provider configuration | `string` | `"SERVICE_MANAGED"` | no |
 | <a name="input_log_group_kms_key_id"></a> [log\_group\_kms\_key\_id](#input\_log\_group\_kms\_key\_id) | encryption key for cloudwatch log group | `string` | `null` | no |
