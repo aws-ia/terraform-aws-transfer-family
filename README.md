@@ -87,7 +87,7 @@ Custom hostname is provided when a DNS provider is specified
 
 Supports multiple AWS Transfer security policies including:
 
-- Standard policies (2018-11 through 2024-01)
+- Standard policies (2018-11 through 2025-03)
 - FIPS-compliant policies
 - PQ-SSH Experimental policies
 - Restricted security policies
@@ -193,6 +193,31 @@ module "transfer_server" {
   }
 }
 ```
+
+## Example for Internet Facing VPC Endpoint Configuration
+
+This example demonstrates an internet-facing VPC endpoint configuration:
+
+```hcl
+module "transfer_server" {
+  # Other configurations go here
+
+  endpoint_type = "VPC"
+  endpoint_details = {
+    address_allocation_ids = aws_eip.sftp[*].allocation_id  # Makes the endpoint internet-facing
+    security_group_ids     = [aws_security_group.sftp.id]
+    subnet_ids             = local.public_subnets
+    vpc_id                 = local.vpc_id
+  }
+}
+```
+
+Key points about VPC endpoint types:
+
+- **Internet-facing endpoint**: Created when `address_allocation_ids` are specified (as shown in this example)
+- Internet-facing endpoints require Elastic IPs and public subnets
+- **Internal endpoint**: Created when `address_allocation_ids` are omitted
+- Internal endpoints are only accessible from within the VPC or connected networks
 
 ## Requirements
 

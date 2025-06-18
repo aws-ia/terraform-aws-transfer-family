@@ -20,13 +20,19 @@ run "mandatory_apply_basic" {
 run "mandatory_plan_vpc" {
   command = plan
   module {
-    source = "./examples/sftp-vpc-endpoint-service-managed-S3"
+    source = "./examples/sftp-internet-facing-vpc-endpoint-service-managed-S3"
+  }
+  variables {
+    sftp_ingress_cidr_block = "10.0.0.0/16, 192.168.1.0/24, 172.16.0.0/12"
   }
 }
 
 run "mandatory_apply_vpc" {
   command = apply
   module {
-    source = "./examples/sftp-vpc-endpoint-service-managed-S3"
+    source = "./examples/sftp-internet-facing-vpc-endpoint-service-managed-S3"
+  }
+  variables {
+    sftp_ingress_cidr_block = "10.0.0.0/16, 192.168.1.0/24, 172.16.0.0/12"
   }
 }

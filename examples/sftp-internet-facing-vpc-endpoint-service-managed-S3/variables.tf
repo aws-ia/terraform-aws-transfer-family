@@ -54,3 +54,14 @@ variable "workflow_details" {
   })
   default = null
 }
+
+variable "sftp_ingress_cidr_block" {
+  description = "List of CIDR blocks allowed to access SFTP. To set multiple cidr blocks seperate with comma '10.0.0.0/24, 10.0.1.0/24'"
+  type        = string
+}
+
+variable "sftp_egress_cidr_block" {
+  description = "List of CIDR block for outbound traffic from SFTP server. To set multiple cidr blocks seperate with comma '10.0.0.0/24, 10.0.1.0/24'"
+  type        = string
+  default     = "0.0.0.0/0"
+}

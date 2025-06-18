@@ -83,6 +83,7 @@ The module creates IAM roles with permissions for:
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.83.0 |
 | <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 0.24.0 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0.0 |
+| <a name="requirement_tls"></a> [tls](#requirement\_tls) | >= 4.0.0 |
 
 ## Providers
 
@@ -90,7 +91,7 @@ The module creates IAM roles with permissions for:
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.83.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
-| <a name="provider_tls"></a> [tls](#provider\_tls) | n/a |
+| <a name="provider_tls"></a> [tls](#provider\_tls) | >= 4.0.0 |
 
 ## Modules
 
@@ -116,10 +117,8 @@ No modules.
 | <a name="input_s3_bucket_arn"></a> [s3\_bucket\_arn](#input\_s3\_bucket\_arn) | ARN of the S3 bucket for SFTP storage | `string` | n/a | yes |
 | <a name="input_s3_bucket_name"></a> [s3\_bucket\_name](#input\_s3\_bucket\_name) | Name of the S3 bucket for SFTP storage | `string` | n/a | yes |
 | <a name="input_server_id"></a> [server\_id](#input\_server\_id) | ID of the Transfer Family server | `string` | n/a | yes |
-| <a name="input_create_ssh_keys"></a> [create\_ssh\_keys](#input\_create\_ssh\_keys) | Whether to create new ssh keys for the SFTP Users | `bool` | `true` | no |
 | <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Whether to create a test SFTP user | `bool` | `false` | no |
 | <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | encryption key | `string` | `null` | no |
-| <a name="input_ssh_keys"></a> [ssh\_keys](#input\_ssh\_keys) | Map of username to SSH public key content | `map(string)` | `{}` | no |
 | <a name="input_users"></a> [users](#input\_users) | List of SFTP users | <pre>list(object({<br>    username   = string<br>    home_dir   = string<br>    public_key = string<br>    role_arn   = optional(string)<br>  }))</pre> | `[]` | no |
 
 ## Outputs
