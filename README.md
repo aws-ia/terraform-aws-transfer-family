@@ -87,7 +87,7 @@ Custom hostname is provided when a DNS provider is specified
 
 Supports multiple AWS Transfer security policies including:
 
-- Standard policies (2018-11 through 2025-03)
+- Standard policies (2018-11 through 2024-01)
 - FIPS-compliant policies
 - PQ-SSH Experimental policies
 - Restricted security policies
