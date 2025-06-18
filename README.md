@@ -101,7 +101,6 @@ The module includes several built-in checks to ensure proper configuration:
 - DNS provider configuration checks
 - Domain name compatibility verification
 - Security policy name validation
-- Mandatory Elastic IP address allocation and association checks for Internet-facing VPC deployments
 
 ## Best Practices
 
@@ -120,7 +119,7 @@ This project utilizes multiple modules to create a complete AWS Transfer Family 
 - Purpose: Creates and configures the AWS Transfer Server
 - Key features:
   - SFTP protocol support
-  - Hosting Server using Public or VPC configuration
+  - Public endpoint configuration
   - CloudWatch logging setup
   - Service-managed authentication
   - Custom hostname support (optional)
