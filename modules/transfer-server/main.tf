@@ -80,8 +80,8 @@ check "endpoint_details_configuration" {
 
 check "vpc_endpoint_requirements" {
   assert {
-    condition     = var.endpoint_type != "VPC" || (var.endpoint_details != null && var.endpoint_details.vpc_id != null && var.endpoint_details.subnet_ids != null)
-    error_message = "When endpoint_type is 'VPC', endpoint_details with vpc_id and subnet_ids must be provided."
+    condition     = var.endpoint_type != "VPC" || (var.endpoint_details != null)
+    error_message = "When endpoint_type is 'VPC', endpoint_details must be provided."
   }
 }
 
@@ -96,7 +96,7 @@ resource "aws_transfer_server" "transfer_server" {
   protocols                   = var.protocols
   endpoint_type               = var.endpoint_type
   security_policy_name        = var.security_policy_name
-  structured_log_destinations = var.enable_logging ? [ "${aws_cloudwatch_log_group.transfer[0].arn}:*" ] : []
+  structured_log_destinations = var.enable_logging ? ["${aws_cloudwatch_log_group.transfer[0].arn}:*"] : []
   logging_role                = var.logging_role
 
   dynamic "endpoint_details" {
