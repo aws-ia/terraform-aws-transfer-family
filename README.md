@@ -36,6 +36,10 @@ module "transfer_sftp" {
 
 Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module
 
+![Architecture using VPC Endpoints](https://github.com/aws-ia/terraform-aws-transfer-family/blob/hotfix/documentation/images/Transfer%20Family%20VPC%20endpoint.png)
+
+Figure 2: Architecture using VPC endpoints of the AWS Transfer Family deployment using this Terraform module
+
 ## Features
 
 ### Transfer Server Configuration
@@ -219,6 +223,14 @@ Key points about VPC endpoint types:
 - **Internal endpoint**: Created when `address_allocation_ids` are omitted
 - Internal endpoints are only accessible from within the VPC or connected networks
 
+## Support & Feedback
+
+Storage Gateway module for Terraform is maintained by AWS Solution Architects. It is not part of an AWS service and support is provided best-effort by the AWS Storage community.
+
+To post feedback, submit feature ideas, or report bugs, please use the [Issues section](https://github.com/aws-ia/terraform-aws-transfer-family/issues) of this GitHub repo.
+
+If you are interested in contributing to the Storage Gateway module, see the [Contribution guide](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/CONTRIBUTING.md).
+
 ## Requirements
 
 | Name | Version |
@@ -255,18 +267,18 @@ No modules.
 | <a name="input_dns_provider"></a> [dns\_provider](#input\_dns\_provider) | The DNS provider for the custom hostname. Use 'none' for no custom hostname | `string` | `null` | no |
 | <a name="input_domain"></a> [domain](#input\_domain) | The domain of the storage system that is used for file transfers | `string` | `"S3"` | no |
 | <a name="input_enable_logging"></a> [enable\_logging](#input\_enable\_logging) | Enable CloudWatch logging for the transfer server | `bool` | `false` | no |
-| <a name="input_endpoint_details"></a> [endpoint\_details](#input\_endpoint\_details) | VPC endpoint configuration block for the Transfer Server | <pre>object({<br>    address_allocation_ids = optional(list(string))<br>    security_group_ids     = list(string)<br>    subnet_ids             = list(string)<br>    vpc_id                 = string<br>  })</pre> | `null` | no |
+| <a name="input_endpoint_details"></a> [endpoint\_details](#input\_endpoint\_details) | VPC endpoint configuration block for the Transfer Server | <pre>object({<br/>    address_allocation_ids = optional(list(string))<br/>    security_group_ids     = list(string)<br/>    subnet_ids             = list(string)<br/>    vpc_id                 = string<br/>  })</pre> | `null` | no |
 | <a name="input_endpoint_type"></a> [endpoint\_type](#input\_endpoint\_type) | The type of endpoint that you want your transfer server to use | `string` | `"PUBLIC"` | no |
 | <a name="input_identity_provider"></a> [identity\_provider](#input\_identity\_provider) | Identity provider configuration | `string` | `"SERVICE_MANAGED"` | no |
 | <a name="input_log_group_kms_key_id"></a> [log\_group\_kms\_key\_id](#input\_log\_group\_kms\_key\_id) | encryption key for cloudwatch log group | `string` | `null` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain logs for | `number` | `30` | no |
 | <a name="input_logging_role"></a> [logging\_role](#input\_logging\_role) | IAM role ARN that the Transfer Server assumes to write logs to CloudWatch Logs | `string` | `null` | no |
-| <a name="input_protocols"></a> [protocols](#input\_protocols) | Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint | `list(string)` | <pre>[<br>  "SFTP"<br>]</pre> | no |
+| <a name="input_protocols"></a> [protocols](#input\_protocols) | Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint | `list(string)` | <pre>[<br/>  "SFTP"<br/>]</pre> | no |
 | <a name="input_route53_hosted_zone_name"></a> [route53\_hosted\_zone\_name](#input\_route53\_hosted\_zone\_name) | The name of the Route53 hosted zone to use (must end with a period, e.g., 'example.com.') | `string` | `null` | no |
 | <a name="input_security_policy_name"></a> [security\_policy\_name](#input\_security\_policy\_name) | Specifies the name of the security policy that is attached to the server. If not provided, the default security policy will be used. | `string` | `"TransferSecurityPolicy-2024-01"` | no |
 | <a name="input_server_name"></a> [server\_name](#input\_server\_name) | The name of the Transfer Family server | `string` | `"transfer-server"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to assign to the resource | `map(string)` | `{}` | no |
-| <a name="input_workflow_details"></a> [workflow\_details](#input\_workflow\_details) | Workflow details to attach to the transfer server | <pre>object({<br>    on_upload = optional(object({<br>      execution_role = string<br>      workflow_id    = string<br>    }))<br>    on_partial_upload = optional(object({<br>      execution_role = string<br>      workflow_id    = string<br>    }))<br>  })</pre> | `null` | no |
+| <a name="input_workflow_details"></a> [workflow\_details](#input\_workflow\_details) | Workflow details to attach to the transfer server | <pre>object({<br/>    on_upload = optional(object({<br/>      execution_role = string<br/>      workflow_id    = string<br/>    }))<br/>    on_partial_upload = optional(object({<br/>      execution_role = string<br/>      workflow_id    = string<br/>    }))<br/>  })</pre> | `null` | no |
 
 ## Outputs
 
