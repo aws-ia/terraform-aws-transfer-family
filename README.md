@@ -36,6 +36,10 @@ module "transfer_sftp" {
 
 Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module
 
+![Architecture using VPC Endpoints](https://github.com/aws-ia/terraform-aws-transfer-family/blob/hotfix/documentation/images/Transfer%20Family%20VPC%20endpoint.png)
+
+Figure 2: Architecture using VPC endpoints of the AWS Transfer Family deployment using this Terraform module
+
 ## Features
 
 ### Transfer Server Configuration
@@ -218,6 +222,14 @@ Key points about VPC endpoint types:
 - Internet-facing endpoints require Elastic IPs and public subnets
 - **Internal endpoint**: Created when `address_allocation_ids` are omitted
 - Internal endpoints are only accessible from within the VPC or connected networks
+
+## Support & Feedback
+
+The AWS Transfer Family module for Terraform is maintained by AWS Solution Architects. It is not part of an AWS service and support is provided best-effort by the AWS Storage community.
+
+To post feedback, submit feature ideas, or report bugs, please use the [Issues section](https://github.com/aws-ia/terraform-aws-transfer-family/issues) of this GitHub repo.
+
+If you are interested in contributing to the Storage Gateway module, see the [Contribution guide](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/CONTRIBUTING.md).
 
 ## Requirements
 
