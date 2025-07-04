@@ -15,7 +15,7 @@ resource "random_pet" "name" {
 
 locals {
   server_name = "transfer-server-${random_pet.name.id}"
-  users = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
+  users       = var.users_file != null ? (fileexists(var.users_file) ? csvdecode(file(var.users_file)) : []) : [] # Read users from CSV
 }
 
 data "aws_caller_identity" "current" {}

@@ -15,7 +15,7 @@ resource "random_pet" "name" {
 
 locals {
   server_name               = "transfer-server-${random_pet.name.id}"
-  users                     = fileexists(var.users_file) ? csvdecode(file(var.users_file)) : [] # Read users from CSV
+  users                     = var.users_file != null ? (fileexists(var.users_file) ? csvdecode(file(var.users_file)) : []) : [] # Read users from CSV
   vpc_id                    = module.vpc.vpc_attributes.id
   public_subnets            = flatten([for _, value in module.vpc.public_subnet_attributes_by_az : [value.id]])
   ingress_cidr_blocks_list  = [for cidr in split(",", var.sftp_ingress_cidr_block) : trimspace(cidr)]
