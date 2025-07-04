@@ -6,8 +6,9 @@ repos:
     hooks:
       - id: static-tests
         name: static tests
-        entry: bash -c 'export BASE_PATH=$(pwd) && export PROJECT_PATH=$(pwd) && ./.project_automation/static_tests/static_tests.sh'
+        entry: bash -c 'export PROJECT_PATH=$(pwd) && export PROJECT_TYPE_PATH=$(pwd) && set -x && tail -n +6 ./.project_automation/static_tests/static_tests.sh | bash'
         language: system
-        files: \.(tf|md)$
         pass_filenames: false
         require_serial: true
+        always_run: true
+        verbose: true
