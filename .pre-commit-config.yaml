@@ -2,17 +2,12 @@
 fail_fast: false
 minimum_pre_commit_version: "2.6.0"
 repos:
-  -
-    repo: https://github.com/terraform-docs/terraform-docs
-    # To update run:
-    # pre-commit autoupdate --freeze
-    rev: 212db41760d7fc45d736d5eb94a483d0d2a12049  # frozen: v0.16.0
+  - repo: local
     hooks:
-      - id: terraform-docs-go
-        args: 
-          - "--config=.config/.terraform-docs.yaml"
-          - "--lockfile=false"
-          - "--recursive"
-          - "--recursive-path=examples/"
-          - "--recursive-path=modules/"
-          - "./"
+      - id: static-tests
+        name: static tests
+        entry: bash -c 'export BASE_PATH=$(pwd) && export PROJECT_PATH=$(pwd) && ./.project_automation/static_tests/static_tests.sh'
+        language: system
+        files: \.(tf|md)$
+        pass_filenames: false
+        require_serial: true
