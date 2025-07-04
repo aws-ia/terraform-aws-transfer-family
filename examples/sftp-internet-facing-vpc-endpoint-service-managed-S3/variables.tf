@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "users_file" {
   description = "Path to CSV file containing user configurations"
   type        = string
-  default     = "users.csv"
+  default     = null
 }
 
 variable "dns_provider" {
