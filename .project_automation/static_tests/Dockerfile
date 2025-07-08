@@ -4,7 +4,7 @@ RUN cd /tmp && \
     wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
     unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin && chmod 755 /usr/local/bin/terraform
 
-ENV TFLINT_VERSION=v0.45.0
+ENV TFLINT_VERSION=v0.58.0
 
 RUN cd /tmp && \
     wget https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip && \
@@ -24,6 +24,6 @@ RUN pip3 install checkov
 
 RUN gem install mdl
 
-ENV TERRAFORM_DOCS_VERSION=v0.16.0
+ENV TERRAFORM_DOCS_VERSION=v0.20.0
 RUN wget https://github.com/terraform-docs/terraform-docs/releases/download/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz && \
     tar -C /usr/local/bin -xzf terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz && chmod +x /usr/local/bin/terraform-docs

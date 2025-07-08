@@ -70,7 +70,7 @@ fi
 
 #********** Terraform Docs *************
 echo 'Starting terraform-docs'
-TDOCS="$(terraform-docs --config ${PROJECT_PATH}/.config/.terraform-docs.yaml --lockfile=false ./)"
+TDOCS="$(terraform-docs --config ${PROJECT_PATH}/.config/.terraform-docs.yaml --lockfile=false ./ --recursive)"
 git add -N README.md
 GDIFF="$(git diff --compact-summary)"
 if [ -z "$GDIFF" ]
