@@ -91,7 +91,7 @@ check "vpc_endpoint_requirements" {
 
 resource "aws_transfer_server" "transfer_server" {
   #checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
-  identity_provider_type      = var.identity_provider
+  identity_provider_type      = var.identity_provider_type
   domain                      = var.domain
   protocols                   = var.protocols
   endpoint_type               = var.endpoint_type
