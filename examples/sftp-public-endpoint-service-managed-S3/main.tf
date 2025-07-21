@@ -59,7 +59,7 @@ module "sftp_users" {
 # Create S3 bucket for Transfer Server (Optional if already exists)
 ###################################################################
 module "s3_bucket" {
-  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=fc09cc6fb779b262ce1bee5334e85808a107d8a3"
+  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
   bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"

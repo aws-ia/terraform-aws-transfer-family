@@ -70,7 +70,7 @@ module "sftp_users" {
 # Create VPC for Transfer Server
 ###################################################################
 module "vpc" {
-  source   = "git::https://github.com/aws-ia/terraform-aws-vpc.git?ref=da49a30fbfeb3890076b783be0abf8639f96f431"
+  source   = "git::https://github.com/aws-ia/terraform-aws-vpc.git?ref=v4.5.0"
 
   name                          = "${local.server_name}-vpc"
   cidr_block                    = "10.0.0.0/16"
@@ -136,7 +136,7 @@ resource "aws_vpc_security_group_egress_rule" "sftp_egress" {
 # Create S3 bucket for Transfer Server (Optional if already exists)
 ###################################################################
 module "s3_bucket" {
-  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=fc09cc6fb779b262ce1bee5334e85808a107d8a3"
+  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
   bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
