@@ -71,7 +71,16 @@ fi
 #********** Terraform Docs *************
 echo 'Starting terraform-docs'
 TDOCS="$(terraform-docs --config ${PROJECT_PATH}/.config/.terraform-docs.yaml --lockfile=false ./ --recursive)"
-git add -N README.md
+
+# Process examples directories individually
+for example_dir in examples/*/; do
+  if [ -d "$example_dir" ] && [ -f "${example_dir}main.tf" ]; then
+    echo "Processing terraform-docs for $example_dir"
+    terraform-docs --config ${PROJECT_PATH}/.config/.terraform-docs.yaml --lockfile=false "$example_dir"
+  fi
+done
+
+git add -N README.md examples/*/README.md
 GDIFF="$(git diff --compact-summary)"
 if [ -z "$GDIFF" ]
 then

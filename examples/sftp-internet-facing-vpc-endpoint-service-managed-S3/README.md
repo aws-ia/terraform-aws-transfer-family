@@ -1,5 +1,5 @@
 <!-- BEGIN_TF_DOCS -->
-# AWS Transfer Family: SFTP Server with Internet Facing VPC Endpoint with Service Managed Users
+# AWS Transfer Family: SFTP Server with Internet Facing Internet Facing VPC Endpoint with Service Managed Users
 
 This example demonstrates an AWS Transfer Family SFTP server deployment with a VPC endpoint with service managed users, and S3 storage integration.
 
@@ -10,9 +10,13 @@ This example configures:
 - VPC SFTP endpoint with service-managed users
   - Internet-facing endpoint using Elastic IP addresses
   - (Note: Omitting `address_allocation_ids` would create an internal VPC endpoint)
+  - Internet-facing endpoint using Elastic IP addresses
+  - (Note: Omitting `address_allocation_ids` would create an internal VPC endpoint)
 - Secure S3 bucket with KMS encryption
 - User import through CSV configuration
 - CloudWatch logging with customizable retention
+- Configurable security groups with CIDR-based access control
+- Optional workflow integration for file processing
 - Configurable security groups with CIDR-based access control
 - Optional workflow integration for file processing
 
@@ -21,6 +25,8 @@ This example configures:
 ### Server Configuration
 
 - VPC SFTP endpoint deployment
+  - Internet-facing endpoint when `address_allocation_ids` are specified
+  - Internal endpoint when `address_allocation_ids` are not specified
   - Internet-facing endpoint when `address_allocation_ids` are specified
   - Internal endpoint when `address_allocation_ids` are not specified
 - Service-managed authentication system
@@ -40,6 +46,8 @@ This example configures:
 - Service-managed authentication
 - CloudWatch logging
 - IAM role-based access control
+- Configurable CIDR-based access control for ingress and egress traffic
+- KMS key rotation enabled for encryption keys
 - Configurable CIDR-based access control for ingress and egress traffic
 - KMS key rotation enabled for encryption keys
 
@@ -72,6 +80,7 @@ The user import is handled by the transfer-users module:
 ```
 Located in: modules/transfer-users
 Called by: examples/sftp-internet-facing-vpc-endpoint-service-managed-S3
+Called by: examples/sftp-internet-facing-vpc-endpoint-service-managed-S3
 ```
 
 Configuration in the example module:
@@ -81,9 +90,11 @@ module "sftp_users" {
     source = "../../modules/transfer-users"
     users = local.users
     create_test_user = true # Test user is for demo purposes
+    create_test_user = true # Test user is for demo purposes
     server_id = module.transfer_server.server_id
     s3_bucket_name = module.s3_bucket.s3_bucket_id
     s3_bucket_arn = module.s3_bucket.s3_bucket_arn
+    kms_key_id = aws_kms_key.transfer_family_key.arn
     kms_key_id = aws_kms_key.transfer_family_key.arn
 }
 ```
@@ -134,6 +145,33 @@ module "transfer_server" {
 - KMS encryption is enabled for Amazon S3
 - CloudWatch logging is enabled
 - IAM roles are created. For production - review and apply permissions as required
+- Configurable CIDR blocks for SFTP ingress and egress traffic
+- Latest security policy (TransferSecurityPolicy-2024-01) applied
+
+## VPC Endpoint Configuration
+
+This example demonstrates an internet-facing VPC endpoint configuration:
+
+```hcl
+module "transfer_server" {
+  # Other configurations go here
+
+  endpoint_type = "VPC"
+  endpoint_details = {
+    address_allocation_ids = aws_eip.sftp[*].allocation_id  # Makes the endpoint internet-facing
+    security_group_ids     = [aws_security_group.sftp.id]
+    subnet_ids             = local.public_subnets
+    vpc_id                 = local.vpc_id
+  }
+}
+```
+
+Key points about VPC endpoint types:
+
+- **Internet-facing endpoint**: Created when `address_allocation_ids` are specified (as shown in this example)
+- Internet-facing endpoints require Elastic IPs and public subnets
+- **Internal endpoint**: Created when `address_allocation_ids` are omitted
+- Internal endpoints are only accessible from within the VPC or connected networks
 - Configurable CIDR blocks for SFTP ingress and egress traffic
 - Latest security policy (TransferSecurityPolicy-2024-01) applied
 
