@@ -25,5 +25,15 @@ output "document_storage_bucket_arn" {
 
 output "user_details" {
   description = "Map of users with their details including secret names and ARNs"
-  value = module.sftp_users.user_details
+  value       = module.sftp_users.user_details
+}
+
+output "kms_key_arn" {
+  description = "The ARN of the KMS key used for encryption"
+  value       = aws_kms_key.transfer_family_key.arn
+}
+
+output "kms_key_alias" {
+  description = "The alias of the KMS key used for encryption"
+  value       = aws_kms_alias.transfer_family_key_alias.name
 }

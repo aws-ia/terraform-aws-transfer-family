@@ -87,7 +87,7 @@ module "s3_bucket" {
 ###################################################################
 module "document_storage_bucket" {
   source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
-  bucket                   = lower("${random_pet.name.id}-document-storage")
+  bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
   block_public_acls        = true
@@ -105,33 +105,7 @@ module "document_storage_bucket" {
   }
 
   versioning = {
-    enabled = true # Enable versioning for document storage
-  }
-
-  lifecycle_rule = [
-    {
-      id      = "archive-old-documents"
-      enabled = true
-
-      transition = [
-        {
-          days          = 90
-          storage_class = "STANDARD_IA"
-        },
-        {
-          days          = 180
-          storage_class = "GLACIER"
-        }
-      ]
-
-      expiration = {
-        days = 365 # Set document retention period as needed
-      }
-    }
-  ]
-
-  tags = {
-    Purpose = "Document Storage for SFTP Transfer"
+    enabled = false # Turn on versioning if needed
   }
 }
 
