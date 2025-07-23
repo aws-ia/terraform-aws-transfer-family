@@ -4,11 +4,6 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "sftp_server_url" {
-  description = "URL of the SFTP server to connect to (e.g., sftp://example.com:22)"
-  type        = string
-}
-
 variable "sftp_username" {
   description = "Username for SFTP authentication"
   type        = string

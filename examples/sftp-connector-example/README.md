@@ -1,6 +1,6 @@
 # AWS Transfer Family SFTP Connector Example with EventBridge Integration
 
-This example demonstrates how to use the AWS Transfer Family SFTP connector module to connect an S3 bucket to an external SFTP server, with automatic file transfer triggered by EventBridge when files are uploaded to S3.
+This example demonstrates how to use the AWS Transfer Family SFTP connector module to connect an S3 bucket to an external SFTP server, with automatic file transfer triggered directly by EventBridge when files are uploaded to S3.
 
 ## Architecture
 
@@ -12,14 +12,13 @@ This example creates:
 4. A Secrets Manager secret for SFTP credentials
 5. An SFTP connector that connects the S3 bucket to an external SFTP server
 6. An EventBridge rule that captures S3 object created events
-7. A Lambda function that initiates file transfers to the SFTP server when triggered by EventBridge
+7. An EventBridge target that directly initiates file transfers to the SFTP server using the Transfer Family API
 
 ## How It Works
 
 1. When a file is uploaded to the S3 bucket, an S3 event notification is sent to EventBridge
-2. EventBridge triggers the Lambda function based on the configured rule
-3. The Lambda function uses the AWS Transfer Family API to initiate a file transfer using the SFTP connector
-4. The file is automatically transferred from S3 to the external SFTP server
+2. EventBridge directly calls the AWS Transfer Family StartFileTransfer API using the configured IAM role
+3. The file is automatically transferred from S3 to the external SFTP server
 
 ## Usage
 
@@ -88,7 +87,7 @@ The file should be automatically transferred to the external SFTP server at the 
 | kms_key_arn | The ARN of the KMS key used for encryption |
 | sftp_credentials_secret_arn | The ARN of the Secrets Manager secret containing SFTP credentials |
 | eventbridge_rule_arn | The ARN of the EventBridge rule for S3 object created events |
-| lambda_function_arn | The ARN of the Lambda function that initiates SFTP transfers |
+| eventbridge_role_arn | The ARN of the IAM role used by EventBridge to initiate SFTP transfers |
 
 ## Notes
 
@@ -96,4 +95,4 @@ The file should be automatically transferred to the external SFTP server at the 
 - The SFTP server URL should be in the format `sftp://hostname:port`
 - You must provide either a password or a private key for SFTP authentication
 - The connector uses the AWS Transfer Family service to securely connect to the external SFTP server
-- The Lambda function has a timeout of 60 seconds, which should be sufficient for initiating transfers but may need adjustment for large files or slow connections
+- EventBridge directly calls the Transfer Family API to initiate file transfers without using Lambda
