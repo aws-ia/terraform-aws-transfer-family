@@ -48,7 +48,7 @@ output "eventbridge_rule_arn" {
   value       = aws_cloudwatch_event_rule.s3_object_created.arn
 }
 
-output "lambda_function_arn" {
-  description = "The ARN of the Lambda function that initiates SFTP transfers"
-  value       = aws_lambda_function.sftp_transfer.arn
+output "eventbridge_role_arn" {
+  description = "The ARN of the IAM role used by EventBridge to initiate SFTP transfers"
+  value       = aws_iam_role.eventbridge_transfer_role.arn
 }

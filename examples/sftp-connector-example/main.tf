@@ -37,6 +37,28 @@ module "transfer_server" {
 }
 
 ###################################################################
+# Create SFTP Connector
+###################################################################
+module "sftp_connector" {
+  source = "../../modules/transfer-connectors"
+
+  connector_name        = "sftp-connector-${random_pet.name.id}"
+  sftp_server_url       = "sftp://${module.transfer_server.server_endpoint}"
+  s3_bucket_arn         = module.s3_bucket.s3_bucket_arn
+  s3_bucket_name        = module.s3_bucket.s3_bucket_id
+  user_secret_id        = aws_secretsmanager_secret.sftp_credentials.arn
+  kms_key_arn           = aws_kms_key.transfer_family_key.arn
+  aws_region            = var.aws_region
+  trust_all_certificates = var.trust_all_certificates
+  security_policy_name  = "TransferSecurityPolicy-2024-01"
+
+  tags = {
+    Environment = "Demo"
+    Project     = "SFTP Connector"
+  }
+}
+
+###################################################################
 # Create S3 bucket for Transfer Server
 ###################################################################
 module "s3_bucket" {
@@ -60,11 +82,6 @@ module "s3_bucket" {
 
   versioning = {
     enabled = false
-  }
-
-  # Enable S3 event notifications
-  notification_configuration = {
-    eventbridge = true
   }
 }
 
@@ -154,25 +171,65 @@ resource "aws_secretsmanager_secret_version" "sftp_credentials" {
 }
 
 ###################################################################
-# Create SFTP Connector
+# IAM Role for EventBridge to call Transfer Family API
 ###################################################################
-module "sftp_connector" {
-  source = "../../modules/transfer-connectors"
+resource "aws_iam_role" "eventbridge_transfer_role" {
+  name = "eventbridge-transfer-role-${random_pet.name.id}"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          Service = "events.amazonaws.com"
+        },
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
 
-  connector_name        = "sftp-connector-${random_pet.name.id}"
-  sftp_server_url       = var.sftp_server_url
-  s3_bucket_arn         = module.s3_bucket.s3_bucket_arn
-  s3_bucket_name        = module.s3_bucket.s3_bucket_id
-  user_secret_id        = aws_secretsmanager_secret.sftp_credentials.arn
-  kms_key_arn           = aws_kms_key.transfer_family_key.arn
-  aws_region            = var.aws_region
-  trust_all_certificates = var.trust_all_certificates
-  security_policy_name  = "TransferSecurityPolicy-2024-01"
+resource "aws_iam_policy" "eventbridge_transfer_policy" {
+  name        = "eventbridge-transfer-policy-${random_pet.name.id}"
+  description = "Policy for EventBridge to initiate SFTP transfers"
+  
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "transfer:StartFileTransfer",
+          "transfer:DescribeConnector"
+        ],
+        Resource = module.sftp_connector.connector_arn
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:GetObject",
+          "s3:ListBucket"
+        ],
+        Resource = [
+          module.s3_bucket.s3_bucket_arn,
+          "${module.s3_bucket.s3_bucket_arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "kms:Decrypt"
+        ],
+        Resource = aws_kms_key.transfer_family_key.arn
+      }
+    ]
+  })
+}
 
-  tags = {
-    Environment = "Demo"
-    Project     = "SFTP Connector"
-  }
+resource "aws_iam_role_policy_attachment" "eventbridge_transfer_policy_attachment" {
+  role       = aws_iam_role.eventbridge_transfer_role.name
+  policy_arn = aws_iam_policy.eventbridge_transfer_policy.arn
 }
 
 ###################################################################
@@ -194,150 +251,26 @@ resource "aws_cloudwatch_event_rule" "s3_object_created" {
 }
 
 ###################################################################
-# Lambda Function to Process S3 Events and Initiate SFTP Transfer
+# EventBridge Target to directly call Transfer Family API
 ###################################################################
-data "aws_iam_policy_document" "lambda_assume_role" {
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-resource "aws_iam_role" "lambda_role" {
-  name               = "lambda-sftp-transfer-role-${random_pet.name.id}"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
-}
-
-resource "aws_iam_policy" "lambda_policy" {
-  name        = "lambda-sftp-transfer-policy-${random_pet.name.id}"
-  description = "Policy for Lambda to initiate SFTP transfers"
-  
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ],
-        Resource = "arn:aws:logs:*:*:*"
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
-        ],
-        Resource = [
-          module.s3_bucket.s3_bucket_arn,
-          "${module.s3_bucket.s3_bucket_arn}/*"
-        ]
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "transfer:StartFileTransfer",
-          "transfer:DescribeConnector"
-        ],
-        Resource = module.sftp_connector.connector_arn
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "kms:Decrypt"
-        ],
-        Resource = aws_kms_key.transfer_family_key.arn
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.lambda_policy.arn
-}
-
-resource "aws_lambda_function" "sftp_transfer" {
-  function_name    = "sftp-transfer-${random_pet.name.id}"
-  role             = aws_iam_role.lambda_role.arn
-  handler          = "index.handler"
-  runtime          = "nodejs18.x"
-  timeout          = 60
-  memory_size      = 256
-  
-  filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-
-  environment {
-    variables = {
-      CONNECTOR_ID = module.sftp_connector.connector_id,
-      REMOTE_PATH  = var.sftp_remote_path
-    }
-  }
-}
-
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  output_path = "${path.module}/lambda_function.zip"
-  
-  source {
-    content  = <<EOF
-const AWS = require('aws-sdk');
-const transfer = new AWS.Transfer();
-
-exports.handler = async (event) => {
-  console.log('Received event:', JSON.stringify(event, null, 2));
-  
-  // Process each record in the event
-  for (const record of event.detail) {
-    try {
-      const bucket = record.bucket.name;
-      const key = record.object.key;
-      
-      console.log(`Processing file: s3://${bucket}/${key}`);
-      
-      // Start file transfer using the connector
-      const params = {
-        ConnectorId: process.env.CONNECTOR_ID,
-        LocalFilePath: key,
-        RemotePath: process.env.REMOTE_PATH ? `${process.env.REMOTE_PATH}/${key.split('/').pop()}` : key
-      };
-      
-      console.log('Starting file transfer with params:', JSON.stringify(params));
-      const result = await transfer.startFileTransfer(params).promise();
-      console.log('File transfer initiated:', JSON.stringify(result));
-    } catch (error) {
-      console.error('Error processing file:', error);
-      throw error;
-    }
-  }
-  
-  return {
-    statusCode: 200,
-    body: JSON.stringify('File transfer initiated successfully')
-  };
-};
-EOF
-    filename = "index.js"
-  }
-}
-
-resource "aws_cloudwatch_event_target" "lambda_target" {
+resource "aws_cloudwatch_event_target" "transfer_api_target" {
   rule      = aws_cloudwatch_event_rule.s3_object_created.name
-  target_id = "SendToLambda"
-  arn       = aws_lambda_function.sftp_transfer.arn
+  target_id = "TransferFileToSFTP"
+  arn       = "arn:aws:transfer:${var.aws_region}:${data.aws_caller_identity.current.account_id}:connector/${module.sftp_connector.connector_id}"
+  role_arn  = aws_iam_role.eventbridge_transfer_role.arn
+  
+  input_transformer {
+    input_paths = {
+      bucket = "$.detail.bucket.name",
+      key    = "$.detail.object.key"
+    }
+    
+    input_template = <<EOF
+{
+  "ConnectorId": "${module.sftp_connector.connector_id}",
+  "LocalFilePath": <key>,
+  "RemotePath": "${var.sftp_remote_path}/<key>"
 }
-
-resource "aws_lambda_permission" "allow_eventbridge" {
-  statement_id  = "AllowExecutionFromEventBridge"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.sftp_transfer.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.s3_object_created.arn
+EOF
+  }
 }
