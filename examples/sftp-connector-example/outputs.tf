@@ -38,11 +38,6 @@ output "kms_key_arn" {
   value       = aws_kms_key.transfer_family_key.arn
 }
 
-output "sftp_credentials_secret_arn" {
-  description = "The ARN of the Secrets Manager secret containing SFTP credentials"
-  value       = local.secret_arn
-}
-
 output "eventbridge_rule_arn" {
   description = "The ARN of the EventBridge rule for S3 object created events"
   value       = aws_cloudwatch_event_rule.s3_object_created.arn
