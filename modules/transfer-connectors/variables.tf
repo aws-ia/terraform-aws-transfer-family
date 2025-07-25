@@ -48,9 +48,9 @@ variable "trust_all_certificates" {
 }
 
 variable "security_policy_name" {
-  description = "The name of the security policy to use for the connector"
+  description = "The name of the security policy to use for the connector (must be in the format TransferSFTPConnectorSecurityPolicy-*)"
   type        = string
-  default     = "TransferSecurityPolicy-2024-01"
+  default     = "TransferSFTPConnectorSecurityPolicy-2024-03"
 }
 
 variable "logging_role" {
@@ -73,11 +73,6 @@ variable "tags" {
   description = "A map of tags to assign to resources"
   type        = map(string)
   default     = {}
-}
-
-variable "connector_name" {
-  description = "Name of the Transfer Family connector"
-  type        = string
 }
 
 variable "as2_local_profile_id" {
@@ -103,15 +98,16 @@ variable "as2_signing_algorithm" {
   type        = string
   default     = ""
 }
+variable "trusted_host_keys" {
+  description = "List of trusted host keys for the SFTP server"
+  type        = list(string)
+  default     = []
+}
+
 variable "as2_compression" {
   description = "AS2 compression setting for the connector (required for AS2 config)"
   type        = bool
   default     = false
-}
-
-variable "sftp_server_url" {
-  description = "URL of the SFTP server"
-  type        = string
 }
 
 variable "as2_encryption_algorithm" {

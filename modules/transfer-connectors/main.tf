@@ -23,6 +23,7 @@ resource "aws_transfer_connector" "sftp_connector" {
   # SFTP config is required for SFTP connectors
   sftp_config {
     user_secret_id         = var.user_secret_id
+    trusted_host_keys      = var.trusted_host_keys
   }
 
   logging_role = local.logging_role
