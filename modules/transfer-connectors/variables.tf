@@ -60,13 +60,9 @@ variable "logging_role" {
 }
 
 variable "kms_key_arn" {
-  description = "ARN of the KMS key used for encryption"
+  description = "ARN of the KMS key used for encryption (optional)"
   type        = string
-}
-
-variable "aws_region" {
-  description = "AWS region where resources will be created"
-  type        = string
+  default     = null
 }
 
 variable "tags" {

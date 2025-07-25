@@ -4,12 +4,6 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "sftp_server_url" {
-  description = "URL of the SFTP server to connect to (e.g., sftp://example.com:22)"
-  type        = string
-  # Can be set using environment variable TF_VAR_sftp_server_url
-}
-
 variable "existing_secret_arn" {
   description = "ARN of an existing Secrets Manager secret containing SFTP credentials (must contain username and either password or privateKey). If not provided, a new secret will be created."
   type        = string

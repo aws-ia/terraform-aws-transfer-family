@@ -90,8 +90,8 @@ resource "aws_secretsmanager_secret" "sftp_private_key" {
   #checkov:skip=CKV2_AWS_57: "Rotation not required for SFTP user keys
   count = var.create_test_user ? 1 : 0
 
-  name        = "sftp-user-private-key-${local.test_user.username}-${random_pet.name.id}"
-  description = "Private key for the SFTP test user"
+  name        = "sftp-user-credentials-${local.test_user.username}-${random_pet.name.id}"
+  description = "SFTP credentials for the test user"
   kms_key_id  = var.kms_key_id
 }
 
@@ -99,7 +99,10 @@ resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {
   count = var.create_test_user ? 1 : 0
 
   secret_id     = aws_secretsmanager_secret.sftp_private_key[0].id
-  secret_string = tls_private_key.test_user_key[0].private_key_pem
+  secret_string = jsonencode({
+    username   = local.test_user.username
+    privateKey = tls_private_key.test_user_key[0].private_key_pem
+  })
 }
 
 ######################################
