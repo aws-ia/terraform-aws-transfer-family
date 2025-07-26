@@ -89,11 +89,18 @@ resource "aws_iam_policy" "connector_policy" {
       {
         Effect = "Allow"
         Action = [
-          "secretsmanager:GetSecretValue"
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
         ]
         Resource = var.user_secret_id
-      }
-    ], var.kms_key_arn != null ? [{
+      },
+    ], var.secrets_manager_kms_key_arn != null ? [{
+      Effect = "Allow"
+      Action = [
+        "kms:Decrypt"
+      ]
+      Resource = var.secrets_manager_kms_key_arn
+    }] : [], var.kms_key_arn != null ? [{
       Effect = "Allow"
       Action = [
         "kms:Decrypt",

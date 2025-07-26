@@ -100,8 +100,8 @@ resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {
 
   secret_id     = aws_secretsmanager_secret.sftp_private_key[0].id
   secret_string = jsonencode({
-    username   = local.test_user.username
-    privateKey = tls_private_key.test_user_key[0].private_key_pem
+    Username   = local.test_user.username
+    PrivateKey = tls_private_key.test_user_key[0].private_key_pem
   })
 }
 
