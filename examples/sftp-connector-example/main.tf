@@ -49,6 +49,15 @@ module "sftp_users" {
 }
 
 ###################################################################
+# Get host key dynamically
+###################################################################
+data "external" "host_key" {
+  program = ["bash", "-c", "ssh-keyscan -t rsa -p 22 ${module.transfer_server.server_endpoint} 2>/dev/null | awk '{print $2 \" \" $3}' | tail -1 | jq -R -s '{host_key: .}'"]
+  
+  depends_on = [module.transfer_server]
+}
+
+###################################################################
 # Create SFTP Connector
 ###################################################################
 module "sftp_connector" {
@@ -59,9 +68,10 @@ module "sftp_connector" {
   s3_bucket_arn         = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name        = module.test_s3_bucket.s3_bucket_id
   user_secret_id        = module.sftp_users.test_user_secret.private_key_secret.arn
+  secrets_manager_kms_key_arn = aws_kms_key.transfer_family_key.arn
   trust_all_certificates = var.trust_all_certificates
   security_policy_name  = "TransferSFTPConnectorSecurityPolicy-2024-03"
-  trusted_host_keys     = var.trusted_host_keys
+  trusted_host_keys = [trimspace(data.external.host_key.result.host_key)]
 
   tags = {
     Environment = "Demo"

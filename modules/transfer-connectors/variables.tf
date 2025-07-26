@@ -65,6 +65,12 @@ variable "kms_key_arn" {
   default     = null
 }
 
+variable "secrets_manager_kms_key_arn" {
+  description = "ARN of the KMS key used to encrypt the secrets manager secret containing SFTP credentials"
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "A map of tags to assign to resources"
   type        = map(string)

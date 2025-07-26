@@ -57,3 +57,13 @@ output "lambda_function_arn" {
   description = "The ARN of the Lambda function that initiates SFTP transfers"
   value       = aws_lambda_function.sftp_transfer.arn
 }
+
+output "host_key_value" {
+  description = "The host key value being used"
+  value       = trimspace(data.external.host_key.result.host_key)
+}
+
+output "host_key_raw" {
+  description = "Raw host key output for debugging"
+  value       = data.external.host_key.result.host_key
+}
