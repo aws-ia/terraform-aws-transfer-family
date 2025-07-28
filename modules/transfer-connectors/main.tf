@@ -273,6 +273,10 @@ resource "terraform_data" "test_connection" {
       
       echo "Discovering host keys for URL: ${var.sftp_server_url}"
       
+      # Wait for the Transfer server to be fully ready
+      echo "Waiting 30 seconds for Transfer server to be fully operational..."
+      sleep 30
+      
       # Extract hostname and port from URL
       URL="${var.sftp_server_url}"
       # Remove sftp:// prefix
@@ -290,22 +294,50 @@ resource "terraform_data" "test_connection" {
       
       echo "Using hostname: $${HOSTNAME}, port: $${PORT}"
       
-      # Use ssh-keyscan to discover host keys
-      echo "Running ssh-keyscan..."
-      HOST_KEY=$(ssh-keyscan -p $${PORT} $${HOSTNAME} 2>/dev/null | grep ssh-rsa)
+      # Use ssh-keyscan to discover host keys with retry logic
+      echo "Running ssh-keyscan with retry logic..."
+      
+      HOST_KEY=""
+      
+      # Try 5 times with 10 second intervals
+      for attempt in 1 2 3 4 5; do
+        echo "Attempt $${attempt}/5: Scanning for host keys..."
+        
+        # Try to get any SSH host key (rsa, ed25519, ecdsa) - exclude comment lines
+        HOST_KEY=$(ssh-keyscan -p $${PORT} $${HOSTNAME} 2>/dev/null | grep -v '^#' | head -n 1)
+        
+        if [ -z "$${HOST_KEY}" ]; then
+          echo "No host key found on attempt $${attempt}, waiting 10 seconds..."
+          if [ $${attempt} -lt 5 ]; then
+            sleep 10
+          fi
+        else
+          echo "Host key discovered on attempt $${attempt}"
+          break
+        fi
+      done
       
       if [ ! -z "$${HOST_KEY}" ]; then
         echo "Discovered host key: $${HOST_KEY}"
         echo "$${HOST_KEY}" > /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
       else
-        echo "Failed to discover host key"
+        echo "Failed to discover host key after 5 attempts"
+        echo "This might be due to:"
+        echo "1. Network connectivity issues"
+        echo "2. SFTP server not ready yet"
+        echo "3. Firewall blocking SSH connections"
+        echo ""
+        echo "You can manually provide host keys using the trusted_host_keys variable"
         touch /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
         exit 1
       fi
     EOT
   }
 
-  depends_on = [aws_transfer_connector.sftp_connector_auto_discovery]
+  depends_on = [
+    aws_transfer_connector.sftp_connector_auto_discovery,
+    var.transfer_server_id  # Ensure the transfer server is ready
+  ]
 }
 
 # Update connector with discovered host keys

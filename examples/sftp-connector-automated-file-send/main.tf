@@ -78,6 +78,7 @@ module "sftp_connector_auto_discovery" {
   # Auto-discover host keys (default behavior)
   auto_discover_host_keys = true
   trusted_host_keys       = []
+  transfer_server_id      = module.transfer_server.server_id
 
   # Optional configurations
   max_concurrent_connections = var.max_concurrent_connections

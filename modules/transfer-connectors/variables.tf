@@ -2,6 +2,12 @@
 # Variables for AWS Transfer Family SFTP Connector Module
 #####################################################################################
 
+variable "transfer_server_id" {
+  description = "ID of the AWS Transfer Family server (used for dependency management)"
+  type        = string
+  default     = null
+}
+
 variable "connector_name" {
   description = "Name of the AWS Transfer Family connector"
   type        = string
