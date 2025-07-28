@@ -205,6 +205,17 @@ resource "aws_s3_bucket_notification" "file_send_source_notification" {
   eventbridge = true
 }
 
+# Create the outbound/ folder automatically in the source bucket
+resource "aws_s3_object" "outbound_folder" {
+  bucket       = module.file_send_source_bucket.s3_bucket_id
+  key          = "${trimsuffix(var.s3_monitoring_prefix, "/")}/"
+  content_type = "application/x-directory"
+  
+  tags = {
+    Purpose = "Outbound folder for automated SFTP file transfers"
+  }
+}
+
 ###################################################################
 # Automated File Send Workflow - EventBridge Integration
 ###################################################################
