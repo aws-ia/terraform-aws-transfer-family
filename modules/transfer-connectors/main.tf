@@ -271,36 +271,34 @@ resource "terraform_data" "test_connection" {
     command = <<-EOT
       set -e
       
-      echo "Testing connection for connector: ${aws_transfer_connector.sftp_connector_auto_discovery[0].id}"
+      echo "Discovering host keys for URL: ${var.sftp_server_url}"
       
-      # Test connection and capture output
-      aws transfer test-connection \
-        --connector-id ${aws_transfer_connector.sftp_connector_auto_discovery[0].id} \
-        --region ${data.aws_region.current.id} \
-        --output json > /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json
-      
-      # Check if the test was successful
-      STATUS=$(cat /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json | jq -r '.Status // empty')
-      STATUS_MSG=$(cat /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json | jq -r '.StatusMessage // empty')
-      
-      echo "Connection test status: $STATUS"
-      echo "Status message: $STATUS_MSG"
-      
-      if [ "$STATUS" = "OK" ]; then
-        # Extract the discovered host key from SftpConnectionDetails.HostKey
-        HOST_KEY=$(cat /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json | jq -r '.SftpConnectionDetails.HostKey // empty')
-        
-        if [ ! -z "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
-          echo "Discovered host key: $HOST_KEY"
-          # Store the discovered key for the update step
-          echo "$HOST_KEY" > /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
-        else
-          echo "No host key found in successful response"
-          touch /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
-        fi
+      # Extract hostname and port from URL
+      URL="${var.sftp_server_url}"
+      # Remove sftp:// prefix
+      URL_WITHOUT_PROTOCOL=$${URL#sftp://}
+      # Extract hostname (everything before the first colon, if any)
+      HOSTNAME=$${URL_WITHOUT_PROTOCOL%%:*}
+      # Extract port (everything after the first colon, if any)
+      if [[ "$${URL_WITHOUT_PROTOCOL}" == *":"* ]]; then
+        PORT=$${URL_WITHOUT_PROTOCOL#*:}
+        # Remove any path after the port
+        PORT=$${PORT%%/*}
       else
-        echo "Connection test failed: $STATUS_MSG"
-        # Create empty file to indicate failure
+        PORT=22
+      fi
+      
+      echo "Using hostname: $${HOSTNAME}, port: $${PORT}"
+      
+      # Use ssh-keyscan to discover host keys
+      echo "Running ssh-keyscan..."
+      HOST_KEY=$(ssh-keyscan -p $${PORT} $${HOSTNAME} 2>/dev/null | grep ssh-rsa)
+      
+      if [ ! -z "$${HOST_KEY}" ]; then
+        echo "Discovered host key: $${HOST_KEY}"
+        echo "$${HOST_KEY}" > /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
+      else
+        echo "Failed to discover host key"
         touch /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
         exit 1
       fi
