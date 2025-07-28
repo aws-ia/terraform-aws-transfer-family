@@ -442,21 +442,17 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
         Sid    = "Allow CloudWatch Logs"
         Effect = "Allow"
         Principal = {
-          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          Service = "logs.amazonaws.com"
         }
         Action = [
           "kms:Encrypt",
           "kms:Decrypt",
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
-          "kms:Describe*"
+          "kms:Describe*",
+          "kms:CreateGrant"
         ]
         Resource = aws_kms_key.transfer_family_key.arn
-        Condition = {
-          ArnEquals = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/transfer/*"
-          }
-        }
       },
       {
         Sid    = "Allow Secrets Manager"
