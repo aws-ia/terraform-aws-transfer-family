@@ -442,7 +442,7 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
         Sid    = "Allow CloudWatch Logs"
         Effect = "Allow"
         Principal = {
-          Service = "logs.amazonaws.com"
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
         }
         Action = [
           "kms:Encrypt",
@@ -452,6 +452,11 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
           "kms:Describe*"
         ]
         Resource = aws_kms_key.transfer_family_key.arn
+        Condition = {
+          ArnEquals = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/transfer/*"
+          }
+        }
       },
       {
         Sid    = "Allow Secrets Manager"
@@ -487,7 +492,10 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
         Sid    = "Allow Transfer Family Connector Roles"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/sftp-connector-aws-ia-ladybird-auto-s3-access-role"
+          AWS = compact([
+            module.sftp_connector_auto_discovery.s3_access_role_arn,
+            length(module.sftp_connector_manual_keys) > 0 ? module.sftp_connector_manual_keys[0].s3_access_role_arn : null
+          ])
         }
         Action = [
           "kms:Encrypt",
@@ -511,6 +519,8 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
 # Data Sources
 ###################################################################
 data "aws_region" "current" {}
+
+data "aws_caller_identity" "current" {}
 # S3 bucket for CloudTrail logs
 module "cloudtrail_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
