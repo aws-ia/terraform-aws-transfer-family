@@ -275,15 +275,20 @@ resource "terraform_data" "test_connection" {
         --region ${data.aws_region.current.id} \
         --output json > /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json
       
-      # Extract trusted host keys from the response
-      TRUSTED_HOST_KEYS=$(cat /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json | jq -r '.StatusMessage // empty' | grep -o 'ssh-[^ ]*' || echo "")
+      # Extract trusted host keys from the SftpConnectionDetails.HostKey field
+      TRUSTED_HOST_KEYS=$(cat /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json | jq -r '.SftpConnectionDetails.HostKey // empty')
       
-      if [ ! -z "$TRUSTED_HOST_KEYS" ]; then
+      if [ ! -z "$TRUSTED_HOST_KEYS" ] && [ "$TRUSTED_HOST_KEYS" != "null" ]; then
         echo "Discovered host keys: $TRUSTED_HOST_KEYS"
         # Store the discovered keys for the update step
         echo "$TRUSTED_HOST_KEYS" > /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
       else
         echo "No host keys discovered or connection failed"
+        # Check if there was an error in the response
+        ERROR_MSG=$(cat /tmp/test-connection-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.json | jq -r '.StatusMessage // empty')
+        if [ ! -z "$ERROR_MSG" ]; then
+          echo "Connection test error: $ERROR_MSG"
+        fi
         touch /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt
       fi
     EOT
@@ -306,14 +311,14 @@ resource "terraform_data" "update_connector_with_host_keys" {
       if [ -f "/tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt" ]; then
         DISCOVERED_KEYS=$(cat /tmp/discovered-keys-${aws_transfer_connector.sftp_connector_auto_discovery[0].id}.txt)
         
-        if [ ! -z "$DISCOVERED_KEYS" ]; then
+        if [ ! -z "$DISCOVERED_KEYS" ] && [ "$DISCOVERED_KEYS" != "null" ]; then
           echo "Updating connector with discovered host keys: $DISCOVERED_KEYS"
           
           # Update the connector with discovered host keys
           aws transfer update-connector \
             --connector-id ${aws_transfer_connector.sftp_connector_auto_discovery[0].id} \
             --region ${data.aws_region.current.id} \
-            --sftp-config UserSecretId=${aws_secretsmanager_secret.sftp_credentials.arn},TrustedHostKeys="$DISCOVERED_KEYS"
+            --sftp-config "UserSecretId=${aws_secretsmanager_secret.sftp_credentials.arn},TrustedHostKeys=$DISCOVERED_KEYS"
         else
           echo "No host keys to update"
         fi

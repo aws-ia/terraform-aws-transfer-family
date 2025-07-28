@@ -426,6 +426,7 @@ resource "aws_kms_alias" "transfer_family_key_alias" {
 
 resource "aws_kms_key_policy" "transfer_family_key_policy" {
   key_id = aws_kms_key.transfer_family_key.id
+  
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -483,29 +484,6 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
           "kms:Describe*"
         ]
         Resource = aws_kms_key.transfer_family_key.arn
-      },
-      {
-        Sid    = "Allow Transfer Family Connector Roles"
-        Effect = "Allow"
-        Principal = {
-          AWS = compact([
-            module.sftp_connector_auto_discovery.s3_access_role_arn,
-            length(module.sftp_connector_manual_keys) > 0 ? module.sftp_connector_manual_keys[0].s3_access_role_arn : null
-          ])
-        }
-        Action = [
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:Describe*"
-        ]
-        Resource = aws_kms_key.transfer_family_key.arn
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
-          }
-        }
       }
     ]
   })
