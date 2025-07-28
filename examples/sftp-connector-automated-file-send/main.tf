@@ -519,8 +519,6 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
 # Data Sources
 ###################################################################
 data "aws_region" "current" {}
-
-data "aws_caller_identity" "current" {}
 # S3 bucket for CloudTrail logs
 module "cloudtrail_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
