@@ -3,14 +3,25 @@
 # This module creates an AWS Transfer Family SFTP connector to connect an S3 bucket to an SFTP server
 #####################################################################################
 
+######################################
+# Defaults and Locals
+######################################
+
+locals {
+  should_scan = length(var.trusted_host_keys) == 0
+  effective_host_keys = local.should_scan && length(data.external.ssh_host_keys) > 0 ? (
+    try([data.external.ssh_host_keys[0].result.host_key], var.trusted_host_keys)
+  ) : var.trusted_host_keys
+}
+
 #####################################################################################
 # SSH Host Key Scanning
 #####################################################################################
 
 # Data source to scan SSH host keys from the remote SFTP server using discover_host_keys.sh
-# Runs when either enable_ssh_key_scanning is true OR trusted_host_keys is empty
+# Runs when trusted_host_keys is empty
 data "external" "ssh_host_keys" {
-  count = var.enable_ssh_key_scanning || length(var.trusted_host_keys) == 0 ? 1 : 0
+  count = local.should_scan
   
   program = ["${path.module}/scripts/discover_host_keys.sh"]
   
@@ -22,20 +33,13 @@ data "external" "ssh_host_keys" {
 
 # Generate a random ID for the connector to avoid conflicts
 resource "random_id" "connector_id" {
-  count       = var.enable_ssh_key_scanning || length(var.trusted_host_keys) == 0 ? 1 : 0
+  count       = local.should_scan
   byte_length = 8
 }
 
-
-# Local value to determine which host keys to use
-locals {
-  # Use scanned keys if scanning was performed and successful, otherwise use provided trusted_host_keys
-  should_scan = var.enable_ssh_key_scanning || length(var.trusted_host_keys) == 0
-  effective_host_keys = local.should_scan && length(data.external.ssh_host_keys) > 0 ? (
-    # The script returns host_key as a string, so we wrap it in an array
-    try([data.external.ssh_host_keys[0].result.host_key], var.trusted_host_keys)
-  ) : var.trusted_host_keys
-}
+#####################################################################################
+# SFTP Connector
+#####################################################################################
 
 resource "aws_transfer_connector" "sftp_connector" {
   access_role = aws_iam_role.connector_role.arn
@@ -94,6 +98,7 @@ resource "aws_iam_role" "connector_role" {
   tags = var.tags
 }
 
+# This policy is based off the example from the official AWS documentation https://docs.aws.amazon.com/transfer/latest/userguide/create-sftp-connector-procedure.html
 resource "aws_iam_policy" "connector_policy" {
   name        = "transfer-connector-policy-${var.connector_name}"
   description = "Policy for AWS Transfer Family SFTP connector"
@@ -102,6 +107,7 @@ resource "aws_iam_policy" "connector_policy" {
     Version = "2012-10-17"
     Statement = concat([
       {
+        Sid = "AllowListingOfUserFolder",
         Effect = "Allow"
         Action = [
           "s3:ListBucket",
@@ -110,21 +116,24 @@ resource "aws_iam_policy" "connector_policy" {
         Resource = var.s3_bucket_arn
       },
       {
+        Sid = "HomeDirObjectAccess",
         Effect = "Allow"
         Action = [
           "s3:PutObject",
           "s3:GetObject",
           "s3:DeleteObject",
+          "s3:DeleteObjectVersion",
           "s3:GetObjectVersion",
-          "s3:DeleteObjectVersion"
+          "s3:GetObjectACL",
+          "s3:PutObjectACL"
         ]
         Resource = "${var.s3_bucket_arn}/*"
       },
       {
+        Sid = "GetConnectorSecretValue",
         Effect = "Allow"
         Action = [
-          "secretsmanager:GetSecretValue",
-          "secretsmanager:DescribeSecret"
+          "secretsmanager:GetSecretValue"
         ]
         Resource = var.user_secret_id
       },

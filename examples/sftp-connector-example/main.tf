@@ -55,17 +55,15 @@ module "sftp_connector" {
   source = "../../modules/transfer-connectors"
 
   connector_name              = "sftp-connector-${random_pet.name.id}"
-  sftp_server_url            = "sftp://${module.transfer_server.server_endpoint}"
-  s3_bucket_arn              = module.test_s3_bucket.s3_bucket_arn
-  s3_bucket_name             = module.test_s3_bucket.s3_bucket_id
-  user_secret_id             = module.sftp_users.test_user_secret.private_key_secret.arn
+  sftp_server_url             = "sftp://${module.transfer_server.server_endpoint}"
+  s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
+  s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
+  user_secret_id              = module.sftp_users.test_user_secret.private_key_secret.arn
   secrets_manager_kms_key_arn = aws_kms_key.transfer_family_key.arn
-  trust_all_certificates     = var.trust_all_certificates
-  security_policy_name       = "TransferSFTPConnectorSecurityPolicy-2024-03"
+  trust_all_certificates      = var.trust_all_certificates
+  security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
-  # Enable SSH key scanning - this will automatically scan and retrieve host keys
-  enable_ssh_key_scanning = true
-  # trusted_host_keys will be used as fallback if scanning fails
+  # This will automatically scan and retrieve host keys if none are provided
   trusted_host_keys = []
 
   tags = {
