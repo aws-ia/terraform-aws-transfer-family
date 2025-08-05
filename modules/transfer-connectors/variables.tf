@@ -100,8 +100,14 @@ variable "as2_signing_algorithm" {
   type        = string
   default     = ""
 }
+variable "enable_ssh_key_scanning" {
+  description = "Whether to automatically scan and retrieve SSH host keys from the remote SFTP server. Auto-discovery also runs automatically when trusted_host_keys is empty."
+  type        = bool
+  default     = false
+}
+
 variable "trusted_host_keys" {
-  description = "List of trusted host keys for the SFTP server"
+  description = "List of trusted host keys for the SFTP server. If empty, SSH key auto-discovery will run automatically."
   type        = list(string)
   default     = []
 }

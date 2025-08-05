@@ -59,11 +59,25 @@ output "lambda_function_arn" {
 }
 
 output "host_key_value" {
-  description = "The host key value being used"
-  value       = trimspace(data.external.host_key.result.host_key)
+  description = "The host key value being used by the connector"
+  value       = length(module.sftp_connector.effective_host_keys) > 0 ? trimspace(module.sftp_connector.effective_host_keys[0]) : ""
 }
 
 output "host_key_raw" {
-  description = "Raw host key output for debugging"
-  value       = data.external.host_key.result.host_key
+  description = "All effective host keys for debugging"
+  value       = module.sftp_connector.effective_host_keys
+}
+output "connector_scanned_host_keys" {
+  description = "The SSH host keys scanned from the remote SFTP server"
+  value       = module.sftp_connector.scanned_host_keys
+}
+
+output "connector_effective_host_keys" {
+  description = "The actual host keys being used by the connector"
+  value       = module.sftp_connector.effective_host_keys
+}
+
+output "connector_ssh_scanning_enabled" {
+  description = "Whether SSH host key scanning was performed"
+  value       = module.sftp_connector.ssh_scanning_enabled
 }

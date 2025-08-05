@@ -3,6 +3,40 @@
 # This module creates an AWS Transfer Family SFTP connector to connect an S3 bucket to an SFTP server
 #####################################################################################
 
+#####################################################################################
+# SSH Host Key Scanning
+#####################################################################################
+
+# Data source to scan SSH host keys from the remote SFTP server using discover_host_keys.sh
+# Runs when either enable_ssh_key_scanning is true OR trusted_host_keys is empty
+data "external" "ssh_host_keys" {
+  count = var.enable_ssh_key_scanning || length(var.trusted_host_keys) == 0 ? 1 : 0
+  
+  program = ["${path.module}/scripts/discover_host_keys.sh"]
+  
+  query = {
+    sftp_server_url = var.sftp_server_url
+    connector_id    = "terraform-${random_id.connector_id[count.index].hex}"
+  }
+}
+
+# Generate a random ID for the connector to avoid conflicts
+resource "random_id" "connector_id" {
+  count       = var.enable_ssh_key_scanning || length(var.trusted_host_keys) == 0 ? 1 : 0
+  byte_length = 8
+}
+
+
+# Local value to determine which host keys to use
+locals {
+  # Use scanned keys if scanning was performed and successful, otherwise use provided trusted_host_keys
+  should_scan = var.enable_ssh_key_scanning || length(var.trusted_host_keys) == 0
+  effective_host_keys = local.should_scan && length(data.external.ssh_host_keys) > 0 ? (
+    # The script returns host_key as a string, so we wrap it in an array
+    try([data.external.ssh_host_keys[0].result.host_key], var.trusted_host_keys)
+  ) : var.trusted_host_keys
+}
+
 resource "aws_transfer_connector" "sftp_connector" {
   access_role = aws_iam_role.connector_role.arn
   url         = var.sftp_server_url
@@ -23,7 +57,7 @@ resource "aws_transfer_connector" "sftp_connector" {
   # SFTP config is required for SFTP connectors
   sftp_config {
     user_secret_id         = var.user_secret_id
-    trusted_host_keys      = var.trusted_host_keys
+    trusted_host_keys      = local.effective_host_keys
   }
 
   logging_role = local.logging_role
