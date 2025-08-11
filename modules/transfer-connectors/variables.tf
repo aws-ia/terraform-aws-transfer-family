@@ -8,7 +8,7 @@ variable "connector_name" {
   default     = "sftp-connector"
 }
 
-variable "sftp_server_url" {
+variable "url" {
   description = "URL of the SFTP server to connect to (e.g., sftp://example.com:22)"
   type        = string
 }

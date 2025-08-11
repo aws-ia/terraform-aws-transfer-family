@@ -55,7 +55,7 @@ module "sftp_connector" {
   source = "../../modules/transfer-connectors"
 
   connector_name              = "sftp-connector-${random_pet.name.id}"
-  sftp_server_url             = "sftp://${module.transfer_server.server_endpoint}"
+  url                         = "sftp://${module.transfer_server.server_endpoint}"
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
   user_secret_id              = module.sftp_users.test_user_secret.private_key_secret.arn

@@ -28,8 +28,8 @@ output "connector_logging_role_arn" {
 }
 
 output "scanned_host_keys" {
-  description = "The SSH host keys scanned from the remote SFTP server (if scanning was performed)"
-  value       = local.should_scan && length(data.external.ssh_host_keys) > 0 ? [data.external.ssh_host_keys[0].result.host_key] : []
+  description = "The SSH host keys discovered from the remote SFTP server"
+  value       = local.should_scan && length(data.external.ssh_host_key_discovery) > 0 ? [data.external.ssh_host_key_discovery[0].result.host_key] : []
 }
 
 output "effective_host_keys" {
@@ -40,4 +40,14 @@ output "effective_host_keys" {
 output "ssh_scanning_enabled" {
   description = "Whether SSH host key scanning was performed for this connector"
   value       = local.should_scan
+}
+
+output "connector_static_ips" {
+  description = "Static IP addresses used by the AWS Transfer Family connector for outbound connections (for whitelisting)"
+  value = [
+    "52.94.124.0/22",
+    "52.119.205.0/24",
+    "52.119.206.0/24",
+    "52.119.207.0/24"
+  ]
 }
