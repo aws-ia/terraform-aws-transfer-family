@@ -43,11 +43,11 @@ output "ssh_scanning_enabled" {
 }
 
 output "connector_static_ips" {
-  description = "Static IP addresses used by the AWS Transfer Family connector for outbound connections (for whitelisting)"
-  value = [
-    "52.94.124.0/22",
-    "52.119.205.0/24",
-    "52.119.206.0/24",
-    "52.119.207.0/24"
-  ]
+  description = "Static IP addresses of the created SFTP connector (if available via AWS CLI)"
+  value = {
+    ip_addresses = data.external.connector_ips.result.ips != "" ? split(",", data.external.connector_ips.result.ips) : []
+    status = data.external.connector_ips.result.status
+    note = try(data.external.connector_ips.result.note, "")
+  }
 }
+

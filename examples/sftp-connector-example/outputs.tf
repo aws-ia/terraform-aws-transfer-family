@@ -81,3 +81,8 @@ output "connector_ssh_scanning_enabled" {
   description = "Whether SSH host key scanning was performed"
   value       = module.sftp_connector.ssh_scanning_enabled
 }
+
+output "connector_static_ips" {
+  description = "Static IP addresses of the SFTP connector for whitelisting"
+  value       = module.sftp_connector.connector_static_ips
+}

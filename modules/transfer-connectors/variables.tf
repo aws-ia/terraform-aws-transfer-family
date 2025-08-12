@@ -11,11 +11,21 @@ variable "connector_name" {
 variable "url" {
   description = "URL of the SFTP server to connect to (e.g., sftp://example.com:22)"
   type        = string
+
+  validation {
+    condition     = can(regex("^(sftp|http|https)://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$", var.url))
+    error_message = "URL must be a valid format starting with sftp://, http://, or https:// followed by a hostname and optional port/path."
+  }
 }
 
 variable "s3_bucket_arn" {
   description = "ARN of the S3 bucket to connect to the SFTP server"
   type        = string
+
+  validation {
+    condition     = can(regex("^arn:aws:s3:::[a-z0-9.-]+$", var.s3_bucket_arn))
+    error_message = "S3 bucket ARN must be in the format: arn:aws:s3:::bucket-name"
+  }
 }
 
 variable "s3_bucket_name" {
@@ -26,6 +36,11 @@ variable "s3_bucket_name" {
 variable "user_secret_id" {
   description = "ARN of the AWS Secrets Manager secret containing SFTP credentials"
   type        = string
+
+  validation {
+    condition     = can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$", var.user_secret_id))
+    error_message = "user_secret_id must be a valid AWS Secrets Manager ARN in the format: arn:aws:secretsmanager:region:123456789012:secret:secret-name"
+  }
 }
 
 variable "as2_username" {
@@ -51,6 +66,11 @@ variable "security_policy_name" {
   description = "The name of the security policy to use for the connector (must be in the format TransferSFTPConnectorSecurityPolicy-*)"
   type        = string
   default     = "TransferSFTPConnectorSecurityPolicy-2024-03"
+
+  validation {
+    condition     = can(regex("^TransferSFTPConnectorSecurityPolicy-[0-9]{4}-[0-9]{2}$", var.security_policy_name))
+    error_message = "Security policy name must be in the format TransferSFTPConnectorSecurityPolicy-YYYY-MM (e.g., TransferSFTPConnectorSecurityPolicy-2024-03)"
+  }
 }
 
 variable "logging_role" {

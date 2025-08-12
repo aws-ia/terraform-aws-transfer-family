@@ -20,6 +20,32 @@ locals {
 }
 
 #####################################################################################
+# Data Sources
+#####################################################################################
+
+data "aws_region" "current" {}
+
+# Try to get connector IP information via AWS CLI
+data "external" "connector_ips" {
+  program = ["bash", "-c", <<-EOF
+    # Try to describe the connector and extract any IP information
+    connector_info=$(aws transfer describe-connector --connector-id "${aws_transfer_connector.sftp_connector.id}" --region "${data.aws_region.current.name}" 2>/dev/null || echo "{}")
+    
+    # Extract IP addresses if they exist and format as comma-separated string
+    ips=$(echo "$connector_info" | jq -r '.Connector.ServiceManagedEgressIpAddresses // [] | join(",")')
+    
+    if [ -n "$ips" ] && [ "$ips" != "" ]; then
+      echo "{\"ips\": \"$ips\", \"status\": \"found\"}"
+    else
+      echo "{\"ips\": \"\", \"status\": \"not_available\", \"note\": \"No IP addresses available via API\"}"
+    fi
+  EOF
+  ]
+  
+  depends_on = [aws_transfer_connector.sftp_connector]
+}
+
+#####################################################################################
 # SSH Host Key Discovery via AWS API
 #####################################################################################
 
