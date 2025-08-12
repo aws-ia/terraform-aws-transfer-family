@@ -31,37 +31,6 @@ variable "sftp_username" {
   }
 }
 
-variable "sftp_password" {
-  description = "Password for SFTP authentication (used only if existing_secret_arn is not provided)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "sftp_private_key" {
-  description = "Private key for SFTP authentication (used only if existing_secret_arn is not provided)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "trust_all_certificates" {
-  description = "Whether to trust all certificates for the SFTP connection"
-  type        = bool
-  default     = false
-}
-
-variable "sftp_remote_path" {
-  description = "Remote path on the SFTP server where files will be uploaded (e.g., /upload)"
-  type        = string
-  default     = "/"
-
-  validation {
-    condition     = can(regex("^/.*$", var.sftp_remote_path))
-    error_message = "SFTP remote path must start with a forward slash (/)."
-  }
-}
-
 variable "trusted_host_keys" {
   description = "List of trusted host keys for the SFTP server (required for secure connections)"
   type        = list(string)

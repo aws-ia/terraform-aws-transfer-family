@@ -60,7 +60,6 @@ module "sftp_connector" {
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
   user_secret_id              = module.sftp_users.test_user_secret.private_key_secret.arn
   secrets_manager_kms_key_arn = aws_kms_key.transfer_family_key.arn
-  trust_all_certificates      = var.trust_all_certificates
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
   # This will automatically scan and retrieve host keys if none are provided
