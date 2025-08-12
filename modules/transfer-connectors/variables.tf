@@ -43,25 +43,6 @@ variable "user_secret_id" {
   }
 }
 
-variable "as2_username" {
-  description = "Username for AS2 basic authentication"
-  type        = string
-  default     = ""
-}
-
-variable "as2_password" {
-  description = "Password for AS2 basic authentication"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "trust_all_certificates" {
-  description = "Whether to trust all certificates for the SFTP connection"
-  type        = bool
-  default     = false
-}
-
 variable "security_policy_name" {
   description = "The name of the security policy to use for the connector (must be in the format TransferSFTPConnectorSecurityPolicy-*)"
   type        = string
@@ -97,49 +78,31 @@ variable "tags" {
   default     = {}
 }
 
-variable "as2_local_profile_id" {
-  description = "AS2 local profile ID for the connector (required for AS2 config)"
-  type        = string
-  default     = ""
-}
-
 variable "as2_mdn_response" {
-  description = "AS2 MDN response for the connector (required for AS2 config)"
+  description = "AS2 MDN response for the connector"
   type        = string
-  default     = ""
-}
+  default     = "NONE"
 
-variable "as2_partner_profile_id" {
-  description = "AS2 partner profile ID for the connector (required for AS2 config)"
-  type        = string
-  default     = ""
+  validation {
+    condition     = contains(["SYNC", "NONE"], var.as2_mdn_response)
+    error_message = "AS2 MDN response must be either 'SYNC' or 'NONE'"
+  }
 }
 
 variable "as2_signing_algorithm" {
-  description = "AS2 signing algorithm for the connector (required for AS2 config)"
+  description = "AS2 signing algorithm for the connector"
   type        = string
-  default     = ""
+  default     = "NONE"
 }
-variable "enable_ssh_key_scanning" {
-  description = "Whether to automatically scan and retrieve SSH host keys from the remote SFTP server. Auto-discovery also runs automatically when trusted_host_keys is empty."
-  type        = bool
-  default     = false
+
+variable "as2_mdn_signing_algorithm" {
+  description = "AS2 MDN signing algorithm for the connector"
+  type        = string
+  default     = "NONE"
 }
 
 variable "trusted_host_keys" {
   description = "List of trusted host keys for the SFTP server. If empty, SSH key auto-discovery will run automatically."
   type        = list(string)
   default     = []
-}
-
-variable "as2_compression" {
-  description = "AS2 compression setting for the connector (required for AS2 config)"
-  type        = bool
-  default     = false
-}
-
-variable "as2_encryption_algorithm" {
-  description = "Encryption algorithm for AS2 connector"
-  type        = string
-  default     = ""
 }
