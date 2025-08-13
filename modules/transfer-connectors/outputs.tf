@@ -29,12 +29,12 @@ output "connector_logging_role_arn" {
 
 output "scanned_host_keys" {
   description = "The SSH host keys discovered from the remote SFTP server"
-  value       = local.should_scan && length(data.external.ssh_host_key_discovery) > 0 ? [data.external.ssh_host_key_discovery[0].result.host_key] : []
+  value       = []
 }
 
 output "effective_host_keys" {
   description = "The actual host keys being used by the connector (either scanned or provided)"
-  value       = local.effective_host_keys
+  value       = var.trusted_host_keys
 }
 
 output "ssh_scanning_enabled" {
