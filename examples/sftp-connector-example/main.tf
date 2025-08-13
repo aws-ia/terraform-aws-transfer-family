@@ -15,37 +15,30 @@ resource "random_pet" "name" {
 
 locals {
   server_name = "transfer-server-${random_pet.name.id}"
+  sftp_url    = startswith(var.sftp_server_endpoint, "sftp://") ? var.sftp_server_endpoint : "sftp://${var.sftp_server_endpoint}"
 }
 
 data "aws_caller_identity" "current" {}
 
+
+
 ###################################################################
-# Transfer Server example usage
+# Create Secrets Manager secret for SFTP credentials (if not using existing)
 ###################################################################
-module "transfer_server" {
-  source = "../.."
-  
-  domain                   = "S3"
-  protocols                = ["SFTP"]
-  endpoint_type            = "PUBLIC"
-  server_name              = local.server_name
-  identity_provider        = "SERVICE_MANAGED"
-  security_policy_name     = "TransferSecurityPolicy-2024-01"
-  enable_logging           = true
-  log_retention_days       = 30
-  log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
+resource "aws_secretsmanager_secret" "sftp_credentials" {
+  count       = var.existing_secret_arn == "" ? 1 : 0
+  name        = "sftp-credentials-${random_pet.name.id}"
+  description = "SFTP credentials for connector"
+  kms_key_id  = aws_kms_key.transfer_family_key.arn
 }
 
-module "sftp_users" {
-  source = "../../modules/transfer-users"
-  create_test_user = true # Test user is for demo purposes. Key and Access Management required for the created secrets 
-
-  server_id = module.transfer_server.server_id
-
-  s3_bucket_name = module.s3_bucket.s3_bucket_id
-  s3_bucket_arn  = module.s3_bucket.s3_bucket_arn
-
-  kms_key_id = aws_kms_key.transfer_family_key.arn
+resource "aws_secretsmanager_secret_version" "sftp_credentials" {
+  count     = var.existing_secret_arn == "" ? 1 : 0
+  secret_id = aws_secretsmanager_secret.sftp_credentials[0].id
+  secret_string = jsonencode({
+    username = var.sftp_username
+    password = "change-me"  # Replace with actual password or use privateKey instead
+  })
 }
 
 ###################################################################
@@ -55,50 +48,22 @@ module "sftp_connector" {
   source = "../../modules/transfer-connectors"
 
   connector_name              = "sftp-connector-${random_pet.name.id}"
-  url                         = "sftp://${module.transfer_server.server_endpoint}"
+  url                         = local.sftp_url
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
-  user_secret_id              = module.sftp_users.test_user_secret.private_key_secret.arn
+  user_secret_id              = var.existing_secret_arn != "" ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
   secrets_manager_kms_key_arn = aws_kms_key.transfer_family_key.arn
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
-  # This will automatically scan and retrieve host keys if none are provided
-  trusted_host_keys = []
+  trusted_host_keys = var.trusted_host_keys
 
   tags = {
     Environment = "Demo"
     Project     = "SFTP Connector"
   }
-
-  depends_on = [module.transfer_server]
 }
 
-###################################################################
-# Create S3 bucket for Transfer Server
-###################################################################
-module "s3_bucket" {
-  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
-  bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp")
-  control_object_ownership = true
-  object_ownership         = "BucketOwnerEnforced"
-  block_public_acls        = true
-  block_public_policy      = true
-  ignore_public_acls       = true
-  restrict_public_buckets  = true
 
-  server_side_encryption_configuration = {
-    rule = {
-      apply_server_side_encryption_by_default = {
-        kms_master_key_id = aws_kms_key.transfer_family_key.arn
-        sse_algorithm     = "aws:kms"
-      }
-    }
-  }
-
-  versioning = {
-    enabled = false
-  }
-}
 
 ###################################################################
 # Create Test S3 bucket for file uploads (triggers SFTP transfer)
@@ -263,17 +228,6 @@ resource "aws_iam_policy" "lambda_policy" {
         Resource = [
           module.test_s3_bucket.s3_bucket_arn,
           "${module.test_s3_bucket.s3_bucket_arn}/*"
-        ]
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "s3:PutObject",
-          "s3:ListBucket"
-        ],
-        Resource = [
-          module.s3_bucket.s3_bucket_arn,
-          "${module.s3_bucket.s3_bucket_arn}/*"
         ]
       },
       {

@@ -36,3 +36,20 @@ variable "trusted_host_keys" {
   type        = list(string)
   default     = []
 }
+
+variable "sftp_server_endpoint" {
+  description = "SFTP server endpoint hostname (e.g., s-1234567890abcdef0.server.transfer.us-east-1.amazonaws.com or example.com) - sftp:// prefix will be added automatically"
+  type        = string
+}
+
+variable "source_s3_bucket_name" {
+  description = "S3 bucket name for AWS Transfer Family server (if connecting to AWS SFTP)"
+  type        = string
+  default     = null
+}
+
+variable "source_s3_bucket_arn" {
+  description = "S3 bucket ARN for AWS Transfer Family server (if connecting to AWS SFTP)"
+  type        = string
+  default     = null
+}
