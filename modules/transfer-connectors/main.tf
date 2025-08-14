@@ -155,11 +155,15 @@ resource "null_resource" "discover_and_test_connector" {
           --region ${data.aws_region.current.id} \
           --output json 2>/dev/null || echo '{}')
         
+        echo "DEBUG - Discovery Result: $DISCOVERY_RESULT"
+        
         STATUS=$(echo "$DISCOVERY_RESULT" | jq -r '.Status // empty')
+        echo "DEBUG - Status: $STATUS"
         
         if [ "$STATUS" = "ERROR" ]; then
           ERROR_MSG=$(echo "$DISCOVERY_RESULT" | jq -r '.StatusMessage // empty')
           echo "Connection test failed: $ERROR_MSG"
+          echo "DEBUG - Full error response: $DISCOVERY_RESULT"
           
           if echo "$ERROR_MSG" | grep -q "Cannot access secret manager"; then
             echo "Secret manager not ready, waiting 10 seconds..."
@@ -169,6 +173,7 @@ resource "null_resource" "discover_and_test_connector" {
         fi
         
         HOST_KEY=$(echo "$DISCOVERY_RESULT" | jq -r '.SftpConnectionDetails.HostKey // empty')
+        echo "DEBUG - Host Key: $HOST_KEY"
         
         if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
           echo "✅ Discovered host key: $HOST_KEY"
@@ -181,19 +186,24 @@ resource "null_resource" "discover_and_test_connector" {
       
       if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
         echo "Step 2: Updating connector with discovered host key..."
-        aws transfer update-connector \
+        UPDATE_RESULT=$(aws transfer update-connector \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
           --region ${data.aws_region.current.id} \
           --url "${var.url}" \
           --access-role "${aws_iam_role.connector_role.arn}" \
           --logging-role "${local.logging_role}" \
-          --sftp-config "UserSecretId=${local.effective_secret_id},TrustedHostKeys=$HOST_KEY"
+          --sftp-config "UserSecretId=${local.effective_secret_id},TrustedHostKeys=$HOST_KEY" \
+          --output json)
+        
+        echo "DEBUG - Update Result: $UPDATE_RESULT"
         
         echo "Step 3: Testing final connection with trusted host key..."
         FINAL_TEST=$(aws transfer test-connection \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
           --region ${data.aws_region.current.id} \
           --output json)
+        
+        echo "DEBUG - Final Test Result: $FINAL_TEST"
         
         FINAL_STATUS=$(echo "$FINAL_TEST" | jq -r '.Status')
         echo "Final connection status: $FINAL_STATUS"
