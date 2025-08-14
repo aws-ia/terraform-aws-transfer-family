@@ -16,6 +16,9 @@ resource "random_pet" "name" {
 locals {
   server_name = "transfer-server-${random_pet.name.id}"
   sftp_url    = startswith(var.sftp_server_endpoint, "sftp://") ? var.sftp_server_endpoint : "sftp://${var.sftp_server_endpoint}"
+  
+  # Validation: ensure credentials are provided when creating new secret
+  validate_credentials = var.existing_secret_arn == "" && var.sftp_password == "" && var.sftp_private_key == "" ? tobool("Error: When existing_secret_arn is empty, either sftp_password or sftp_private_key must be provided") : true
 }
 
 provider "aws" {
@@ -24,10 +27,16 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+# Get KMS key from existing secret if provided
+data "aws_secretsmanager_secret" "existing" {
+  count = var.existing_secret_arn != "" ? 1 : 0
+  arn   = var.existing_secret_arn
+}
+
 
 
 ###################################################################
-# Create Secrets Manager secret for SFTP credentials (if not using existing)
+# Create Secrets Manager secret for SFTP credentials (only when existing_secret_arn is not provided)
 ###################################################################
 resource "aws_secretsmanager_secret" "sftp_credentials" {
   count       = var.existing_secret_arn == "" ? 1 : 0
@@ -39,10 +48,15 @@ resource "aws_secretsmanager_secret" "sftp_credentials" {
 resource "aws_secretsmanager_secret_version" "sftp_credentials" {
   count     = var.existing_secret_arn == "" ? 1 : 0
   secret_id = aws_secretsmanager_secret.sftp_credentials[0].id
-  secret_string = jsonencode({
-    username = var.sftp_username
-    password = "change-me"  # Replace with actual password or use privateKey instead
-  })
+  secret_string = jsonencode(
+    var.sftp_private_key != "" ? {
+      username = var.sftp_username
+      pk       = var.sftp_private_key
+    } : {
+      username = var.sftp_username
+      password = var.sftp_password
+    }
+  )
 }
 
 ###################################################################
@@ -55,8 +69,8 @@ module "sftp_connector" {
   url                         = local.sftp_url
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
-  # user_secret_id is omitted to allow auto-detection for AWS Transfer Family servers
-  secrets_manager_kms_key_arn = aws_kms_key.transfer_family_key.arn
+  user_secret_id              = var.existing_secret_arn != "" ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
+  secrets_manager_kms_key_arn = var.existing_secret_arn != "" ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key.arn
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
   trusted_host_keys = var.trusted_host_keys

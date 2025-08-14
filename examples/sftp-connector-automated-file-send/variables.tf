@@ -31,6 +31,25 @@ variable "sftp_username" {
   }
 }
 
+variable "sftp_password" {
+  description = "Password for SFTP authentication (used only if existing_secret_arn is not provided and sftp_private_key is not provided)"
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = var.existing_secret_arn != "" || var.sftp_password != "" || var.sftp_private_key != ""
+    error_message = "Either existing_secret_arn must be provided, or sftp_password or sftp_private_key must be provided."
+  }
+}
+
+variable "sftp_private_key" {
+  description = "Private key for SFTP authentication (used only if existing_secret_arn is not provided and sftp_password is not provided)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "trusted_host_keys" {
   description = "List of trusted host keys for the SFTP server (required for secure connections)"
   type        = list(string)
