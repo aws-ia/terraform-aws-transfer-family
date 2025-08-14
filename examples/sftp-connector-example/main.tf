@@ -18,6 +18,10 @@ locals {
   sftp_url    = startswith(var.sftp_server_endpoint, "sftp://") ? var.sftp_server_endpoint : "sftp://${var.sftp_server_endpoint}"
 }
 
+provider "aws" {
+  region = var.aws_region
+}
+
 data "aws_caller_identity" "current" {}
 
 

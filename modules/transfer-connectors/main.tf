@@ -14,9 +14,35 @@ resource "random_id" "connector_id" {
 
 data "aws_caller_identity" "current" {}
 
+# Find existing secrets for AWS Transfer Family servers by description
+data "aws_secretsmanager_secrets" "transfer_secrets" {
+  count = local.is_aws_transfer_server ? 1 : 0
+  
+  filter {
+    name   = "description"
+    values = ["SFTP credentials for the test user"]
+  }
+}
+
+data "aws_secretsmanager_secret" "transfer_secret" {
+  count = local.is_aws_transfer_server && length(data.aws_secretsmanager_secrets.transfer_secrets[0].arns) > 0 ? 1 : 0
+  arn   = tolist(data.aws_secretsmanager_secrets.transfer_secrets[0].arns)[0]
+}
+
+# Get the KMS key from the detected secret
+locals {
+  detected_secret_kms_key = local.is_aws_transfer_server && length(data.aws_secretsmanager_secret.transfer_secret) > 0 ? data.aws_secretsmanager_secret.transfer_secret[0].kms_key_id : null
+}
+
 locals {
   should_scan = false
   logging_role = length(aws_iam_role.connector_logging_role) > 0 ? aws_iam_role.connector_logging_role[0].arn : null
+  
+  # Check if URL is AWS Transfer Family server
+  is_aws_transfer_server = can(regex("server\\.transfer\\.[a-z0-9-]+\\.amazonaws\\.com", var.url))
+  
+  # Use auto-detected secret for AWS Transfer servers, otherwise use provided secret
+  effective_secret_id = local.is_aws_transfer_server && length(data.aws_secretsmanager_secret.transfer_secret) > 0 ? data.aws_secretsmanager_secret.transfer_secret[0].arn : var.user_secret_id
 }
 
 #####################################################################################
@@ -109,9 +135,9 @@ resource "aws_transfer_connector" "sftp_connector" {
 
   # SFTP config without trusted_host_keys (optional)
   dynamic "sftp_config" {
-    for_each = var.user_secret_id != null ? [1] : []
+    for_each = local.effective_secret_id != null ? [1] : []
     content {
-      user_secret_id = var.user_secret_id
+      user_secret_id = local.effective_secret_id
     }
   }
 
@@ -187,14 +213,14 @@ resource "aws_iam_policy" "connector_policy" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = var.user_secret_id
+        Resource = local.effective_secret_id
       },
     ], var.secrets_manager_kms_key_arn != null ? [{
       Effect = "Allow"
       Action = [
         "kms:Decrypt"
       ]
-      Resource = var.secrets_manager_kms_key_arn
+      Resource = local.detected_secret_kms_key != null ? local.detected_secret_kms_key : var.secrets_manager_kms_key_arn
     }] : [], var.kms_key_arn != null ? [{
       Effect = "Allow"
       Action = [
