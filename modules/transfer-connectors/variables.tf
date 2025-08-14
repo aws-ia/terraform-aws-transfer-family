@@ -34,11 +34,12 @@ variable "s3_bucket_name" {
 }
 
 variable "user_secret_id" {
-  description = "ARN of the AWS Secrets Manager secret containing SFTP credentials"
+  description = "ARN of the AWS Secrets Manager secret containing SFTP credentials (optional - will auto-detect for AWS Transfer Family servers)"
   type        = string
+  default     = null
 
   validation {
-    condition     = can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$", var.user_secret_id))
+    condition     = var.user_secret_id == null || can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$", var.user_secret_id))
     error_message = "user_secret_id must be a valid AWS Secrets Manager ARN in the format: arn:aws:secretsmanager:region:123456789012:secret:secret-name"
   }
 }

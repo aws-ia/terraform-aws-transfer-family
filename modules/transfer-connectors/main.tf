@@ -41,7 +41,7 @@ locals {
   # Check if URL is AWS Transfer Family server
   is_aws_transfer_server = can(regex("server\\.transfer\\.[a-z0-9-]+\\.amazonaws\\.com", var.url))
   
-  # Use auto-detected secret for AWS Transfer servers, otherwise use provided secret
+  # Always use auto-detected secret for AWS Transfer servers
   effective_secret_id = local.is_aws_transfer_server && length(data.aws_secretsmanager_secret.transfer_secret) > 0 ? data.aws_secretsmanager_secret.transfer_secret[0].arn : var.user_secret_id
 }
 
@@ -130,6 +130,11 @@ resource "aws_iam_role_policy" "lambda_policy" {
 #####################################################################################
 
 resource "aws_transfer_connector" "sftp_connector" {
+  depends_on = [
+    aws_iam_role_policy_attachment.connector_policy_attachment,
+    aws_iam_role_policy_attachment.connector_logging_policy
+  ]
+  
   access_role = aws_iam_role.connector_role.arn
   url         = var.url
 
@@ -151,6 +156,83 @@ resource "aws_transfer_connector" "sftp_connector" {
     }
   )
 
+}
+
+# Discover and test connector with host keys
+resource "null_resource" "discover_and_test_connector" {
+  depends_on = [aws_transfer_connector.sftp_connector]
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Step 1: Testing connection to discover host key..."
+      
+      MAX_RETRIES=10
+      RETRY_COUNT=0
+      HOST_KEY=""
+      
+      while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$HOST_KEY" ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo "Attempt $RETRY_COUNT/$MAX_RETRIES: Testing connection..."
+        
+        DISCOVERY_RESULT=$(aws transfer test-connection \
+          --connector-id ${aws_transfer_connector.sftp_connector.id} \
+          --region ${data.aws_region.current.id} \
+          --output json 2>/dev/null || echo '{}')
+        
+        STATUS=$(echo "$DISCOVERY_RESULT" | jq -r '.Status // empty')
+        
+        if [ "$STATUS" = "ERROR" ]; then
+          ERROR_MSG=$(echo "$DISCOVERY_RESULT" | jq -r '.StatusMessage // empty')
+          echo "Connection test failed: $ERROR_MSG"
+          
+          if echo "$ERROR_MSG" | grep -q "Cannot access secret manager"; then
+            echo "Secret manager not ready, waiting 10 seconds..."
+            sleep 10
+            continue
+          fi
+        fi
+        
+        HOST_KEY=$(echo "$DISCOVERY_RESULT" | jq -r '.SftpConnectionDetails.HostKey // empty')
+        
+        if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
+          echo "✅ Discovered host key: $HOST_KEY"
+          break
+        else
+          echo "Host key not found, waiting 10 seconds..."
+          sleep 10
+        fi
+      done
+      
+      if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
+        echo "Step 2: Updating connector with discovered host key..."
+        aws transfer update-connector \
+          --connector-id ${aws_transfer_connector.sftp_connector.id} \
+          --region ${data.aws_region.current.id} \
+          --url "${var.url}" \
+          --access-role "${aws_iam_role.connector_role.arn}" \
+          --logging-role "${local.logging_role}" \
+          --sftp-config "UserSecretId=${local.effective_secret_id},TrustedHostKeys=$HOST_KEY"
+        
+        echo "Step 3: Testing final connection with trusted host key..."
+        FINAL_TEST=$(aws transfer test-connection \
+          --connector-id ${aws_transfer_connector.sftp_connector.id} \
+          --region ${data.aws_region.current.id} \
+          --output json)
+        
+        FINAL_STATUS=$(echo "$FINAL_TEST" | jq -r '.Status')
+        echo "Final connection status: $FINAL_STATUS"
+        
+        if [ "$FINAL_STATUS" = "OK" ]; then
+          echo "🎉 Connector fully configured and tested successfully!"
+        else
+          echo "❌ Final test failed: $(echo "$FINAL_TEST" | jq -r '.StatusMessage')"
+        fi
+      else
+        echo "❌ Failed to discover host key after $MAX_RETRIES attempts"
+        exit 1
+      fi
+    EOT
+  }
 }
 
 #####################################################################################

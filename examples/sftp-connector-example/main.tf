@@ -55,7 +55,7 @@ module "sftp_connector" {
   url                         = local.sftp_url
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
-  user_secret_id              = var.existing_secret_arn != "" ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
+  # user_secret_id is omitted to allow auto-detection for AWS Transfer Family servers
   secrets_manager_kms_key_arn = aws_kms_key.transfer_family_key.arn
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
