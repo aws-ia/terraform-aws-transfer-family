@@ -29,7 +29,7 @@ data "aws_caller_identity" "current" {}
 
 # Get KMS key from existing secret if provided
 data "aws_secretsmanager_secret" "existing" {
-  count = var.existing_secret_arn != "" ? 1 : 0
+  count = var.existing_secret_arn != null ? 1 : 0
   arn   = var.existing_secret_arn
 }
 
@@ -39,14 +39,14 @@ data "aws_secretsmanager_secret" "existing" {
 # Create Secrets Manager secret for SFTP credentials (only when existing_secret_arn is not provided)
 ###################################################################
 resource "aws_secretsmanager_secret" "sftp_credentials" {
-  count       = var.existing_secret_arn == "" ? 1 : 0
+  count       = var.existing_secret_arn != null ? 0 : 1
   name        = "sftp-credentials-${random_pet.name.id}"
   description = "SFTP credentials for connector"
   kms_key_id  = aws_kms_key.transfer_family_key.arn
 }
 
 resource "aws_secretsmanager_secret_version" "sftp_credentials" {
-  count     = var.existing_secret_arn == "" ? 1 : 0
+  count     = var.existing_secret_arn != null ? 0 : 1
   secret_id = aws_secretsmanager_secret.sftp_credentials[0].id
   secret_string = jsonencode(
     var.sftp_private_key != "" ? {
@@ -69,8 +69,9 @@ module "sftp_connector" {
   url                         = local.sftp_url
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
-  user_secret_id              = var.existing_secret_arn != "" ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
-  secrets_manager_kms_key_arn = var.existing_secret_arn != "" ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key.arn
+  user_secret_id              = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
+  secrets_manager_kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key.arn
+  S3_kms_key_arn              = aws_kms_key.transfer_family_key.arn
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
   trusted_host_keys = var.trusted_host_keys
@@ -122,7 +123,7 @@ resource "aws_s3_bucket_notification" "test_bucket_notification" {
 
 # KMS Key resource
 resource "aws_kms_key" "transfer_family_key" {
-  description             = "KMS key for encrypting S3 bucket and cloudwatch log group"
+  description             = "KMS key for encrypting S3 bucket and cloudwatch log group and the connector credentials"
   deletion_window_in_days = 7
   enable_key_rotation     = true
 

@@ -12,7 +12,7 @@ variable "aws_region" {
 variable "existing_secret_arn" {
   description = "ARN of an existing Secrets Manager secret containing SFTP credentials (must contain username and either password or privateKey). If not provided, a new secret will be created."
   type        = string
-  default     = ""
+  default     = null
 
   validation {
     condition     = var.existing_secret_arn == "" || can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$", var.existing_secret_arn))

@@ -61,7 +61,7 @@ variable "logging_role" {
   default     = null
 }
 
-variable "kms_key_arn" {
+variable "S3_kms_key_arn" {
   description = "ARN of the KMS key used for encryption (optional)"
   type        = string
   default     = null
