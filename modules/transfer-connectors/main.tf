@@ -139,18 +139,83 @@ resource "null_resource" "discover_and_test_connector" {
   
   provisioner "local-exec" {
     command = <<-EOT
-      for i in 1 2 3 4 5; do
-        echo "Attempt $i/5: Testing connection..."
+      echo "Step 1: Testing connection to discover host key..."
+      
+      MAX_RETRIES=3
+      RETRY_COUNT=0
+      HOST_KEY=""
+      
+      while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ -z "$HOST_KEY" ]; do
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        echo "Attempt $RETRY_COUNT/$MAX_RETRIES: Testing connection..."
         
-        RESULT=$(aws transfer test-connection \
+        DISCOVERY_RESULT=$(aws transfer test-connection \
+          --connector-id ${aws_transfer_connector.sftp_connector.id} \
+          --region ${data.aws_region.current.id} \
+          --output json 2>/dev/null || echo '{}')
+        
+        echo "DEBUG - Discovery Result: $DISCOVERY_RESULT"
+        
+        STATUS=$(echo "$DISCOVERY_RESULT" | jq -r '.Status // empty')
+        echo "DEBUG - Status: $STATUS"
+        
+        if [ "$STATUS" = "ERROR" ]; then
+          ERROR_MSG=$(echo "$DISCOVERY_RESULT" | jq -r '.StatusMessage // empty')
+          echo "Connection test failed: $ERROR_MSG"
+          echo "DEBUG - Full error response: $DISCOVERY_RESULT"
+          
+          if echo "$ERROR_MSG" | grep -q "Cannot access secret manager"; then
+            echo "Secret manager not ready, waiting 10 seconds..."
+            sleep 10
+            continue
+          fi
+        fi
+        
+        HOST_KEY=$(echo "$DISCOVERY_RESULT" | jq -r '.SftpConnectionDetails.HostKey // empty')
+        echo "DEBUG - Host Key: $HOST_KEY"
+        
+        if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
+          echo "✅ Discovered host key: $HOST_KEY"
+          break
+        else
+          echo "Host key not found, waiting 10 seconds..."
+          sleep 10
+        fi
+      done
+      
+      if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
+        echo "Step 2: Updating connector with discovered host key..."
+        UPDATE_RESULT=$(aws transfer update-connector \
+          --connector-id ${aws_transfer_connector.sftp_connector.id} \
+          --region ${data.aws_region.current.id} \
+          --url "${var.url}" \
+          --access-role "${aws_iam_role.connector_role.arn}" \
+          --logging-role "${local.logging_role}" \
+          --sftp-config "UserSecretId=${local.effective_secret_id},TrustedHostKeys=$HOST_KEY" \
+          --output json)
+        
+        echo "DEBUG - Update Result: $UPDATE_RESULT"
+        
+        echo "Step 3: Testing final connection with trusted host key..."
+        FINAL_TEST=$(aws transfer test-connection \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
           --region ${data.aws_region.current.id} \
           --output json)
         
-        echo "Response: $RESULT"
+        echo "DEBUG - Final Test Result: $FINAL_TEST"
         
-        sleep 5
-      done
+        FINAL_STATUS=$(echo "$FINAL_TEST" | jq -r '.Status')
+        echo "Final connection status: $FINAL_STATUS"
+        
+        if [ "$FINAL_STATUS" = "OK" ]; then
+          echo "🎉 Connector fully configured and tested successfully!"
+        else
+          echo "❌ Final test failed: $(echo "$FINAL_TEST" | jq -r '.StatusMessage')"
+        fi
+      else
+        echo "❌ Failed to discover host key after $MAX_RETRIES attempts"
+        exit 1
+      fi
     EOT
   }
 }
