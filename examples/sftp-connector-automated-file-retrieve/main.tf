@@ -282,8 +282,7 @@ resource "aws_iam_policy" "lambda_policy" {
       {
         Effect = "Allow",
         Action = [
-          "transfer:StartFileTransfer",
-          "transfer:DescribeExecution"
+          "transfer:StartFileTransfer"
         ],
         Resource = "*"
       }
@@ -340,7 +339,10 @@ def handler(event, context):
         # Get environment variables
         connector_id = os.environ['CONNECTOR_ID']
         table_name = os.environ['DYNAMODB_TABLE_NAME']
-        s3_destination_prefix = os.environ.get('S3_DESTINATION_PREFIX', 'retrieved/')
+        s3_destination_prefix = os.environ.get('S3_DESTINATION_PREFIX', 'retrieved/').rstrip('/')
+        # Ensure path starts with / for AWS Transfer Family
+        if not s3_destination_prefix.startswith('/'):
+            s3_destination_prefix = '/' + s3_destination_prefix
         
         # Get DynamoDB table
         table = dynamodb.Table(table_name)
@@ -348,15 +350,34 @@ def handler(event, context):
         logger.info(f"Starting file retrieval process for connector: {connector_id}")
         
         # Scan for pending files (since we don't have GSI)
+        logger.info(f"Scanning table {table_name} for pending files")
         response = table.scan(
             FilterExpression='#status = :status',
             ExpressionAttributeNames={'#status': 'status'},
             ExpressionAttributeValues={':status': 'pending'}
         )
         
+        logger.info(f"DynamoDB scan response: {response}")
         pending_files = response.get('Items', [])
+        logger.info(f"Pending files found: {len(pending_files)}")
         
         if not pending_files:
+            # Check for in_progress files and their transfer status
+            all_response = table.scan()
+            all_items = all_response.get('Items', [])
+            logger.info(f"All items in table: {all_items}")
+            
+            # Reset all in_progress items to pending for retry
+            for item in all_items:
+                if item.get('status') == 'in_progress':
+                    table.update_item(
+                        Key={'file_path': item['file_path']},
+                        UpdateExpression='SET #status = :status',
+                        ExpressionAttributeNames={'#status': 'status'},
+                        ExpressionAttributeValues={':status': 'pending'}
+                    )
+                    logger.info(f"Reset {item['file_path']} to pending status")
+            
             logger.info("No pending files found for retrieval")
             return {
                 'statusCode': 200,
@@ -370,16 +391,19 @@ def handler(event, context):
         retrieve_file_paths = [item['file_path'] for item in pending_files]
         
         logger.info(f"Found {len(retrieve_file_paths)} files to retrieve: {retrieve_file_paths}")
+        logger.info(f"Using LocalDirectoryPath: {s3_destination_prefix}")
         
         # Start file transfer using retrieve operation
         transfer_response = transfer_client.start_file_transfer(
             ConnectorId=connector_id,
             RetrieveFilePaths=retrieve_file_paths,
-            LocalDirectoryPath=f"/{s3_destination_prefix}"
+            LocalDirectoryPath=s3_destination_prefix
         )
         
         transfer_id = transfer_response['TransferId']
         logger.info(f"File retrieval started successfully: {transfer_id}")
+        
+        logger.info(f"Transfer started with ID: {transfer_id}")
         
         # Update status of processed files to 'in_progress'
         for file_path in retrieve_file_paths:
