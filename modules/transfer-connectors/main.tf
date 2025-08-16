@@ -31,7 +31,7 @@ data "aws_region" "current" {}
 data "external" "connector_ips" {
   program = ["bash", "-c", <<-EOF
     # Try to describe the connector and extract any IP information
-    connector_info=$(aws transfer describe-connector --connector-id "${aws_transfer_connector.sftp_connector.id}" --region "${data.aws_region.current.name}" 2>/dev/null || echo "{}")
+    connector_info=$(aws transfer describe-connector --connector-id "${aws_transfer_connector.sftp_connector.id}" --region "${data.aws_region.current.id}" 2>/dev/null || echo "{}")
     
     # Extract IP addresses if they exist and format as comma-separated string
     ips=$(echo "$connector_info" | jq -r '.Connector.ServiceManagedEgressIpAddresses // [] | join(",")')
