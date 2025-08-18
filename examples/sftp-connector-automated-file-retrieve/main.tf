@@ -310,6 +310,7 @@ resource "aws_lambda_function" "sftp_retrieve" {
     variables = {
       CONNECTOR_ID = var.connector_id != null ? var.connector_id : module.sftp_connector[0].connector_id
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.file_paths.name
+      S3_BUCKET_NAME = module.retrieve_s3_bucket.s3_bucket_id
       S3_DESTINATION_PREFIX = var.s3_prefix
     }
   }
