@@ -278,7 +278,10 @@ resource "aws_iam_policy" "lambda_policy" {
           "kms:Decrypt",
           "kms:GenerateDataKey"
         ],
-        Resource = aws_kms_key.transfer_family_key.arn
+        Resource = [
+          aws_kms_key.transfer_family_key.arn,
+          data.aws_secretsmanager_secret.existing[0].kms_key_id
+        ]
       },
       {
         Effect = "Allow",
@@ -286,6 +289,13 @@ resource "aws_iam_policy" "lambda_policy" {
           "transfer:StartFileTransfer"
         ],
         Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ],
+        Resource = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
       }
     ]
   })
@@ -296,6 +306,75 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
+
+# Lambda Layer for paramiko
+resource "aws_lambda_layer_version" "paramiko_layer" {
+  filename         = "paramiko-layer.zip"
+  layer_name       = "paramiko-layer-${random_pet.name.id}"
+  source_code_hash = filebase64sha256("paramiko-layer.zip")
+
+  compatible_runtimes = ["python3.9"]
+  description         = "Paramiko SSH/SFTP client library"
+}
+
+# Lambda Function for directory workflow
+resource "aws_lambda_function" "sftp_retrieve" {
+  function_name    = "sftp-retrieve-${random_pet.name.id}"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "index.handler"
+  runtime         = "python3.9"
+  timeout         = 300
+  memory_size     = 256
+  
+  filename         = data.archive_file.lambda_zip.output_path
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  
+  layers = [aws_lambda_layer_version.paramiko_layer.arn]
+
+  environment {
+    variables = {
+      CONNECTOR_ID = var.connector_id != null ? var.connector_id : module.sftp_connector[0].connector_id
+      S3_BUCKET_NAME = module.retrieve_s3_bucket.s3_bucket_id
+      S3_DESTINATION_PREFIX = var.s3_prefix
+      SOURCE_DIRECTORY = var.source_directory
+      SFTP_ENDPOINT = var.sftp_server_endpoint
+      SFTP_SECRET_ARN = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
+    }
+  }
+}
+
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "index.py"
+  output_path = "lambda_function.zip"
+}
+
+# EventBridge Rule for directory workflow
+resource "aws_cloudwatch_event_rule" "retrieve_schedule" {
+  count = var.workflow_type == "directory" ? 1 : 0
+  
+  name                = "sftp-retrieve-schedule-${random_pet.name.id}"
+  description         = "Schedule for automated SFTP file retrieval via Lambda"
+  schedule_expression = var.eventbridge_schedule
+}
+
+resource "aws_cloudwatch_event_target" "lambda_target" {
+  count = var.workflow_type == "directory" ? 1 : 0
+  
+  rule      = aws_cloudwatch_event_rule.retrieve_schedule[0].name
+  target_id = "SendToLambda"
+  arn       = aws_lambda_function.sftp_retrieve.arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge" {
+  count = var.workflow_type == "directory" ? 1 : 0
+  
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.sftp_retrieve.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.retrieve_schedule[0].arn
+}
 
 # EventBridge Scheduler for direct Transfer Family integration
 resource "aws_scheduler_schedule" "sftp_retrieve_direct" {

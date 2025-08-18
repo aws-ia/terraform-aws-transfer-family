@@ -107,13 +107,13 @@ variable "file_paths_to_retrieve" {
   }
 }
 variable "workflow_type" {
-  description = "Workflow type: 'static' for EventBridge Scheduler with static files"
+  description = "Workflow type: 'static' for EventBridge Scheduler with static files, 'directory' for Lambda with directory listing"
   type        = string
   default     = "static"
   
   validation {
-    condition     = var.workflow_type == "static"
-    error_message = "Only 'static' workflow is currently supported."
+    condition     = contains(["static", "directory"], var.workflow_type)
+    error_message = "Workflow type must be either 'static' or 'directory'."
   }
 }
 
