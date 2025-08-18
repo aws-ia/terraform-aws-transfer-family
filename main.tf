@@ -183,6 +183,4 @@ resource "aws_cloudwatch_log_group" "transfer" {
   name              = "/aws/transfer/${var.server_name}"
   retention_in_days = var.log_retention_days
   tags              = var.tags
-  # Only set KMS key if provided and not empty
-  kms_key_id        = var.log_group_kms_key_id != null && var.log_group_kms_key_id != "" ? var.log_group_kms_key_id : null
 }
