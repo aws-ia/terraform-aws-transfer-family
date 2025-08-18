@@ -183,4 +183,5 @@ resource "aws_cloudwatch_log_group" "transfer" {
   name              = "/aws/transfer/${var.server_name}"
   retention_in_days = var.log_retention_days
   tags              = var.tags
+  kms_key_id        = var.log_group_kms_key_id
 }
