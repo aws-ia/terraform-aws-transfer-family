@@ -106,3 +106,24 @@ variable "file_paths_to_retrieve" {
     error_message = "All file paths must start with a forward slash (/)."
   }
 }
+variable "workflow_type" {
+  description = "Workflow type: 'static' for EventBridge Scheduler with static files"
+  type        = string
+  default     = "static"
+  
+  validation {
+    condition     = var.workflow_type == "static"
+    error_message = "Only 'static' workflow is currently supported."
+  }
+}
+
+variable "source_directory" {
+  description = "Source directory path on remote server (reserved for future directory workflow)"
+  type        = string
+  default     = "/uploads"
+  
+  validation {
+    condition     = can(regex("^/.*", var.source_directory))
+    error_message = "Source directory must start with a forward slash."
+  }
+}

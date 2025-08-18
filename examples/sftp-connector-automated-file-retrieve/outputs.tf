@@ -28,24 +28,14 @@ output "dynamodb_table_arn" {
   value       = aws_dynamodb_table.file_paths.arn
 }
 
-output "lambda_function_name" {
-  description = "The name of the Lambda function that retrieves files"
-  value       = aws_lambda_function.sftp_retrieve.function_name
+output "eventbridge_schedule_name" {
+  description = "The name of the EventBridge Schedule for scheduled retrieval"
+  value       = aws_scheduler_schedule.sftp_retrieve_direct.name
 }
 
-output "lambda_function_arn" {
-  description = "The ARN of the Lambda function that retrieves files"
-  value       = aws_lambda_function.sftp_retrieve.arn
-}
-
-output "eventbridge_rule_name" {
-  description = "The name of the EventBridge rule for scheduled retrieval"
-  value       = aws_cloudwatch_event_rule.retrieve_schedule.name
-}
-
-output "eventbridge_rule_arn" {
-  description = "The ARN of the EventBridge rule for scheduled retrieval"
-  value       = aws_cloudwatch_event_rule.retrieve_schedule.arn
+output "eventbridge_schedule_arn" {
+  description = "The ARN of the EventBridge Schedule for scheduled retrieval"
+  value       = aws_scheduler_schedule.sftp_retrieve_direct.arn
 }
 
 output "kms_key_arn" {

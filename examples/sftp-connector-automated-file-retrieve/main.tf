@@ -26,6 +26,7 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 # Get KMS key from existing secret if provided
 data "aws_secretsmanager_secret" "existing" {
@@ -295,53 +296,62 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
-resource "aws_lambda_function" "sftp_retrieve" {
-  function_name    = "sftp-retrieve-${random_pet.name.id}"
-  role             = aws_iam_role.lambda_role.arn
-  handler          = "index.handler"
-  runtime          = "python3.9"
-  timeout          = 300
-  memory_size      = 256
-  
-  filename         = data.archive_file.lambda_zip.output_path
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
-  environment {
-    variables = {
-      CONNECTOR_ID = var.connector_id != null ? var.connector_id : module.sftp_connector[0].connector_id
-      DYNAMODB_TABLE_NAME = aws_dynamodb_table.file_paths.name
-      S3_BUCKET_NAME = module.retrieve_s3_bucket.s3_bucket_id
-      S3_DESTINATION_PREFIX = var.s3_prefix
-    }
+# EventBridge Scheduler for direct Transfer Family integration
+resource "aws_scheduler_schedule" "sftp_retrieve_direct" {
+  name = "sftp-retrieve-direct-${random_pet.name.id}"
+  
+  schedule_expression = var.eventbridge_schedule
+  
+  flexible_time_window {
+    mode = "OFF"
+  }
+  
+  target {
+    arn      = "arn:aws:scheduler:::aws-sdk:transfer:startFileTransfer"
+    role_arn = aws_iam_role.scheduler_role.arn
+    
+    input = jsonencode({
+      ConnectorId         = var.connector_id != null ? var.connector_id : module.sftp_connector[0].connector_id
+      RetrieveFilePaths   = var.file_paths_to_retrieve
+      LocalDirectoryPath  = "/${module.retrieve_s3_bucket.s3_bucket_id}/${trimsuffix(var.s3_prefix, "/")}"
+    })
   }
 }
 
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  output_path = "${path.module}/lambda_function.zip"
-  
-  source_file = "${path.module}/index.py"
+# IAM role for EventBridge Scheduler
+resource "aws_iam_role" "scheduler_role" {
+  name = "eventbridge-scheduler-role-${random_pet.name.id}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      }
+    ]
+  })
 }
 
-###################################################################
-# EventBridge Schedule for Automated Retrieval
-###################################################################
-resource "aws_cloudwatch_event_rule" "retrieve_schedule" {
-  name                = "sftp-retrieve-schedule-${random_pet.name.id}"
-  description         = "Schedule for automated SFTP file retrieval"
-  schedule_expression = var.eventbridge_schedule
-}
+# IAM policy for EventBridge Scheduler
+resource "aws_iam_role_policy" "scheduler_policy" {
+  name = "eventbridge-scheduler-policy-${random_pet.name.id}"
+  role = aws_iam_role.scheduler_role.id
 
-resource "aws_cloudwatch_event_target" "lambda_target" {
-  rule      = aws_cloudwatch_event_rule.retrieve_schedule.name
-  target_id = "SendToLambda"
-  arn       = aws_lambda_function.sftp_retrieve.arn
-}
-
-resource "aws_lambda_permission" "allow_eventbridge" {
-  statement_id  = "AllowExecutionFromEventBridge"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.sftp_retrieve.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.retrieve_schedule.arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "transfer:StartFileTransfer"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
