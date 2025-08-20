@@ -7,22 +7,8 @@
 #
 
 #
-# Lambda Layer with Python Dependencies
-#
-resource "aws_lambda_layer_version" "idp_handler_layer" {
-  filename                 = "${path.module}/lambda-layer.zip"
-  layer_name              = "${var.name_prefix}-idp-handler-layer"
-  compatible_runtimes     = ["python3.11"]
-  source_code_hash        = filebase64sha256("${path.module}/lambda-layer.zip")
-  
-  lifecycle {
-    create_before_destroy = true
-  }
-  
-  depends_on = [null_resource.build_lambda_layer]
-}
-
 # Build Lambda layer with Python dependencies
+#
 resource "null_resource" "build_lambda_layer" {
   triggers = {
     requirements_hash = filemd5("${path.module}/requirements.txt")
@@ -31,11 +17,27 @@ resource "null_resource" "build_lambda_layer" {
   provisioner "local-exec" {
     command = <<-EOT
       mkdir -p ${path.module}/layer/python
-      pip install -r ${path.module}/requirements.txt -t ${path.module}/layer/python --no-cache-dir
+      pip3 install -r ${path.module}/requirements.txt -t ${path.module}/layer/python --no-cache-dir
       cd ${path.module}/layer && zip -r ../lambda-layer.zip python/
       rm -rf ${path.module}/layer
     EOT
   }
+}
+
+#
+# Lambda Layer with Python Dependencies
+#
+resource "aws_lambda_layer_version" "idp_handler_layer" {
+  filename                 = "${path.module}/lambda-layer.zip"
+  layer_name              = "${var.name_prefix}-idp-handler-layer"
+  compatible_runtimes     = ["python3.11"]
+  source_code_hash        = filemd5("${path.module}/requirements.txt")
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+  
+  depends_on = [null_resource.build_lambda_layer]
 }
 
 #
@@ -119,8 +121,8 @@ resource "aws_dynamodb_table" "users" {
   }
   
   server_side_encryption {
-    enabled     = true
-    kms_key_id  = var.kms_key_id
+    enabled = true
+    kms_key_arn = var.kms_key_id
   }
   
   point_in_time_recovery {
@@ -145,8 +147,8 @@ resource "aws_dynamodb_table" "identity_providers" {
   }
   
   server_side_encryption {
-    enabled     = true
-    kms_key_id  = var.kms_key_id
+    enabled = true
+    kms_key_arn = var.kms_key_id
   }
   
   point_in_time_recovery {

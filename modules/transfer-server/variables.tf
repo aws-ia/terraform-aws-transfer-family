@@ -50,8 +50,8 @@ variable "identity_provider" {
   default     = "SERVICE_MANAGED"
 
   validation {
-    condition     = contains(["SERVICE_MANAGED"], var.identity_provider)
-    error_message = "Identity provider type must be: SERVICE_MANAGED"
+    condition     = contains(["SERVICE_MANAGED", "AWS_LAMBDA", "API_GATEWAY"], var.identity_provider)
+    error_message = "Identity provider type must be one of: SERVICE_MANAGED, AWS_LAMBDA, API_GATEWAY"
   }
 }
 
@@ -175,4 +175,23 @@ variable "workflow_details" {
     }))
   })
   default = null
+}
+
+# Custom Identity Provider Integration Variables
+variable "lambda_function_arn" {
+  description = "Lambda function ARN for custom identity provider (required when identity_provider is AWS_LAMBDA)"
+  type        = string
+  default     = null
+}
+
+variable "api_gateway_url" {
+  description = "API Gateway URL for custom identity provider (required when identity_provider is API_GATEWAY)"
+  type        = string
+  default     = null
+}
+
+variable "api_gateway_invocation_role" {
+  description = "IAM role ARN for API Gateway invocation (required when identity_provider is API_GATEWAY)"
+  type        = string
+  default     = null
 }
