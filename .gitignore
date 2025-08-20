@@ -147,3 +147,5 @@ vendor/
 
 # Go
 vendor/
+
+docs/
