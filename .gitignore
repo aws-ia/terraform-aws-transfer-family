@@ -53,6 +53,24 @@ checkov_reports/
 
 tf_security_scan.sh
 
+# Testing documentation (contains sensitive info like endpoints, credentials)
+TESTING.md
+**/TESTING.md
+
+# Lambda layer artifacts and build directories
+**/lambda-layer.zip
+**/lambda-function.zip
+**/layer/
+**/build/
+
+# Additional Terraform state and plan files
+*.tfplan
+*.tfplan.*
+.terraform.tfstate.lock.info
+
+# Terraform module cache
+.terraform.d/
+
 # Ignore macOS system files
 **/.DS_Store
 

@@ -1,0 +1,17 @@
+# Copy this file to terraform.tfvars and customize as needed
+
+# AWS Region
+aws_region = "us-east-1"
+
+# Test User Configuration
+test_username         = "testuser"
+test_user_email      = "testuser@example.com"
+test_user_password   = "TestPass123!"
+
+# Tags
+tags = {
+  Environment = "test"
+  Project     = "transfer-family-cognito-example"
+  Owner       = "your-name"
+  ManagedBy   = "terraform"
+}
