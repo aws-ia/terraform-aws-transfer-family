@@ -49,7 +49,10 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
       {
         Sid    = "AllowListingOfUserFolder"
         Effect = "Allow"
-        Action = ["s3:ListBucket"]
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
         Resource = [var.s3_bucket_arn]
       },
       {
@@ -58,7 +61,11 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
         Action = [
           "s3:PutObject",
           "s3:GetObject",
-          "s3:DeleteObject"
+          "s3:DeleteObject",
+          "s3:DeleteObjectVersion",
+          "s3:GetObjectVersion",
+          "s3:GetObjectACL",
+          "s3:PutObjectACL"
         ]
         Resource = ["${var.s3_bucket_arn}/*"]
       },
@@ -67,7 +74,10 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
         Effect = "Allow"
         Action = [
           "kms:Decrypt",
-          "kms:GenerateDataKey"
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:GetPublicKey",
+          "kms:ListKeyPolicies"
         ]
         Resource = [var.kms_key_id]
       }
