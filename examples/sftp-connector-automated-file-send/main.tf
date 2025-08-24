@@ -84,7 +84,7 @@ module "sftp_connector" {
 # Create Test S3 bucket for file uploads (triggers SFTP transfer)
 ###################################################################
 module "test_s3_bucket" {
-  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=8b0b9b4c7e1f2a3d4e5f6a7b8c9d0e1f2a3b4c5d"
+  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=179576ca9e3d524f09370ff643ea80a0f753cdd7"
   bucket                   = lower("${random_pet.name.id}-test-upload-bucket")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
@@ -269,37 +269,6 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
-resource "aws_sqs_queue" "lambda_dlq" {
-  name                      = "lambda-dlq-${random_pet.name.id}"
-  kms_master_key_id         = "alias/aws/sqs"
-  kms_data_key_reuse_period_seconds = 300
-}
-
-resource "aws_signer_signing_profile" "lambda_signing_profile" {
-  platform_id = "AWSLambda-SHA384-ECDSA"
-  name        = "lambda-signing-profile-${random_pet.name.id}"
-}
-
-resource "aws_lambda_code_signing_config" "lambda_code_signing" {
-  allowed_publishers {
-    signing_profile_version_arns = [aws_signer_signing_profile.lambda_signing_profile.arn]
-  }
-
-  policies {
-    untrusted_artifact_on_deployment = "Warn"
-  }
-}
-
-data "aws_vpc" "default" {
-  default = true
-}
-
-data "aws_subnets" "private" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
 
 resource "aws_lambda_function" "sftp_transfer" {
   function_name    = "s3-copy-${random_pet.name.id}"
@@ -308,25 +277,12 @@ resource "aws_lambda_function" "sftp_transfer" {
   runtime          = "nodejs18.x"
   timeout          = 60
   memory_size      = 256
-  reserved_concurrent_executions = 10
   
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
-  kms_key_arn = aws_kms_key.transfer_family_key.arn
-  code_signing_config_arn = aws_lambda_code_signing_config.lambda_code_signing.arn
-
-  vpc_config {
-    subnet_ids         = data.aws_subnets.private.ids
-    security_group_ids = [aws_security_group.lambda.id]
-  }
-
   tracing_config {
     mode = "Active"
-  }
-
-  dead_letter_config {
-    target_arn = aws_sqs_queue.lambda_dlq.arn
   }
 
   environment {
