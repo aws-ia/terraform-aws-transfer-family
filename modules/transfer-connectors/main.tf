@@ -19,6 +19,20 @@ locals {
   
   # Use the provided secret ID directly
   effective_secret_id = var.user_secret_id
+  
+  # URL formatting
+  sftp_url = startswith(var.url, "sftp://") ? var.url : "sftp://${var.url}"
+}
+
+#####################################################################################
+# Validation Checks
+#####################################################################################
+
+check "credentials_provided" {
+  assert {
+    condition     = var.user_secret_id != null || var.sftp_password != "" || var.sftp_private_key != ""
+    error_message = "When user_secret_id is not provided, either sftp_password or sftp_private_key must be provided for SFTP authentication."
+  }
 }
 
 #####################################################################################
@@ -112,7 +126,7 @@ resource "aws_transfer_connector" "sftp_connector" {
   ]
   
   access_role = aws_iam_role.connector_role.arn
-  url         = var.url
+  url         = local.sftp_url
 
   # SFTP config without trusted_host_keys (optional)
   dynamic "sftp_config" {
@@ -188,7 +202,7 @@ resource "null_resource" "discover_and_test_connector" {
         UPDATE_RESULT=$(aws transfer update-connector \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
           --region ${data.aws_region.current.id} \
-          --url "${var.url}" \
+          --url "${local.sftp_url}" \
           --access-role "${aws_iam_role.connector_role.arn}" \
           --logging-role "${local.logging_role}" \
           --sftp-config "UserSecretId=${local.effective_secret_id},TrustedHostKeys=$HOST_KEY" \

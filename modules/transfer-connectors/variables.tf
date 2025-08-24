@@ -9,12 +9,12 @@ variable "connector_name" {
 }
 
 variable "url" {
-  description = "URL of the SFTP server to connect to (e.g., sftp://example.com:22)"
+  description = "URL of the SFTP server to connect to (e.g., example.com or sftp://example.com:22)"
   type        = string
 
   validation {
-    condition     = can(regex("^(sftp|http|https)://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$", var.url))
-    error_message = "URL must be a valid format starting with sftp://, http://, or https:// followed by a hostname and optional port/path."
+    condition     = can(regex("^(sftp://)?[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$", var.url))
+    error_message = "URL must be a valid hostname with optional sftp:// prefix, port, and path."
   }
 }
 
@@ -106,4 +106,17 @@ variable "trusted_host_keys" {
   description = "List of trusted host keys for the SFTP server. If empty, SSH key auto-discovery will run automatically."
   type        = list(string)
   default     = []
+}
+variable "sftp_password" {
+  description = "SFTP password for authentication (optional if using private key)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "sftp_private_key" {
+  description = "SFTP private key for authentication (optional if using password)"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
