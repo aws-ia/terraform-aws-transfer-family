@@ -15,10 +15,6 @@ resource "random_pet" "name" {
 
 locals {
   server_name = "transfer-server-${random_pet.name.id}"
-  sftp_url    = startswith(var.sftp_server_endpoint, "sftp://") ? var.sftp_server_endpoint : "sftp://${var.sftp_server_endpoint}"
-  
-  # Validation: ensure credentials are provided when creating new secret
-  validate_credentials = var.existing_secret_arn == "" && var.sftp_password == "" && var.sftp_private_key == "" ? tobool("Error: When existing_secret_arn is empty, either sftp_password or sftp_private_key must be provided") : true
 }
 
 provider "aws" {
@@ -66,7 +62,7 @@ module "sftp_connector" {
   source = "../../modules/transfer-connectors"
 
   connector_name              = "sftp-connector-${random_pet.name.id}"
-  url                         = local.sftp_url
+  url                         = var.sftp_server_endpoint
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
   user_secret_id              = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
@@ -88,7 +84,7 @@ module "sftp_connector" {
 # Create Test S3 bucket for file uploads (triggers SFTP transfer)
 ###################################################################
 module "test_s3_bucket" {
-  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
+  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=8b0b9b4c7e1f2a3d4e5f6a7b8c9d0e1f2a3b4c5d"
   bucket                   = lower("${random_pet.name.id}-test-upload-bucket")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
@@ -273,6 +269,38 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
+resource "aws_sqs_queue" "lambda_dlq" {
+  name                      = "lambda-dlq-${random_pet.name.id}"
+  kms_master_key_id         = "alias/aws/sqs"
+  kms_data_key_reuse_period_seconds = 300
+}
+
+resource "aws_signer_signing_profile" "lambda_signing_profile" {
+  platform_id = "AWSLambda-SHA384-ECDSA"
+  name        = "lambda-signing-profile-${random_pet.name.id}"
+}
+
+resource "aws_lambda_code_signing_config" "lambda_code_signing" {
+  allowed_publishers {
+    signing_profile_version_arns = [aws_signer_signing_profile.lambda_signing_profile.arn]
+  }
+
+  policies {
+    untrusted_artifact_on_deployment = "Warn"
+  }
+}
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "private" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
 resource "aws_lambda_function" "sftp_transfer" {
   function_name    = "s3-copy-${random_pet.name.id}"
   role             = aws_iam_role.lambda_role.arn
@@ -280,9 +308,26 @@ resource "aws_lambda_function" "sftp_transfer" {
   runtime          = "nodejs18.x"
   timeout          = 60
   memory_size      = 256
+  reserved_concurrent_executions = 10
   
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  kms_key_arn = aws_kms_key.transfer_family_key.arn
+  code_signing_config_arn = aws_lambda_code_signing_config.lambda_code_signing.arn
+
+  vpc_config {
+    subnet_ids         = data.aws_subnets.private.ids
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
 
   environment {
     variables = {
