@@ -120,3 +120,26 @@ variable "sftp_private_key" {
   default     = ""
   sensitive   = true
 }
+variable "create_secret" {
+  description = "Whether to create a new secret for SFTP credentials"
+  type        = bool
+  default     = false
+}
+
+variable "secret_name" {
+  description = "Name for the new secret (only used when create_secret is true)"
+  type        = string
+  default     = null
+}
+
+variable "secret_kms_key_id" {
+  description = "KMS key ID for encrypting the secret"
+  type        = string
+  default     = null
+}
+
+variable "sftp_username" {
+  description = "SFTP username for authentication"
+  type        = string
+  default     = ""
+}

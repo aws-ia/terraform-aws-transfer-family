@@ -17,8 +17,8 @@ locals {
   should_scan = false
   logging_role = length(aws_iam_role.connector_logging_role) > 0 ? aws_iam_role.connector_logging_role[0].arn : null
   
-  # Use the provided secret ID directly
-  effective_secret_id = var.user_secret_id
+  # Use provided secret ID or create new one
+  effective_secret_id = var.user_secret_id != null ? var.user_secret_id : (var.create_secret ? aws_secretsmanager_secret.sftp_credentials[0].arn : null)
   
   # URL formatting
   sftp_url = startswith(var.url, "sftp://") ? var.url : "sftp://${var.url}"
@@ -30,9 +30,29 @@ locals {
 
 check "credentials_provided" {
   assert {
-    condition     = var.user_secret_id != null || var.sftp_password != "" || var.sftp_private_key != ""
-    error_message = "When user_secret_id is not provided, either sftp_password or sftp_private_key must be provided for SFTP authentication."
+    condition     = var.user_secret_id != null || (var.create_secret && var.sftp_username != "" && var.sftp_private_key != "")
+    error_message = "When existing_secret_arn is not provided, you must provide sftp_username and sftp_private_key to create a new secret. Password authentication is not supported for new secrets."
   }
+}
+
+#####################################################################################
+# Secrets Manager Secret (only when create_secret is true)
+#####################################################################################
+
+resource "aws_secretsmanager_secret" "sftp_credentials" {
+  count       = var.create_secret ? 1 : 0
+  name        = var.secret_name
+  description = "SFTP credentials for connector"
+  kms_key_id  = var.secret_kms_key_id
+}
+
+resource "aws_secretsmanager_secret_version" "sftp_credentials" {
+  count     = var.create_secret ? 1 : 0
+  secret_id = aws_secretsmanager_secret.sftp_credentials[0].id
+  secret_string = jsonencode({
+    Username   = var.sftp_username
+    PrivateKey = var.sftp_private_key
+  })
 }
 
 #####################################################################################
