@@ -8,6 +8,15 @@
 # Defaults and Locals
 ######################################
 
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+resource "aws_sqs_queue" "lambda_dlq" {
+  name                      = "lambda-dlq-${random_pet.name.id}"
+  kms_master_key_id        = aws_kms_key.transfer_family_key.arn
+  kms_data_key_reuse_period_seconds = 300
+}
+
 resource "random_pet" "name" {
   prefix = "aws-ia"
   length = 1
@@ -176,7 +185,8 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
 # S3 Bucket for retrieved files
 ###################################################################
 module "retrieve_s3_bucket" {
-  source = "terraform-aws-modules/s3-bucket/aws"
+  source  = "terraform-aws-modules/s3-bucket/aws"
+  version = "~> 4.0"
 
   bucket = "${random_pet.name.id}-retrieve-bucket"
 
@@ -257,7 +267,7 @@ resource "aws_iam_policy" "lambda_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ],
-        Resource = "arn:aws:logs:*:*:*"
+        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*"
       },
       {
         Effect = "Allow",
@@ -266,7 +276,10 @@ resource "aws_iam_policy" "lambda_policy" {
           "transfer:StartDirectoryListing",
           "transfer:DescribeExecution"
         ],
-        Resource = "*"
+        Resource = [
+          "arn:aws:transfer:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:connector/*",
+          "arn:aws:transfer:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:execution/*"
+        ]
       },
       {
         Effect = "Allow",
@@ -307,6 +320,17 @@ resource "aws_lambda_function" "sftp_retrieve" {
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   runtime         = "python3.9"
   timeout         = 300
+  reserved_concurrent_executions = 10
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+
+  kms_key_arn = aws_kms_key.transfer_family_key.arn
 
   environment {
     variables = {

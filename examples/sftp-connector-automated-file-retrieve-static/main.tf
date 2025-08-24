@@ -110,7 +110,8 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
 # S3 Bucket for retrieved files
 ###################################################################
 module "retrieve_s3_bucket" {
-  source = "terraform-aws-modules/s3-bucket/aws"
+  source  = "terraform-aws-modules/s3-bucket/aws"
+  version = "~> 4.0"
 
   bucket = "${random_pet.name.id}-retrieve-bucket"
 
@@ -224,6 +225,8 @@ resource "aws_scheduler_schedule" "sftp_retrieve_direct" {
   flexible_time_window {
     mode = "OFF"
   }
+  
+  kms_key_id = aws_kms_key.transfer_family_key.arn
   
   target {
     arn      = "arn:aws:scheduler:::aws-sdk:transfer:startFileTransfer"
