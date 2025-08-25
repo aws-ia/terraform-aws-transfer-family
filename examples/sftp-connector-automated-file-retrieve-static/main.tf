@@ -169,6 +169,7 @@ module "sftp_connector" {
   S3_kms_key_arn   = local.kms_key_arn
   secrets_manager_kms_key_arn = local.kms_key_arn
   security_policy_name = "TransferSFTPConnectorSecurityPolicy-2024-03"
+  test_connector_post_deployment = var.test_connector_post_deployment
 
   tags = {
     Environment = "Demo"
@@ -228,6 +229,7 @@ resource "aws_scheduler_schedule" "sftp_retrieve_direct" {
   name = "sftp-retrieve-direct-${random_pet.name.id}"
   
   schedule_expression = var.eventbridge_schedule
+  kms_key_arn = local.kms_key_arn
   
   flexible_time_window {
     mode = "OFF"
@@ -327,7 +329,7 @@ resource "aws_iam_role_policy" "scheduler_policy" {
         Action = [
           "transfer:StartFileTransfer"
         ]
-        Resource = "*"
+        Resource = var.connector_id != null ? "arn:aws:transfer:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:connector/${var.connector_id}" : module.sftp_connector[0].connector_arn
       }
     ], var.enable_dynamodb_tracking ? [
       {
