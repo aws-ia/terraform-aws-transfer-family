@@ -19,6 +19,9 @@ resource "random_pet" "name" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key[0].arn
+}
 
 # Get KMS key from existing secret if provided
 data "aws_secretsmanager_secret" "existing" {
@@ -175,6 +178,19 @@ resource "aws_cloudwatch_event_rule" "s3_object_created" {
       }
     }
   })
+}
+
+###################################################################
+# SQS Dead Letter Queue for Lambda
+###################################################################
+resource "aws_sqs_queue" "lambda_dlq" {
+  name = "lambda-dlq-${random_pet.name.id}"
+  
+  kms_master_key_id = local.kms_key_arn
+  
+  tags = {
+    Purpose = "Lambda Dead Letter Queue"
+  }
 }
 
 ###################################################################
