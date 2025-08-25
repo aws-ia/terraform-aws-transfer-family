@@ -73,6 +73,12 @@ variable "secrets_manager_kms_key_arn" {
   default     = null
 }
 
+variable "test_connector_post_deployment" {
+  description = "Whether to test the connector connection after deployment"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "A map of tags to assign to resources"
   type        = map(string)

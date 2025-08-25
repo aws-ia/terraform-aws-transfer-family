@@ -23,36 +23,11 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+
 # Get KMS key from existing secret if provided
 data "aws_secretsmanager_secret" "existing" {
   count = var.existing_secret_arn != null ? 1 : 0
   arn   = var.existing_secret_arn
-}
-
-
-
-###################################################################
-# Create Secrets Manager secret for SFTP credentials (only when existing_secret_arn is not provided)
-###################################################################
-resource "aws_secretsmanager_secret" "sftp_credentials" {
-  count       = var.existing_secret_arn != null ? 0 : 1
-  name        = "sftp-credentials-${random_pet.name.id}"
-  description = "SFTP credentials for connector"
-  kms_key_id  = aws_kms_key.transfer_family_key.arn
-}
-
-resource "aws_secretsmanager_secret_version" "sftp_credentials" {
-  count     = var.existing_secret_arn != null ? 0 : 1
-  secret_id = aws_secretsmanager_secret.sftp_credentials[0].id
-  secret_string = jsonencode(
-    var.sftp_private_key != "" ? {
-      username = var.sftp_username
-      pk       = var.sftp_private_key
-    } : {
-      username = var.sftp_username
-      password = var.sftp_password
-    }
-  )
 }
 
 ###################################################################
@@ -65,12 +40,19 @@ module "sftp_connector" {
   url                         = var.sftp_server_endpoint
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
-  user_secret_id              = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
+  user_secret_id              = var.existing_secret_arn
+  create_secret               = var.existing_secret_arn == null
+  secret_name                 = var.existing_secret_arn == null ? "sftp-credentials-${random_pet.name.id}" : null
+  secret_kms_key_id           = var.existing_secret_arn == null ? aws_kms_key.transfer_family_key.arn : null
+  sftp_username               = var.sftp_username
+  sftp_password               = var.sftp_password
+  sftp_private_key            = var.sftp_private_key
   secrets_manager_kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key.arn
   S3_kms_key_arn              = aws_kms_key.transfer_family_key.arn
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
   trusted_host_keys = var.trusted_host_keys
+  test_connector_post_deployment = false
 
   tags = {
     Environment = "Demo"
@@ -270,16 +252,40 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 }
 
 
+###################################################################
+# Lambda Code Signing Configuration
+###################################################################
+resource "aws_signer_signing_profile" "lambda_signing_profile" {
+  platform_id = "AWSLambda-SHA384-ECDSA"
+  name        = "lambdasigningprofile${replace(random_pet.name.id, "-", "")}"
+}
+
+resource "aws_lambda_code_signing_config" "lambda_code_signing" {
+  allowed_publishers {
+    signing_profile_version_arns = [aws_signer_signing_profile.lambda_signing_profile.arn]
+  }
+
+  policies {
+    untrusted_artifact_on_deployment = "Warn"
+  }
+
+  description = "Code signing config for Lambda function"
+}
+
 resource "aws_lambda_function" "sftp_transfer" {
   function_name    = "s3-copy-${random_pet.name.id}"
   role             = aws_iam_role.lambda_role.arn
   handler          = "index.handler"
-  runtime          = "nodejs18.x"
+  runtime          = "python3.9"
   timeout          = 60
   memory_size      = 256
+  reserved_concurrent_executions = 10
   
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  code_signing_config_arn = aws_lambda_code_signing_config.lambda_code_signing.arn
+  kms_key_arn = aws_kms_key.transfer_family_key.arn
 
   tracing_config {
     mode = "Active"
@@ -295,30 +301,7 @@ resource "aws_lambda_function" "sftp_transfer" {
 data "archive_file" "lambda_zip" {
   type        = "zip"
   output_path = "${path.module}/lambda_function.zip"
-  
-  source {
-    content  = <<EOF
-const { TransferClient, StartFileTransferCommand } = require('@aws-sdk/client-transfer');
-
-const transferClient = new TransferClient();
-
-exports.handler = async (event) => {
-  const sourceBucket = event.detail.bucket.name;
-  const sourceKey = event.detail.object.key;
-  
-  const command = new StartFileTransferCommand({
-    ConnectorId: process.env.CONNECTOR_ID,
-    SendFilePaths: [`/$${sourceBucket}/$${sourceKey}`]
-  });
-  
-  const result = await transferClient.send(command);
-  console.log('Transfer started:', result.TransferId);
-  
-  return { statusCode: 200, body: 'Transfer initiated' };
-};
-EOF
-    filename = "index.js"
-  }
+  source_file = "${path.module}/index.py"
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {

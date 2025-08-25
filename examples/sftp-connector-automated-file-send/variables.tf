@@ -15,7 +15,7 @@ variable "existing_secret_arn" {
   default     = null
 
   validation {
-    condition     = var.existing_secret_arn == "" || can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$", var.existing_secret_arn))
+    condition     = var.existing_secret_arn == null || var.existing_secret_arn == "" || can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$", var.existing_secret_arn))
     error_message = "If provided, existing_secret_arn must be a valid AWS Secrets Manager ARN in the format: arn:aws:secretsmanager:region:123456789012:secret:secret-name"
   }
 }
