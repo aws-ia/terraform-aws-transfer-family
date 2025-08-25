@@ -217,6 +217,26 @@ module "sftp_connector" {
 }
 
 ###################################################################
+# Lambda Code Signing
+###################################################################
+resource "aws_signer_signing_profile" "lambda_signing_profile" {
+  platform_id = "AWSLambda-SHA384-ECDSA"
+  name        = "lambdasigningprofile${replace(random_pet.name.id, "-", "")}"
+}
+
+resource "aws_lambda_code_signing_config" "lambda_code_signing" {
+  allowed_publishers {
+    signing_profile_version_arns = [aws_signer_signing_profile.lambda_signing_profile.arn]
+  }
+
+  policies {
+    untrusted_artifact_on_deployment = "Warn"
+  }
+
+  description = "Code signing config for Lambda function"
+}
+
+###################################################################
 # Lambda Function for Dynamic File Discovery
 ###################################################################
 resource "aws_lambda_function" "file_discovery" {
@@ -226,6 +246,9 @@ resource "aws_lambda_function" "file_discovery" {
   handler         = "index.lambda_handler"
   runtime         = "python3.9"
   timeout         = 300
+  
+  reserved_concurrent_executions = 10
+  code_signing_config_arn = aws_lambda_code_signing_config.lambda_code_signing.arn
 
   dead_letter_config {
     target_arn = aws_sqs_queue.lambda_dlq.arn
@@ -241,6 +264,10 @@ resource "aws_lambda_function" "file_discovery" {
       SOURCE_DIRECTORY = var.source_directory
       DYNAMODB_TABLE = var.enable_dynamodb_tracking ? aws_dynamodb_table.file_transfer_tracking[0].name : ""
     }
+  }
+
+  tracing_config {
+    mode = "Active"
   }
 
   depends_on = [data.archive_file.lambda_zip]
@@ -260,6 +287,7 @@ resource "aws_scheduler_schedule" "lambda_trigger" {
   name = "sftp-lambda-trigger-${random_pet.name.id}"
   
   schedule_expression = var.eventbridge_schedule
+  kms_key_arn = local.kms_key_arn
   
   flexible_time_window {
     mode = "OFF"
