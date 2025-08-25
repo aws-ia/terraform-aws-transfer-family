@@ -1,80 +1,221 @@
-# AWS Transfer Family SFTP Connector Module
+<!-- BEGIN_TF_DOCS -->
+# AWS Transfer Family Terraform Module
 
-This module creates an AWS Transfer Family SFTP connector that connects an S3 bucket to an external SFTP server.
+This repository contains Terraform code which creates resources required to run a Transfer Family Server within AWS.
 
-## Features
+## Overview
 
-- Creates an AWS Transfer Family SFTP connector
-- Sets up necessary IAM roles and policies for the connector
-- Configures CloudWatch logging for the connector
-- Manages SFTP connection settings and security policies
+This module creates and configures an AWS Transfer Server with the following features:
 
-## Usage
+- Basic Transfer Server setup with SFTP protocol and security policies
+- Custom hostname support through AWS Route53 or other DNS providers(Optional)
+- CloudWatch logging configuration with customizable retention
+
+## Quick Start
 
 ```hcl
-module "sftp_connector" {
-  source = "aws-ia/transfer-family/aws//modules/transfer-connectors"
+module "transfer_sftp" {
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
 
-  connector_name        = "my-sftp-connector"
-  sftp_server_url       = "sftp://example.com:22"
-  s3_bucket_arn         = module.s3_bucket.s3_bucket_arn
-  s3_bucket_name        = module.s3_bucket.s3_bucket_id
-  user_secret_id        = aws_secretsmanager_secret.sftp_credentials.arn
-  kms_key_arn           = aws_kms_key.transfer_family_key.arn
-  aws_region            = var.aws_region
-  trust_all_certificates = false
-  security_policy_name  = "TransferSecurityPolicy-2024-01"
+  identity_provider = "SERVICE_MANAGED"
+  protocols             = ["SFTP"]
+  domain               = "S3"
 
   tags = {
-    Environment = "Production"
+    Environment = "Dev"
     Project     = "File Transfer"
   }
 }
 ```
 
-## Requirements
+## Architecture
 
-| Name | Version |
-|------|---------|
-| terraform | >= 1.5 |
-| aws | >= 5.95.0 |
+### High-Level Architecture
 
-## Inputs
+![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/dev/images/AWS%20Transfer%20Family%20Architecture.png)
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| connector_name | Name of the AWS Transfer Family connector | `string` | `"sftp-connector"` | no |
-| sftp_server_url | URL of the SFTP server to connect to (e.g., sftp://example.com:22) | `string` | n/a | yes |
-| s3_bucket_arn | ARN of the S3 bucket to connect to the SFTP server | `string` | n/a | yes |
-| s3_bucket_name | Name of the S3 bucket to connect to the SFTP server | `string` | n/a | yes |
-| user_secret_id | ARN of the AWS Secrets Manager secret containing SFTP credentials | `string` | n/a | yes |
-| as2_username | Username for AS2 basic authentication | `string` | `""` | no |
-| as2_password | Password for AS2 basic authentication | `string` | `""` | no |
-| trust_all_certificates | Whether to trust all certificates for the SFTP connection | `bool` | `false` | no |
-| security_policy_name | The name of the security policy to use for the connector | `string` | `"TransferSecurityPolicy-2024-01"` | no |
-| logging_role | IAM role ARN for CloudWatch logging (if not provided, a new role will be created) | `string` | `null` | no |
-| kms_key_arn | ARN of the KMS key used for encryption | `string` | n/a | yes |
-| aws_region | AWS region where resources will be created | `string` | n/a | yes |
-| tags | A map of tags to assign to resources | `map(string)` | `{}` | no |
+Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module
 
-## Outputs
+## Features
 
-| Name | Description |
-|------|-------------|
-| connector_id | The ID of the AWS Transfer Family connector |
-| connector_arn | The ARN of the AWS Transfer Family connector |
-| connector_url | The URL of the SFTP server the connector connects to |
-| connector_role_arn | The ARN of the IAM role used by the connector |
-| connector_logging_role_arn | The ARN of the IAM role used for connector logging (if created) |
+### Transfer Server Configuration
 
-## Security Considerations
+- Deploy SFTP server endpoints with public endpoint type
+- Server name customization (default: "transfer-server")
+- S3 domain support
+- SFTP protocol support
+- Service-managed identity provider
+- Support for custom hostnames and DNS configurations
+- Integration with CloudWatch for logging and monitoring
 
-- The module creates IAM roles with least privilege permissions
-- Secrets for SFTP authentication are stored in AWS Secrets Manager
-- KMS encryption is used for securing sensitive data
-- Security policies can be configured to enforce secure connections
+### DNS Management
 
-<!-- BEGIN_TF_DOCS -->
+#### DNS Configuration
+
+This module supports custom DNS configurations for your Transfer Family server using Route 53 or other DNS providers.
+
+#### Route 53 Integration
+
+```
+dns_provider = "route53"
+custom_hostname = "sftp.example.com"
+route53_hosted_zone_name = "example.com."
+```
+
+For Other DNS Providers:
+
+```
+dns_provider = "other"
+custom_hostname = "sftp.example.com"
+```
+
+#### The module checks
+
+```
+Route 53 configurations are complete when selected
+Custom hostname is provided when a DNS provider is specified
+```
+
+### Logging Features
+
+- Optional CloudWatch logging
+- Configurable log retention period (default: 30 days)
+- Automated IAM role and policy configuration for logging
+- AWS managed logging policy attachment
+
+## Security Policy Support
+
+Supports multiple AWS Transfer security policies including:
+
+- Standard policies (2018-11 through 2024-01)
+- FIPS-compliant policies
+- PQ-SSH Experimental policies
+- Restricted security policies
+
+## Validation Checks
+
+The module includes several built-in checks to ensure proper configuration:
+
+- Route53 configuration validation
+- Custom hostname verification
+- DNS provider configuration checks
+- Domain name compatibility verification
+- Security policy name validation
+
+## Best Practices
+
+- Enable CloudWatch logging for audit and monitoring purposes (optional, configurable via enable\_logging variable)
+- Use the latest security policies (default is TransferSecurityPolicy-2024-01, configurable with validation)
+- Configure proper DNS settings when using custom hostnames (validated through check blocks)
+- Utilize built-in validation checks for DNS provider and custom hostname configurations
+- Use proper tagging for resources (supported via tags variable)
+
+## Modules
+
+This project utilizes multiple modules to create a complete AWS Transfer Family SFTP solution:
+
+### Core Transfer Server Module (main module)
+
+- Purpose: Creates and configures the AWS Transfer Server
+- Key features:
+  - SFTP protocol support
+  - Public endpoint configuration
+  - CloudWatch logging setup
+  - Service-managed authentication
+  - Custom hostname support (optional)
+
+### Transfer Users Module
+
+- Purpose: Manages SFTP user access and permissions
+- Key features:
+  - CSV-based user configuration support
+  - Optional test user creation
+  - IAM role and policy management
+  - Integration with S3 bucket permissions
+  - KMS encryption key access management
+
+## Installation
+
+To use these modules in your Terraform configuration:
+
+1. Reference the modules in your Terraform code:
+
+```hcl
+module "transfer_server" {
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
+
+  # Module parameters
+  # ...
+}
+```
+
+2. Initialize your Terraform workspace:
+
+```bash
+terraform init
+```
+
+3. Review the planned changes:
+
+```bash
+terraform plan
+```
+
+4. Apply the configuration:
+
+```bash
+terraform apply
+```
+
+## Basic Usage
+
+### Simple SFTP Server Setup
+
+```hcl
+module "transfer_server" {
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
+
+  # Basic server configuration
+  server_name       = "demo-transfer-server"
+  domain           = "S3"
+  protocols        = ["SFTP"]
+  endpoint_type    = "PUBLIC"
+  identity_provider = "SERVICE_MANAGED"
+
+  # Enable logging
+  enable_logging    = true
+  log_retention_days = 14
+
+  tags = {
+    Environment = "Demo"
+    Project     = "SFTP"
+  }
+}
+```
+
+## Example for Internet Facing VPC Endpoint Configuration
+
+This example demonstrates an internet-facing VPC endpoint configuration:
+
+```hcl
+module "transfer_server" {
+  # Other configurations go here
+  endpoint_type = "VPC"
+  endpoint_details = {
+    address_allocation_ids = aws_eip.sftp[*].allocation_id  # Makes the endpoint internet-facing
+    security_group_ids     = [aws_security_group.sftp.id]
+    subnet_ids             = local.public_subnets
+    vpc_id                 = local.vpc_id
+  }
+}
+```
+
+Key points about VPC endpoint types:
+- **Internet-facing endpoint**: Created when `address_allocation_ids` are specified (as shown in this example)
+- Internet-facing endpoints require Elastic IPs and public subnets
+- **Internal endpoint**: Created when `address_allocation_ids` are omitted
+- Internal endpoints are only accessible from within the VPC or connected networks
+
 ## Requirements
 
 | Name | Version |
@@ -126,12 +267,16 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_s3_bucket_arn"></a> [s3\_bucket\_arn](#input\_s3\_bucket\_arn) | ARN of the S3 bucket to connect to the SFTP server | `string` | n/a | yes |
+| <a name="input_s3_bucket_name"></a> [s3\_bucket\_name](#input\_s3\_bucket\_name) | Name of the S3 bucket to connect to the SFTP server | `string` | n/a | yes |
+| <a name="input_url"></a> [url](#input\_url) | URL of the SFTP server to connect to (e.g., example.com or sftp://example.com:22) | `string` | n/a | yes |
 | <a name="input_S3_kms_key_arn"></a> [S3\_kms\_key\_arn](#input\_S3\_kms\_key\_arn) | ARN of the KMS key used for encryption (optional) | `string` | `null` | no |
+| <a name="input_as2_mdn_response"></a> [as2\_mdn\_response](#input\_as2\_mdn\_response) | AS2 MDN response for the connector | `string` | `"NONE"` | no |
+| <a name="input_as2_mdn_signing_algorithm"></a> [as2\_mdn\_signing\_algorithm](#input\_as2\_mdn\_signing\_algorithm) | AS2 MDN signing algorithm for the connector | `string` | `"NONE"` | no |
+| <a name="input_as2_signing_algorithm"></a> [as2\_signing\_algorithm](#input\_as2\_signing\_algorithm) | AS2 signing algorithm for the connector | `string` | `"NONE"` | no |
 | <a name="input_connector_name"></a> [connector\_name](#input\_connector\_name) | Name of the AWS Transfer Family connector | `string` | `"sftp-connector"` | no |
 | <a name="input_create_secret"></a> [create\_secret](#input\_create\_secret) | Whether to create a new secret for SFTP credentials | `bool` | `false` | no |
 | <a name="input_logging_role"></a> [logging\_role](#input\_logging\_role) | IAM role ARN for CloudWatch logging (if not provided, a new role will be created) | `string` | `null` | no |
-| <a name="input_s3_bucket_arn"></a> [s3\_bucket\_arn](#input\_s3\_bucket\_arn) | ARN of the S3 bucket to connect to the SFTP server | `string` | n/a | yes |
-| <a name="input_s3_bucket_name"></a> [s3\_bucket\_name](#input\_s3\_bucket\_name) | Name of the S3 bucket to connect to the SFTP server | `string` | n/a | yes |
 | <a name="input_secret_kms_key_id"></a> [secret\_kms\_key\_id](#input\_secret\_kms\_key\_id) | KMS key ID for encrypting the secret | `string` | `null` | no |
 | <a name="input_secret_name"></a> [secret\_name](#input\_secret\_name) | Name for the new secret (only used when create\_secret is true) | `string` | `null` | no |
 | <a name="input_secrets_manager_kms_key_arn"></a> [secrets\_manager\_kms\_key\_arn](#input\_secrets\_manager\_kms\_key\_arn) | ARN of the KMS key used to encrypt the secrets manager secret containing SFTP credentials | `string` | `null` | no |
@@ -142,7 +287,6 @@ No modules.
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to assign to resources | `map(string)` | `{}` | no |
 | <a name="input_test_connector_post_deployment"></a> [test\_connector\_post\_deployment](#input\_test\_connector\_post\_deployment) | Whether to test the connector connection after deployment | `bool` | `false` | no |
 | <a name="input_trusted_host_keys"></a> [trusted\_host\_keys](#input\_trusted\_host\_keys) | List of trusted host keys for the SFTP server. If empty, SSH key auto-discovery will run automatically. | `list(string)` | `[]` | no |
-| <a name="input_url"></a> [url](#input\_url) | URL of the SFTP server to connect to (e.g., example.com or sftp://example.com:22) | `string` | n/a | yes |
 | <a name="input_user_secret_id"></a> [user\_secret\_id](#input\_user\_secret\_id) | ARN of the AWS Secrets Manager secret containing SFTP credentials (optional - will auto-detect for AWS Transfer Family servers) | `string` | `null` | no |
 
 ## Outputs
