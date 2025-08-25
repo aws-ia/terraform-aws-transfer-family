@@ -61,34 +61,67 @@ def list_directory_files(transfer_client, connector_id, directory_path, output_p
         logger.error(f"Error listing directory: {str(e)}")
         return []
 
-def handler(event, context):
+def lambda_handler(event, context):
     try:
         transfer_client = boto3.client('transfer')
-        dynamodb = boto3.client('dynamodb')
         
         connector_id = os.environ['CONNECTOR_ID']
-        bucket_name = os.environ['S3_BUCKET_NAME']
-        s3_prefix = os.environ.get('S3_DESTINATION_PREFIX', 'retrieved').rstrip('/')
+        bucket_name = os.environ['S3_BUCKET']
+        s3_prefix = os.environ.get('S3_PREFIX', 'retrieved').rstrip('/')
         source_directory = os.environ.get('SOURCE_DIRECTORY', '/uploads')
-        table_name = os.environ.get('DYNAMODB_TABLE_NAME')
         
         s3_destination = f'/{bucket_name}/{s3_prefix}'
         
         logger.info(f"Directory retrieval from: {source_directory}")
         
-        # List directory using Transfer Family API
-        file_paths = list_directory_files(transfer_client, connector_id, source_directory, s3_destination)
+        # Start directory listing
+        response = transfer_client.start_directory_listing(
+            ConnectorId=connector_id,
+            RemoteDirectoryPath=source_directory,
+            OutputDirectoryPath=s3_destination
+        )
         
-        if not file_paths:
+        listing_id = response['ListingId']
+        logger.info(f"Directory listing started: {listing_id}")
+        
+        # Wait a moment for listing to complete
+        import time
+        time.sleep(5)
+        
+        # Check if listing completed and get file paths from S3
+        s3_client = boto3.client('s3')
+        
+        # List objects in the destination to find the listing file
+        list_response = s3_client.list_objects_v2(
+            Bucket=bucket_name,
+            Prefix=f"{s3_prefix}/{connector_id}-{listing_id}.json"
+        )
+        
+        if 'Contents' not in list_response:
+            logger.warning("Directory listing file not found yet")
             return {
                 'statusCode': 200,
-                'body': json.dumps({
-                    'message': f'No files found in {source_directory}',
-                    'files_found': 0
-                })
+                'body': json.dumps({'message': 'Directory listing in progress'})
             }
         
-        # Start transfer for all discovered files
+        # Get the listing file
+        listing_key = list_response['Contents'][0]['Key']
+        listing_obj = s3_client.get_object(Bucket=bucket_name, Key=listing_key)
+        listing_data = json.loads(listing_obj['Body'].read().decode('utf-8'))
+        
+        # Extract file paths
+        file_paths = [file_info['filePath'] for file_info in listing_data.get('files', [])]
+        
+        if not file_paths:
+            logger.info("No files found in directory listing")
+            return {
+                'statusCode': 200,
+                'body': json.dumps({'message': 'No files found', 'files_found': 0})
+            }
+        
+        logger.info(f"Found {len(file_paths)} files: {file_paths}")
+        
+        # Start file transfer for discovered files
         transfer_response = transfer_client.start_file_transfer(
             ConnectorId=connector_id,
             RetrieveFilePaths=file_paths,
@@ -96,29 +129,12 @@ def handler(event, context):
         )
         
         transfer_id = transfer_response['TransferId']
-        logger.info(f"Transfer started: {transfer_id}")
-        
-        # Update DynamoDB status to 'in_progress' for transferred files
-        if table_name:
-            for file_path in file_paths:
-                try:
-                    dynamodb.update_item(
-                        TableName=table_name,
-                        Key={'file_path': {'S': file_path}},
-                        UpdateExpression='SET #status = :status, transfer_id = :transfer_id',
-                        ExpressionAttributeNames={'#status': 'status'},
-                        ExpressionAttributeValues={
-                            ':status': {'S': 'in_progress'},
-                            ':transfer_id': {'S': transfer_id}
-                        }
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to update DynamoDB for {file_path}: {str(e)}")
+        logger.info(f"File transfer started: {transfer_id}")
         
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Directory retrieval started',
+                'message': 'Dynamic file retrieval started',
                 'transferId': transfer_id,
                 'files_found': len(file_paths),
                 'file_paths': file_paths

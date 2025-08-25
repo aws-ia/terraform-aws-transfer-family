@@ -1,11 +1,11 @@
-output "connector_id" {
-  description = "The ID of the SFTP connector"
-  value       = var.connector_id != null ? var.connector_id : module.sftp_connector[0].connector_id
+output "connector_arn" {
+  description = "ARN of the SFTP connector"
+  value       = module.sftp_connector.connector_arn
 }
 
-output "connector_arn" {
-  description = "The ARN of the SFTP connector"
-  value       = var.connector_id != null ? null : module.sftp_connector[0].connector_arn
+output "connector_id" {
+  description = "ID of the SFTP connector"
+  value       = module.sftp_connector.connector_id
 }
 
 output "retrieve_bucket_name" {
@@ -19,41 +19,41 @@ output "retrieve_bucket_arn" {
 }
 
 output "dynamodb_table_name" {
-  description = "Name of the DynamoDB table for file tracking"
-  value       = aws_dynamodb_table.file_paths.name
+  description = "Name of the DynamoDB table for tracking file transfers"
+  value       = var.enable_dynamodb_tracking ? aws_dynamodb_table.file_transfer_tracking[0].name : null
 }
 
 output "dynamodb_table_arn" {
-  description = "ARN of the DynamoDB table for file tracking"
-  value       = aws_dynamodb_table.file_paths.arn
+  description = "ARN of the DynamoDB table for tracking file transfers"
+  value       = var.enable_dynamodb_tracking ? aws_dynamodb_table.file_transfer_tracking[0].arn : null
 }
 
 output "lambda_function_name" {
-  description = "Name of the Lambda function"
-  value       = aws_lambda_function.sftp_retrieve.function_name
+  description = "Name of the Lambda function for file discovery"
+  value       = aws_lambda_function.file_discovery.function_name
 }
 
 output "lambda_function_arn" {
-  description = "ARN of the Lambda function"
-  value       = aws_lambda_function.sftp_retrieve.arn
+  description = "ARN of the Lambda function for file discovery"
+  value       = aws_lambda_function.file_discovery.arn
 }
 
 output "kms_key_arn" {
   description = "ARN of the KMS key used for encryption"
-  value       = aws_kms_key.transfer_family_key.arn
+  value       = local.kms_key_arn
 }
 
-output "eventbridge_rule_name" {
-  description = "Name of the EventBridge rule"
-  value       = aws_cloudwatch_event_rule.retrieve_schedule.name
+output "eventbridge_schedule_name" {
+  description = "Name of the EventBridge schedule"
+  value       = aws_scheduler_schedule.lambda_trigger.name
 }
 
-output "eventbridge_rule_arn" {
-  description = "ARN of the EventBridge rule"
-  value       = aws_cloudwatch_event_rule.retrieve_schedule.arn
+output "eventbridge_schedule_arn" {
+  description = "ARN of the EventBridge schedule"
+  value       = aws_scheduler_schedule.lambda_trigger.arn
 }
 
 output "sftp_credentials_secret_arn" {
-  description = "ARN of the Secrets Manager secret containing SFTP credentials"
-  value       = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
+  description = "ARN of the SFTP credentials secret"
+  value       = var.existing_secret_arn
 }

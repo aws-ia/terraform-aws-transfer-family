@@ -5,96 +5,42 @@
 #####################################################################################
 
 ######################################
-# Defaults and Locals
+# Random Resources
 ######################################
-
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
-resource "aws_sqs_queue" "lambda_dlq" {
-  name                      = "lambda-dlq-${random_pet.name.id}"
-  kms_master_key_id        = aws_kms_key.transfer_family_key.arn
-  kms_data_key_reuse_period_seconds = 300
-}
 
 resource "random_pet" "name" {
   prefix = "aws-ia"
   length = 1
 }
 
-locals {
-  connector_name = "retrieve-${random_pet.name.id}"
-  sftp_url       = startswith(var.sftp_server_endpoint, "sftp://") ? var.sftp_server_endpoint : "sftp://${var.sftp_server_endpoint}"
-  
-  # Validation: ensure credentials are provided when creating new secret
-  validate_credentials = var.existing_secret_arn == "" && var.sftp_password == "" && var.sftp_private_key == "" ? tobool("Error: When existing_secret_arn is empty, either sftp_password or sftp_private_key must be provided") : true
-}
-
-provider "aws" {
-  region = var.aws_region
-}
+######################################
+# Data Sources
+######################################
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 # Get KMS key from existing secret if provided
 data "aws_secretsmanager_secret" "existing" {
-  count = var.existing_secret_arn != null ? 1 : 0
+  count = var.existing_secret_arn != null && var.existing_secret_arn != "" ? 1 : 0
   arn   = var.existing_secret_arn
 }
 
-###################################################################
-# Create Secrets Manager secret for SFTP credentials (only when existing_secret_arn is not provided)
-###################################################################
-resource "aws_secretsmanager_secret" "sftp_credentials" {
-  count       = var.existing_secret_arn != null ? 0 : 1
-  name        = "sftp-credentials-${random_pet.name.id}"
-  description = "SFTP credentials for connector"
-  kms_key_id  = aws_kms_key.transfer_family_key.arn
-}
+######################################
+# Locals
+######################################
 
-resource "aws_secretsmanager_secret_version" "sftp_credentials" {
-  count     = var.existing_secret_arn != null ? 0 : 1
-  secret_id = aws_secretsmanager_secret.sftp_credentials[0].id
-  secret_string = jsonencode({
-    username   = var.sftp_username
-    password   = var.sftp_password != "" ? var.sftp_password : null
-    privateKey = var.sftp_private_key != "" ? var.sftp_private_key : null
-  })
+locals {
+  connector_name = "retrieve-${random_pet.name.id}"
+  kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key[0].arn
 }
 
 ###################################################################
-# DynamoDB table for file tracking
-###################################################################
-resource "aws_dynamodb_table" "file_paths" {
-  name           = "sftp-file-paths-${random_pet.name.id}"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "file_path"
-
-  attribute {
-    name = "file_path"
-    type = "S"
-  }
-
-  server_side_encryption {
-    enabled     = true
-    kms_key_arn = aws_kms_key.transfer_family_key.arn
-  }
-
-  point_in_time_recovery {
-    enabled = true
-  }
-
-  tags = {
-    Name        = "SFTP File Paths"
-    Environment = "Demo"
-  }
-}
-
-###################################################################
-# KMS Key for encryption
+# KMS Key (only when not using existing secret)
 ###################################################################
 resource "aws_kms_key" "transfer_family_key" {
+  count = var.existing_secret_arn == null ? 1 : 0
+  
   description             = "KMS key for encrypting S3 bucket, DynamoDB, CloudWatch logs and connector credentials"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -132,18 +78,6 @@ resource "aws_kms_key" "transfer_family_key" {
         }
       },
       {
-        Sid    = "Allow DynamoDB to use KMS"
-        Effect = "Allow"
-        Principal = {
-          Service = "dynamodb.amazonaws.com"
-        }
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey"
-        ]
-        Resource = "*"
-      },
-      {
         Sid    = "Allow S3 to use KMS"
         Effect = "Allow"
         Principal = {
@@ -172,13 +106,52 @@ resource "aws_kms_key" "transfer_family_key" {
 }
 
 resource "aws_kms_alias" "transfer_family_key_alias" {
+  count = var.existing_secret_arn == null ? 1 : 0
+  
   name          = "alias/transfer-family-retrieve-key-${random_pet.name.id}"
-  target_key_id = aws_kms_key.transfer_family_key.key_id
+  target_key_id = aws_kms_key.transfer_family_key[0].key_id
 }
 
 resource "aws_kms_key_policy" "transfer_family_key_policy" {
-  key_id = aws_kms_key.transfer_family_key.id
-  policy = aws_kms_key.transfer_family_key.policy
+  count = var.existing_secret_arn == null ? 1 : 0
+  
+  key_id = aws_kms_key.transfer_family_key[0].id
+  policy = aws_kms_key.transfer_family_key[0].policy
+}
+
+###################################################################
+# SQS Dead Letter Queue
+###################################################################
+resource "aws_sqs_queue" "lambda_dlq" {
+  name                      = "lambda-dlq-${random_pet.name.id}"
+  kms_master_key_id        = local.kms_key_arn
+  kms_data_key_reuse_period_seconds = 300
+}
+
+###################################################################
+# DynamoDB Table for tracking file transfers
+###################################################################
+resource "aws_dynamodb_table" "file_transfer_tracking" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+
+  name           = "${random_pet.name.id}-file-transfers"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "file_path"
+
+  attribute {
+    name = "file_path"
+    type = "S"
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = local.kms_key_arn
+  }
+
+  tags = {
+    Environment = "Demo"
+    Project     = "SFTP File Transfer Tracking"
+  }
 }
 
 ###################################################################
@@ -190,21 +163,21 @@ module "retrieve_s3_bucket" {
 
   bucket = "${random_pet.name.id}-retrieve-bucket"
 
-  # S3 bucket-level Public Access Block configuration (by default now AWS has made this default as true for S3 bucket-level block public access)
+  # S3 bucket-level Public Access Block configuration
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
 
   versioning = {
-    status     = true
+    status     = false
     mfa_delete = false
   }
 
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        kms_master_key_id = aws_kms_key.transfer_family_key.arn
+        kms_master_key_id = local.kms_key_arn
         sse_algorithm     = "aws:kms"
       }
     }
@@ -215,153 +188,220 @@ module "retrieve_s3_bucket" {
 # SFTP Connector
 ###################################################################
 module "sftp_connector" {
-  count  = var.connector_id == null ? 1 : 0
   source = "../../modules/transfer-connectors"
 
   connector_name = local.connector_name
-  url            = local.sftp_url
-  secret_arn     = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
+  url            = var.sftp_server_endpoint
+  s3_bucket_arn  = module.retrieve_s3_bucket.s3_bucket_arn
+  s3_bucket_name = module.retrieve_s3_bucket.s3_bucket_id
 
+  # Use existing secret
+  user_secret_id   = var.existing_secret_arn
+  create_secret    = var.existing_secret_arn == null
+  secret_name      = var.existing_secret_arn == null ? "sftp-credentials-${random_pet.name.id}" : null
+  secret_kms_key_id = var.existing_secret_arn == null ? aws_kms_key.transfer_family_key[0].arn : null
+  sftp_username    = var.sftp_username
+  sftp_password    = var.sftp_password
+  sftp_private_key = var.sftp_private_key
   trusted_host_keys = var.trusted_host_keys
 
-  enable_logging = true
-  kms_key_arn    = aws_kms_key.transfer_family_key.arn
+  S3_kms_key_arn   = local.kms_key_arn
+  secrets_manager_kms_key_arn = local.kms_key_arn
+  security_policy_name = "TransferSFTPConnectorSecurityPolicy-2024-03"
 
   tags = {
     Environment = "Demo"
-    Project     = "SFTP Connector Retrieve"
+    Project     = "SFTP Connector Retrieve Dynamic"
   }
 }
 
 ###################################################################
-# Lambda Function to Process Directory and Initiate SFTP Retrieve
+# Lambda Function for Dynamic File Discovery
 ###################################################################
-data "aws_iam_policy_document" "lambda_assume_role" {
-  statement {
-    effect = "Allow"
-
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-resource "aws_iam_role" "lambda_role" {
-  name               = "lambda-sftp-retrieve-role-${random_pet.name.id}"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
-}
-
-resource "aws_iam_policy" "lambda_policy" {
-  name = "lambda-sftp-retrieve-policy-${random_pet.name.id}"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ],
-        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*"
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "transfer:StartFileTransfer",
-          "transfer:StartDirectoryListing",
-          "transfer:DescribeExecution"
-        ],
-        Resource = [
-          "arn:aws:transfer:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:connector/*",
-          "arn:aws:transfer:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:execution/*"
-        ]
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "dynamodb:Scan",
-          "dynamodb:UpdateItem"
-        ],
-        Resource = aws_dynamodb_table.file_paths.arn
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey"
-        ],
-        Resource = aws_kms_key.transfer_family_key.arn
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.lambda_policy.arn
-}
-
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_file = "${path.module}/index.py"
-  output_path = "${path.module}/lambda_function.zip"
-}
-
-resource "aws_lambda_function" "sftp_retrieve" {
-  filename         = data.archive_file.lambda_zip.output_path
-  function_name    = "sftp-retrieve-${random_pet.name.id}"
+resource "aws_lambda_function" "file_discovery" {
+  filename         = "index.zip"
+  function_name    = "sftp-file-discovery-${random_pet.name.id}"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "index.handler"
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  handler         = "index.lambda_handler"
   runtime         = "python3.9"
   timeout         = 300
-  reserved_concurrent_executions = 10
-
-  tracing_config {
-    mode = "Active"
-  }
 
   dead_letter_config {
     target_arn = aws_sqs_queue.lambda_dlq.arn
   }
 
-  kms_key_arn = aws_kms_key.transfer_family_key.arn
+  kms_key_arn = local.kms_key_arn
 
   environment {
     variables = {
-      CONNECTOR_ID = var.connector_id != null ? var.connector_id : module.sftp_connector[0].connector_id
-      S3_BUCKET_NAME = module.retrieve_s3_bucket.s3_bucket_id
-      S3_DESTINATION_PREFIX = var.s3_prefix
+      CONNECTOR_ID = module.sftp_connector.connector_id
+      S3_BUCKET    = module.retrieve_s3_bucket.s3_bucket_id
+      S3_PREFIX    = var.s3_prefix
       SOURCE_DIRECTORY = var.source_directory
-      DYNAMODB_TABLE_NAME = aws_dynamodb_table.file_paths.name
+      DYNAMODB_TABLE = var.enable_dynamodb_tracking ? aws_dynamodb_table.file_transfer_tracking[0].name : ""
     }
+  }
+
+  depends_on = [data.archive_file.lambda_zip]
+}
+
+# Create Lambda deployment package
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "${path.module}/index.py"
+  output_path = "${path.module}/index.zip"
+}
+
+###################################################################
+# EventBridge Scheduler for Lambda
+###################################################################
+resource "aws_scheduler_schedule" "lambda_trigger" {
+  name = "sftp-lambda-trigger-${random_pet.name.id}"
+  
+  schedule_expression = var.eventbridge_schedule
+  
+  flexible_time_window {
+    mode = "OFF"
+  }
+  
+  target {
+    arn      = aws_lambda_function.file_discovery.arn
+    role_arn = aws_iam_role.scheduler_role.arn
   }
 }
 
 ###################################################################
-# EventBridge Rule for Lambda trigger
+# IAM Roles and Policies
 ###################################################################
-resource "aws_cloudwatch_event_rule" "retrieve_schedule" {
-  name                = "sftp-retrieve-schedule-${random_pet.name.id}"
-  description         = "Trigger SFTP retrieve Lambda function"
-  schedule_expression = var.eventbridge_schedule
+
+# Lambda execution role
+resource "aws_iam_role" "lambda_role" {
+  name = "lambda-sftp-discovery-role-${random_pet.name.id}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
 }
 
-resource "aws_cloudwatch_event_target" "lambda_target" {
-  rule      = aws_cloudwatch_event_rule.retrieve_schedule.name
-  target_id = "SendToLambda"
-  arn       = aws_lambda_function.sftp_retrieve.arn
+# Lambda policy
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "lambda-sftp-discovery-policy-${random_pet.name.id}"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = concat([
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "transfer:StartFileTransfer",
+          "transfer:DescribeConnector",
+          "transfer:StartDirectoryListing",
+          "transfer:DescribeExecution"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage"
+        ]
+        Resource = aws_sqs_queue.lambda_dlq.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject"
+        ]
+        Resource = [
+          module.retrieve_s3_bucket.s3_bucket_arn,
+          "${module.retrieve_s3_bucket.s3_bucket_arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = local.kms_key_arn
+      }
+    ], var.enable_dynamodb_tracking ? [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
+        ]
+        Resource = aws_dynamodb_table.file_transfer_tracking[0].arn
+      }
+    ] : [])
+  })
 }
 
+# EventBridge Scheduler role
+resource "aws_iam_role" "scheduler_role" {
+  name = "eventbridge-scheduler-role-${random_pet.name.id}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# EventBridge Scheduler policy
+resource "aws_iam_role_policy" "scheduler_policy" {
+  name = "eventbridge-scheduler-policy-${random_pet.name.id}"
+  role = aws_iam_role.scheduler_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = aws_lambda_function.file_discovery.arn
+      }
+    ]
+  })
+}
+
+# Lambda permission for EventBridge
 resource "aws_lambda_permission" "allow_eventbridge" {
   statement_id  = "AllowExecutionFromEventBridge"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.sftp_retrieve.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.retrieve_schedule.arn
+  function_name = aws_lambda_function.file_discovery.function_name
+  principal     = "scheduler.amazonaws.com"
+  source_arn    = aws_scheduler_schedule.lambda_trigger.arn
 }
