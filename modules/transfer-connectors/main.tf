@@ -28,11 +28,12 @@ locals {
 # Validation Checks
 #####################################################################################
 
-check "credentials_provided" {
-  assert {
-    condition     = var.user_secret_id != null || (var.create_secret && var.sftp_username != "" && var.sftp_private_key != "")
-    error_message = "When existing_secret_arn is not provided, you must provide sftp_username and sftp_private_key to create a new secret. Password authentication is not supported for new secrets."
-  }
+#####################################################################################
+# Validation - Ensure credentials are provided
+#####################################################################################
+locals {
+  # This will cause an error if credentials are not properly provided
+  validate_credentials = var.user_secret_id != null || (var.create_secret && var.sftp_username != "" && var.sftp_private_key != "") ? true : tobool("ERROR: When existing_secret_arn is not provided, you must provide sftp_username and sftp_private_key to create a new secret. Password authentication is not supported for new secrets.")
 }
 
 #####################################################################################
