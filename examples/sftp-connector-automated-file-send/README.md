@@ -30,19 +30,12 @@ This example provides two options for SFTP credentials:
 
 If using an existing secret, it must contain credentials in one of these formats:
 
-```json
-{
-  "username": "your-sftp-username",
-  "password": "your-sftp-password"
-}
-```
-
-Or if using private key authentication:
+If using private key authentication:
 
 ```json
 {
-  "username": "your-sftp-username",
-  "pk": "begin pk"
+  "Username": "your-sftp-username",
+  "PrivateKey": "begin pk"
 }
 ```
 
