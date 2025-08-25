@@ -52,7 +52,7 @@ module "sftp_connector" {
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
   trusted_host_keys = var.trusted_host_keys
-  test_connector_post_deployment = false
+  test_connector_post_deployment = var.test_connector_post_deployment
 
   tags = {
     Environment = "Demo"

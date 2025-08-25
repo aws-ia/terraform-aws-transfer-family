@@ -72,3 +72,9 @@ variable "source_s3_bucket_arn" {
   type        = string
   default     = null
 }
+
+variable "test_connector_post_deployment" {
+  description = "Whether to test the connector connection after deployment"
+  type        = bool
+  default     = false
+}
