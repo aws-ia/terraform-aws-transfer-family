@@ -162,7 +162,6 @@ module "sftp_connector" {
   secret_name      = var.existing_secret_arn == null ? "sftp-credentials-${random_pet.name.id}" : null
   secret_kms_key_id = var.existing_secret_arn == null ? aws_kms_key.transfer_family_key[0].arn : null
   sftp_username    = var.sftp_username
-  sftp_password    = var.sftp_password
   sftp_private_key = var.sftp_private_key
   trusted_host_keys = var.trusted_host_keys
 
