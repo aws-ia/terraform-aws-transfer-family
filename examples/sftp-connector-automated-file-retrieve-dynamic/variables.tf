@@ -99,3 +99,9 @@ variable "source_directory" {
     error_message = "Source directory must start with a forward slash."
   }
 }
+
+variable "enable_dynamodb_tracking" {
+  description = "Enable DynamoDB tracking for file transfers"
+  type        = bool
+  default     = false
+}
