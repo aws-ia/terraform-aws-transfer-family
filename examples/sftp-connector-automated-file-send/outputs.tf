@@ -25,7 +25,7 @@ output "test_bucket_arn" {
 
 output "kms_key_arn" {
   description = "The ARN of the KMS key used for encryption"
-  value       = aws_kms_key.transfer_family_key.arn
+  value       = local.kms_key_arn
 }
 
 output "eventbridge_rule_arn" {

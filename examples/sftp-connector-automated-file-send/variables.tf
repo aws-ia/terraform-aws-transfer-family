@@ -38,7 +38,7 @@ variable "sftp_password" {
   sensitive   = true
 
   validation {
-    condition     = var.existing_secret_arn != "" || var.sftp_password != "" || var.sftp_private_key != ""
+    condition     = var.existing_secret_arn != null || var.sftp_password != "" || var.sftp_private_key != ""
     error_message = "Either existing_secret_arn must be provided, or sftp_password or sftp_private_key must be provided."
   }
 }

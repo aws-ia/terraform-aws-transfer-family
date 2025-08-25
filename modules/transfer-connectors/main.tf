@@ -90,6 +90,14 @@ resource "aws_iam_role_policy_attachment" "rotation_lambda_basic" {
   role       = aws_iam_role.rotation_lambda_role[0].name
 }
 
+resource "aws_lambda_permission" "allow_secretsmanager" {
+  count         = var.create_secret ? 1 : 0
+  statement_id  = "AllowExecutionFromSecretsManager"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.rotation_lambda[0].function_name
+  principal     = "secretsmanager.amazonaws.com"
+}
+
 data "archive_file" "rotation_lambda_zip" {
   count       = var.create_secret ? 1 : 0
   type        = "zip"

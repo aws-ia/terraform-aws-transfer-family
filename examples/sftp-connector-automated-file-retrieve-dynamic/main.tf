@@ -208,6 +208,7 @@ module "sftp_connector" {
   S3_kms_key_arn   = local.kms_key_arn
   secrets_manager_kms_key_arn = local.kms_key_arn
   security_policy_name = "TransferSFTPConnectorSecurityPolicy-2024-03"
+  test_connector_post_deployment = var.test_connector_post_deployment
 
   tags = {
     Environment = "Demo"

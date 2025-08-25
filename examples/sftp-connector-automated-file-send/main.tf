@@ -5,7 +5,7 @@
 #####################################################################################
 
 ######################################
-# Defaults and Locals
+# Random Resources
 ######################################
 
 resource "random_pet" "name" {
@@ -13,45 +13,52 @@ resource "random_pet" "name" {
   length = 1
 }
 
-locals {
-  server_name = "transfer-server-${random_pet.name.id}"
-}
-
-provider "aws" {
-  region = var.aws_region
-}
+######################################
+# Data Sources
+######################################
 
 data "aws_caller_identity" "current" {}
-
+data "aws_region" "current" {}
 
 # Get KMS key from existing secret if provided
 data "aws_secretsmanager_secret" "existing" {
-  count = var.existing_secret_arn != null ? 1 : 0
+  count = var.existing_secret_arn != null && var.existing_secret_arn != "" ? 1 : 0
   arn   = var.existing_secret_arn
 }
 
+######################################
+# Locals
+######################################
+
+locals {
+  server_name = "transfer-server-${random_pet.name.id}"
+  kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key[0].arn
+}
+
 ###################################################################
-# Create SFTP Connector
+# SFTP Connector
 ###################################################################
 module "sftp_connector" {
   source = "../../modules/transfer-connectors"
 
-  connector_name              = "sftp-connector-${random_pet.name.id}"
-  url                         = var.sftp_server_endpoint
-  s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
-  s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
-  user_secret_id              = var.existing_secret_arn
-  create_secret               = var.existing_secret_arn == null
-  secret_name                 = var.existing_secret_arn == null ? "sftp-credentials-${random_pet.name.id}" : null
-  secret_kms_key_id           = var.existing_secret_arn == null ? aws_kms_key.transfer_family_key.arn : null
-  sftp_username               = var.sftp_username
-  sftp_password               = var.sftp_password
-  sftp_private_key            = var.sftp_private_key
-  secrets_manager_kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key.arn
-  S3_kms_key_arn              = aws_kms_key.transfer_family_key.arn
-  security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
-  
+  connector_name = "sftp-connector-${random_pet.name.id}"
+  url            = var.sftp_server_endpoint
+  s3_bucket_arn  = module.test_s3_bucket.s3_bucket_arn
+  s3_bucket_name = module.test_s3_bucket.s3_bucket_id
+
+  # Use existing secret
+  user_secret_id   = var.existing_secret_arn
+  create_secret    = var.existing_secret_arn == null
+  secret_name      = var.existing_secret_arn == null ? "sftp-credentials-${random_pet.name.id}" : null
+  secret_kms_key_id = var.existing_secret_arn == null ? local.kms_key_arn : null
+  sftp_username    = var.sftp_username
+  sftp_password    = var.sftp_password
+  sftp_private_key = var.sftp_private_key
   trusted_host_keys = var.trusted_host_keys
+
+  S3_kms_key_arn   = local.kms_key_arn
+  secrets_manager_kms_key_arn = local.kms_key_arn
+  security_policy_name = "TransferSFTPConnectorSecurityPolicy-2024-03"
   test_connector_post_deployment = var.test_connector_post_deployment
 
   tags = {
@@ -78,7 +85,7 @@ module "test_s3_bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        kms_master_key_id = aws_kms_key.transfer_family_key.arn
+        kms_master_key_id = local.kms_key_arn
         sse_algorithm     = "aws:kms"
       }
     }
@@ -101,6 +108,8 @@ resource "aws_s3_bucket_notification" "test_bucket_notification" {
 
 # KMS Key resource
 resource "aws_kms_key" "transfer_family_key" {
+  count = var.existing_secret_arn == null ? 1 : 0
+  
   description             = "KMS key for encrypting S3 bucket and cloudwatch log group and the connector credentials"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -112,13 +121,17 @@ resource "aws_kms_key" "transfer_family_key" {
 
 # KMS Key Alias
 resource "aws_kms_alias" "transfer_family_key_alias" {
+  count = var.existing_secret_arn == null ? 1 : 0
+  
   name          = "alias/transfer-family-key-${random_pet.name.id}"
-  target_key_id = aws_kms_key.transfer_family_key.key_id
+  target_key_id = aws_kms_key.transfer_family_key[0].key_id
 }
 
 # KMS Key Policy
 resource "aws_kms_key_policy" "transfer_family_key_policy" {
-  key_id = aws_kms_key.transfer_family_key.id
+  count = var.existing_secret_arn == null ? 1 : 0
+  
+  key_id = aws_kms_key.transfer_family_key[0].id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -129,7 +142,7 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
         Action   = "kms:*"
-        Resource = aws_kms_key.transfer_family_key.arn
+        Resource = local.kms_key_arn
       },
       {
         Sid    = "Allow CloudWatch Logs"
@@ -145,7 +158,7 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
           "kms:CreateGrant",
           "kms:Describe*"
         ]
-        Resource = aws_kms_key.transfer_family_key.arn
+        Resource = local.kms_key_arn
       },
       {
         Sid    = "Allow EventBridge to use KMS"
@@ -157,7 +170,7 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
           "kms:Decrypt",
           "kms:GenerateDataKey*"
         ]
-        Resource = aws_kms_key.transfer_family_key.arn
+        Resource = local.kms_key_arn
       }
     ]
   })
@@ -232,7 +245,7 @@ resource "aws_iam_policy" "lambda_policy" {
         Action = [
           "kms:Decrypt"
         ],
-        Resource = aws_kms_key.transfer_family_key.arn
+        Resource = local.kms_key_arn
       },
       {
         Effect = "Allow",
@@ -281,7 +294,7 @@ resource "aws_lambda_code_signing_config" "lambda_code_signing" {
 
 resource "aws_sqs_queue" "lambda_dlq" {
   name                      = "lambda-dlq-${random_pet.name.id}"
-  kms_master_key_id        = aws_kms_key.transfer_family_key.arn
+  kms_master_key_id        = local.kms_key_arn
   message_retention_seconds = 1209600 # 14 days
 }
 
@@ -298,7 +311,7 @@ resource "aws_lambda_function" "sftp_transfer" {
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
   code_signing_config_arn = aws_lambda_code_signing_config.lambda_code_signing.arn
-  kms_key_arn = aws_kms_key.transfer_family_key.arn
+  kms_key_arn = local.kms_key_arn
 
   dead_letter_config {
     target_arn = aws_sqs_queue.lambda_dlq.arn
