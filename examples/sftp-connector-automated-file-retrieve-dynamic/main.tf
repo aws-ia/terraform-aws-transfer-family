@@ -330,7 +330,8 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Effect = "Allow"
         Action = [
           "s3:ListBucket",
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:DeleteObject"
         ]
         Resource = [
           module.retrieve_s3_bucket.s3_bucket_arn,

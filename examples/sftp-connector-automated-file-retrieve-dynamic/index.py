@@ -131,6 +131,13 @@ def lambda_handler(event, context):
         transfer_id = transfer_response['TransferId']
         logger.info(f"File transfer started: {transfer_id}")
         
+        # Clean up the directory listing JSON file
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=listing_key)
+            logger.info(f"Cleaned up metadata file: {listing_key}")
+        except Exception as e:
+            logger.warning(f"Failed to delete metadata file: {str(e)}")
+        
         return {
             'statusCode': 200,
             'body': json.dumps({
