@@ -307,9 +307,15 @@ resource "aws_lambda_function" "sftp_transfer" {
   timeout          = 60
   memory_size      = 256
   reserved_concurrent_executions = 10
+  kms_key_arn      = local.kms_key_arn
+  code_signing_config_arn = aws_lambda_code_signing_config.lambda_code_signing.arn
   
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
 
   tracing_config {
     mode = "Active"
