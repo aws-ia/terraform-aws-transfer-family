@@ -230,7 +230,7 @@ resource "aws_transfer_connector" "sftp_connector" {
 
 }
 
-resource "null_resource" "discover_and_test_connector" {
+resource "terraform_data" "discover_and_test_connector" {
   count      = var.test_connector_post_deployment ? 1 : 0
   depends_on = [aws_transfer_connector.sftp_connector]
   
