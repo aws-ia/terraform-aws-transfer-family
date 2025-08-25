@@ -18,10 +18,12 @@ locals {
   logging_role = length(aws_iam_role.connector_logging_role) > 0 ? aws_iam_role.connector_logging_role[0].arn : null
   
   # Use provided secret ID or create new one
-  effective_secret_id = var.user_secret_id != null ? var.user_secret_id : (var.create_secret ? aws_secretsmanager_secret.sftp_credentials[0].arn : null)
+  effective_secret_id = var.user_secret_id != null ? var.user_secret_id : (local.create_secret ? aws_secretsmanager_secret.sftp_credentials[0].arn : null)
   
   # URL formatting
   sftp_url = startswith(var.url, "sftp://") ? var.url : "sftp://${var.url}"
+
+  create_secret = var.user_secret_id == null && length(var.trusted_host_keys) == 0
 }
 
 #####################################################################################
@@ -30,8 +32,8 @@ locals {
 
 check "credentials_provided" {
   assert {
-    condition     = var.user_secret_id != null || (var.create_secret && var.sftp_username != "" && var.sftp_private_key != "")
-    error_message = "When existing_secret_arn is not provided, you must provide sftp_username and sftp_private_key to create a new secret. Password authentication is not supported for new secrets."
+    condition     = var.user_secret_id != null || length(var.trusted_host_keys) > 0 || (var.sftp_username != "" && var.sftp_private_key != "")
+    error_message = "You must provide either: 1) existing_secret_arn, 2) trusted_host_keys, or 3) sftp_username and sftp_private_key to create a new secret."
   }
 }
 
@@ -40,14 +42,14 @@ check "credentials_provided" {
 #####################################################################################
 
 resource "aws_secretsmanager_secret" "sftp_credentials" {
-  count       = var.create_secret ? 1 : 0
+  count       = local.create_secret ? 1 : 0
   name        = var.secret_name
   description = "SFTP credentials for connector"
   kms_key_id  = var.secret_kms_key_id
 }
 
 resource "aws_secretsmanager_secret_rotation" "sftp_credentials_rotation" {
-  count           = var.create_secret ? 1 : 0
+  count           = local.create_secret ? 1 : 0
   secret_id       = aws_secretsmanager_secret.sftp_credentials[0].id
   rotation_lambda_arn = aws_lambda_function.rotation_lambda[0].arn
 
@@ -57,7 +59,7 @@ resource "aws_secretsmanager_secret_rotation" "sftp_credentials_rotation" {
 }
 
 resource "aws_lambda_function" "rotation_lambda" {
-  count         = var.create_secret ? 1 : 0
+  count         = local.create_secret ? 1 : 0
   filename      = data.archive_file.rotation_lambda_zip[0].output_path
   function_name = "secretsmanager-rotation-${var.secret_name}"
   role          = aws_iam_role.rotation_lambda_role[0].arn
@@ -67,7 +69,7 @@ resource "aws_lambda_function" "rotation_lambda" {
 }
 
 resource "aws_iam_role" "rotation_lambda_role" {
-  count = var.create_secret ? 1 : 0
+  count = local.create_secret ? 1 : 0
   name  = "secretsmanager-rotation-role-${var.secret_name}"
 
   assume_role_policy = jsonencode({
@@ -85,13 +87,13 @@ resource "aws_iam_role" "rotation_lambda_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "rotation_lambda_basic" {
-  count      = var.create_secret ? 1 : 0
+  count      = local.create_secret ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
   role       = aws_iam_role.rotation_lambda_role[0].name
 }
 
 resource "aws_lambda_permission" "allow_secretsmanager" {
-  count         = var.create_secret ? 1 : 0
+  count         = local.create_secret ? 1 : 0
   statement_id  = "AllowExecutionFromSecretsManager"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.rotation_lambda[0].function_name
@@ -99,7 +101,7 @@ resource "aws_lambda_permission" "allow_secretsmanager" {
 }
 
 data "archive_file" "rotation_lambda_zip" {
-  count       = var.create_secret ? 1 : 0
+  count       = local.create_secret ? 1 : 0
   type        = "zip"
   output_path = "/tmp/rotation_lambda.zip"
   source {
@@ -109,7 +111,7 @@ data "archive_file" "rotation_lambda_zip" {
 }
 
 resource "aws_secretsmanager_secret_version" "sftp_credentials" {
-  count     = var.create_secret ? 1 : 0
+  count     = local.create_secret ? 1 : 0
   secret_id = aws_secretsmanager_secret.sftp_credentials[0].id
   secret_string = jsonencode({
     Username   = var.sftp_username
@@ -210,12 +212,10 @@ resource "aws_transfer_connector" "sftp_connector" {
   access_role = aws_iam_role.connector_role.arn
   url         = local.sftp_url
 
-  # SFTP config without trusted_host_keys (optional)
-  dynamic "sftp_config" {
-    for_each = local.effective_secret_id != null ? [1] : []
-    content {
-      user_secret_id = local.effective_secret_id
-    }
+  # SFTP config - always include secret, optionally include trusted host keys
+  sftp_config {
+    user_secret_id    = local.effective_secret_id
+    trusted_host_keys = length(var.trusted_host_keys) > 0 ? var.trusted_host_keys : null
   }
 
   logging_role = local.logging_role
@@ -378,15 +378,14 @@ resource "aws_iam_policy" "connector_policy" {
         ]
         Resource = "${var.s3_bucket_arn}/*"
       },
-      {
-        Sid = "GetConnectorSecretValue",
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = local.effective_secret_id
-      },
-    ], var.secrets_manager_kms_key_arn != null ? [{
+    ], local.effective_secret_id != null ? [{
+      Sid = "GetConnectorSecretValue",
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue"
+      ]
+      Resource = local.effective_secret_id
+    }] : [], var.secrets_manager_kms_key_arn != null ? [{
       Effect = "Allow"
       Action = [
         "kms:Decrypt"

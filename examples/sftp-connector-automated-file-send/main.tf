@@ -20,12 +20,13 @@ resource "random_pet" "name" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key[0].arn
+  create_secret = var.existing_secret_arn == null
+  kms_key_arn = local.create_secret ? aws_kms_key.transfer_family_key[0].arn : data.aws_secretsmanager_secret.existing[0].kms_key_id
 }
 
 # Get KMS key from existing secret if provided
 data "aws_secretsmanager_secret" "existing" {
-  count = var.existing_secret_arn != null && var.existing_secret_arn != "" ? 1 : 0
+  count = local.create_secret ? 0 : 1
   arn   = var.existing_secret_arn
 }
 
@@ -39,13 +40,16 @@ module "sftp_connector" {
   url                         = var.sftp_server_endpoint
   s3_bucket_arn               = module.test_s3_bucket.s3_bucket_arn
   s3_bucket_name              = module.test_s3_bucket.s3_bucket_id
-  user_secret_id              = var.existing_secret_arn != null ? var.existing_secret_arn : aws_secretsmanager_secret.sftp_credentials[0].arn
-  secrets_manager_kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key.arn
-  S3_kms_key_arn              = aws_kms_key.transfer_family_key.arn
+  user_secret_id              = var.existing_secret_arn
+  secret_name                 = var.existing_secret_arn == null ? "sftp-credentials-${random_pet.name.id}" : null
+  sftp_username               = var.existing_secret_arn == null ? var.sftp_username : ""
+  sftp_private_key            = var.existing_secret_arn == null ? var.sftp_private_key : ""
+  secrets_manager_kms_key_arn = local.kms_key_arn
+  S3_kms_key_arn              = local.create_secret ? aws_kms_key.transfer_family_key[0].arn : null
   security_policy_name        = "TransferSFTPConnectorSecurityPolicy-2024-03"
   
   trusted_host_keys = var.trusted_host_keys
-  test_connector_post_deployment = false
+  test_connector_post_deployment = false # Set to true to test the connector connection after deployment
 
   tags = {
     Environment = "Demo"
@@ -276,7 +280,11 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 ###################################################################
 resource "aws_signer_signing_profile" "lambda_signing_profile" {
   platform_id = "AWSLambda-SHA384-ECDSA"
-  name        = "lambdasigningprofile${replace(random_pet.name.id, "-", "")}"
+  name        = "lambdasigningprofile${replace(random_pet.name.id, "-", "")}${random_id.suffix.hex}"
+}
+
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
 resource "aws_lambda_code_signing_config" "lambda_code_signing" {
