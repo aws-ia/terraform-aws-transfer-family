@@ -89,36 +89,8 @@ variable "eventbridge_schedule" {
   }
 }
 
-variable "file_paths_to_retrieve" {
-  description = "List of file paths on the remote SFTP server to retrieve"
-  type        = list(string)
-  default     = ["/remote/path/file1.txt", "/remote/path/file2.txt"]
-
-  validation {
-    condition     = length(var.file_paths_to_retrieve) > 0
-    error_message = "At least one file path must be specified."
-  }
-
-  validation {
-    condition = alltrue([
-      for path in var.file_paths_to_retrieve : can(regex("^/.+", path))
-    ])
-    error_message = "All file paths must start with a forward slash (/)."
-  }
-}
-variable "workflow_type" {
-  description = "Workflow type: 'static' for EventBridge Scheduler with static files, 'directory' for Lambda with directory listing"
-  type        = string
-  default     = "static"
-  
-  validation {
-    condition     = contains(["static", "directory"], var.workflow_type)
-    error_message = "Workflow type must be either 'static' or 'directory'."
-  }
-}
-
 variable "source_directory" {
-  description = "Source directory path on remote server (reserved for future directory workflow)"
+  description = "Source directory path on remote server to scan for files"
   type        = string
   default     = "/uploads"
   

@@ -279,7 +279,6 @@ resource "aws_lambda_function" "sftp_transfer" {
   runtime          = "python3.9"
   timeout          = 60
   memory_size      = 256
-  reserved_concurrent_executions = 10
   
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
