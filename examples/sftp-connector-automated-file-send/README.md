@@ -11,12 +11,12 @@ This example creates:
 3. A KMS key for encryption
 4. An SFTP connector that connects the S3 bucket to an external SFTP server
 5. An EventBridge rule that captures S3 object created events
-6. An EventBridge target that directly initiates file transfers to the SFTP server using the Transfer Family API
+6. A Lambda function that initiates file transfers to the SFTP server using the Transfer Family API
 
 ## How It Works
 
 1. When a file is uploaded to the S3 bucket, an S3 event notification is sent to EventBridge
-2. EventBridge directly calls the AWS Transfer Family StartFileTransfer API using the configured IAM role
+2. EventBridge triggers a Lambda function which calls the AWS Transfer Family StartFileTransfer API
 3. The file is automatically transferred from S3 to the external SFTP server
 
 ## SFTP Credentials
@@ -192,5 +192,5 @@ You can monitor the transfer process by checking:
 - The SFTP server URL should be in the format `sftp://hostname:port`
 - You must provide either an existing secret ARN or credentials to create a new secret
 - The connector uses the AWS Transfer Family service to securely connect to the external SFTP server
-- EventBridge directly calls the Transfer Family API to initiate file transfers without using Lambda
+- Lambda function initiates file transfers when S3 objects are created via EventBridge triggers
 - The example uses `TransferSFTPConnectorSecurityPolicy-2024-03` as the security policy for the SFTP connector
