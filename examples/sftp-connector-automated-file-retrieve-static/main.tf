@@ -26,12 +26,16 @@ data "aws_secretsmanager_secret" "existing" {
   arn   = var.existing_secret_arn
 }
 
-
-
 ###################################################################
-# KMS Key for encryption
+# Use existing KMS Key from the secret
 ###################################################################
+locals {
+  kms_key_arn = var.existing_secret_arn != null ? data.aws_secretsmanager_secret.existing[0].kms_key_id : aws_kms_key.transfer_family_key[0].arn
+}
+
 resource "aws_kms_key" "transfer_family_key" {
+  count = var.existing_secret_arn == null ? 1 : 0
+  
   description             = "KMS key for encrypting S3 bucket, CloudWatch logs and connector credentials"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -97,13 +101,17 @@ resource "aws_kms_key" "transfer_family_key" {
 }
 
 resource "aws_kms_alias" "transfer_family_key_alias" {
+  count = var.existing_secret_arn == null ? 1 : 0
+  
   name          = "alias/transfer-family-retrieve-key-${random_pet.name.id}"
-  target_key_id = aws_kms_key.transfer_family_key.key_id
+  target_key_id = aws_kms_key.transfer_family_key[0].key_id
 }
 
 resource "aws_kms_key_policy" "transfer_family_key_policy" {
-  key_id = aws_kms_key.transfer_family_key.id
-  policy = aws_kms_key.transfer_family_key.policy
+  count = var.existing_secret_arn == null ? 1 : 0
+  
+  key_id = aws_kms_key.transfer_family_key[0].id
+  policy = aws_kms_key.transfer_family_key[0].policy
 }
 
 ###################################################################
@@ -129,7 +137,7 @@ module "retrieve_s3_bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        kms_master_key_id = aws_kms_key.transfer_family_key.arn
+        kms_master_key_id = local.kms_key_arn
         sse_algorithm     = "aws:kms"
       }
     }
@@ -147,27 +155,26 @@ module "sftp_connector" {
   url              = var.sftp_server_endpoint
   s3_bucket_arn    = module.retrieve_s3_bucket.s3_bucket_arn
   s3_bucket_name   = module.retrieve_s3_bucket.s3_bucket_id
-  
+
   # Use existing secret or create new one
   user_secret_id   = var.existing_secret_arn
   create_secret    = var.existing_secret_arn == null
   secret_name      = var.existing_secret_arn == null ? "sftp-credentials-${random_pet.name.id}" : null
-  secret_kms_key_id = var.existing_secret_arn == null ? aws_kms_key.transfer_family_key.arn : null
+  secret_kms_key_id = var.existing_secret_arn == null ? aws_kms_key.transfer_family_key[0].arn : null
   sftp_username    = var.sftp_username
   sftp_password    = var.sftp_password
   sftp_private_key = var.sftp_private_key
-
   trusted_host_keys = var.trusted_host_keys
-  S3_kms_key_arn   = aws_kms_key.transfer_family_key.arn
-  secrets_manager_kms_key_arn = var.existing_secret_arn != null ? null : aws_kms_key.transfer_family_key.arn
+
+  S3_kms_key_arn   = local.kms_key_arn
+  secrets_manager_kms_key_arn = local.kms_key_arn
+  security_policy_name = "TransferSFTPConnectorSecurityPolicy-2024-03"
 
   tags = {
     Environment = "Demo"
     Project     = "SFTP Connector Retrieve"
   }
 }
-
-
 
 ###################################################################
 # EventBridge Scheduler for DynamoDB logging (only if DynamoDB is enabled)
@@ -225,8 +232,6 @@ resource "aws_scheduler_schedule" "sftp_retrieve_direct" {
   flexible_time_window {
     mode = "OFF"
   }
-  
-  kms_key_id = aws_kms_key.transfer_family_key.arn
   
   target {
     arn      = "arn:aws:scheduler:::aws-sdk:transfer:startFileTransfer"
