@@ -36,3 +36,45 @@ run "mandatory_apply_vpc" {
     sftp_ingress_cidr_block = "10.0.0.0/16, 192.168.1.0/24, 172.16.0.0/12"
   }
 }
+
+run "connector_file_send_plan" {
+  command = plan
+  module {
+    source = "./examples/sftp-connector-automated-file-send"
+  }
+}
+
+run "connector_file_send_apply" {
+  command = apply
+  module {
+    source = "./examples/sftp-connector-automated-file-send"
+  }
+}
+
+run "connector_retrieve_static_plan" {
+  command = plan
+  module {
+    source = "./examples/sftp-connector-automated-file-retrieve-static"
+  }
+}
+
+run "connector_retrieve_static_apply" {
+  command = apply
+  module {
+    source = "./examples/sftp-connector-automated-file-retrieve-static"
+  }
+}
+
+run "connector_retrieve_dynamic_plan" {
+  command = plan
+  module {
+    source = "./examples/sftp-connector-automated-file-retrieve-dynamic"
+  }
+}
+
+run "connector_retrieve_dynamic_apply" {
+  command = apply
+  module {
+    source = "./examples/sftp-connector-automated-file-retrieve-dynamic"
+  }
+}
