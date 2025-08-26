@@ -109,7 +109,7 @@ variable "as2_mdn_signing_algorithm" {
 }
 
 variable "trusted_host_keys" {
-  description = "List of trusted host keys for the SFTP server. If empty, SSH key auto-discovery will run automatically."
+  description = "Trusted-Host-Key is the public portion of the host key(s) that is used to identify the remote server you need to connect to. You can enter the Trusted Host Key(s) now, or add them after creating the connector by using the host key information returned by the TestConnection action. Note that your connector will be able to create connections to the remote server only if the server's SSH fingerprint matches one of the provided Trusted Host Key(s). If empty, SSH key auto-discovery will run automatically."
   type        = list(string)
   default     = []
 }
