@@ -54,11 +54,7 @@ variable "sftp_server_endpoint" {
   type        = string
 }
 
-variable "connector_id" {
-  description = "Existing connector ID to use for file retrieval. If not provided, a new connector will be created."
-  type        = string
-  default     = null
-}
+
 
 variable "s3_prefix" {
   description = "S3 prefix to store retrieved files (local directory path)"
