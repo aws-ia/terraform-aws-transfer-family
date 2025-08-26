@@ -1,11 +1,11 @@
 output "connector_id" {
   description = "The ID of the SFTP connector"
-  value       = var.connector_id != null ? var.connector_id : module.sftp_connector[0].connector_id
+  value       = module.sftp_connector.connector_id
 }
 
 output "connector_arn" {
   description = "The ARN of the SFTP connector"
-  value       = var.connector_id != null ? null : module.sftp_connector[0].connector_arn
+  value       = module.sftp_connector.connector_arn
 }
 
 output "retrieve_bucket_name" {
@@ -35,7 +35,7 @@ output "eventbridge_schedule_arn" {
 
 output "sftp_credentials_secret_arn" {
   description = "ARN of the Secrets Manager secret containing SFTP credentials"
-  value       = var.existing_secret_arn != null ? var.existing_secret_arn : (var.connector_id == null ? module.sftp_connector[0].secret_arn : null)
+  value       = var.existing_secret_arn != null ? var.existing_secret_arn : module.sftp_connector.secret_arn
 }
 
 output "dynamodb_table_name" {

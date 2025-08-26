@@ -55,3 +55,4 @@ tf_security_scan.sh
 
 # Ignore macOS system files
 **/.DS_Store
+*.zip
