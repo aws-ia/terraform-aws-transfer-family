@@ -244,6 +244,10 @@ resource "terraform_data" "discover_and_test_connector" {
   
   provisioner "local-exec" {
     command = <<-EOT
+      # Wait 10 seconds for connector to be fully ready
+      echo "Waiting 10 seconds for connector to be fully ready..."
+      sleep 10
+      
       # Check if AWS CLI is available
       if ! command -v aws &> /dev/null; then
         echo "AWS CLI not found - connector testing skipped"

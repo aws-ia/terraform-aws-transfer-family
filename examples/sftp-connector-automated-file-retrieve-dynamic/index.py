@@ -131,6 +131,30 @@ def lambda_handler(event, context):
         transfer_id = transfer_response['TransferId']
         logger.info(f"File transfer started: {transfer_id}")
         
+        # Log batch job in DynamoDB if enabled
+        table_name = os.environ.get('DYNAMODB_TABLE')
+        if table_name:
+            import uuid
+            from datetime import datetime
+            
+            dynamodb = boto3.resource('dynamodb')
+            table = dynamodb.Table(table_name)
+            
+            batch_id = str(uuid.uuid4())
+            table.put_item(
+                Item={
+                    'batch_id': batch_id,
+                    'transfer_id': transfer_id,
+                    'connector_id': connector_id,
+                    'status': 'TRANSFER_STARTED',
+                    'file_paths': file_paths,
+                    'files_count': len(file_paths),
+                    'started_at': datetime.utcnow().isoformat(),
+                    'updated_at': datetime.utcnow().isoformat()
+                }
+            )
+            logger.info(f"Logged batch job: {batch_id}")
+        
         # Clean up the directory listing JSON file
         try:
             s3_client.delete_object(Bucket=bucket_name, Key=listing_key)

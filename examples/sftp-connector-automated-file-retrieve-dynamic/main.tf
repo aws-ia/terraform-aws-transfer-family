@@ -136,10 +136,10 @@ resource "aws_dynamodb_table" "file_transfer_tracking" {
 
   name           = "${random_pet.name.id}-file-transfers"
   billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "file_path"
+  hash_key       = "batch_id"
 
   attribute {
-    name = "file_path"
+    name = "batch_id"
     type = "S"
   }
 
@@ -434,4 +434,234 @@ resource "aws_lambda_permission" "allow_eventbridge" {
   function_name = aws_lambda_function.file_discovery.function_name
   principal     = "scheduler.amazonaws.com"
   source_arn    = aws_scheduler_schedule.lambda_trigger.arn
+}
+
+###################################################################
+# Status Checker Scheduler
+###################################################################
+
+# EventBridge Scheduler for status checking
+resource "aws_scheduler_schedule" "status_checker" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  name = "transfer-status-checker-${random_pet.name.id}"
+  
+  flexible_time_window {
+    mode = "OFF"
+  }
+  
+  schedule_expression = "rate(2 minutes)"
+  
+  target {
+    arn      = aws_lambda_function.event_listener[0].arn
+    role_arn = aws_iam_role.status_checker_scheduler_role[0].arn
+  }
+}
+
+# IAM role for status checker scheduler
+resource "aws_iam_role" "status_checker_scheduler_role" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  name = "status-checker-scheduler-role-${random_pet.name.id}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy for status checker scheduler
+resource "aws_iam_role_policy" "status_checker_scheduler_policy" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  name = "status-checker-scheduler-policy-${random_pet.name.id}"
+  role = aws_iam_role.status_checker_scheduler_role[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = aws_lambda_function.event_listener[0].arn
+      }
+    ]
+  })
+}
+
+# Lambda permission for status checker scheduler
+resource "aws_lambda_permission" "allow_scheduler_status_checker" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  statement_id  = "AllowExecutionFromScheduler"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.event_listener[0].function_name
+  principal     = "scheduler.amazonaws.com"
+  source_arn    = aws_scheduler_schedule.status_checker[0].arn
+}
+
+###################################################################
+# EventBridge Event Listener Lambda
+###################################################################
+
+# EventBridge listener Lambda function
+data "archive_file" "event_listener_zip" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  type        = "zip"
+  source_file = "event_listener.py"
+  output_path = "event_listener.zip"
+}
+
+resource "aws_lambda_function" "event_listener" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  #checkov:skip=CKV_AWS_272: "Lambda function does not require code signing for this use case"
+  #checkov:skip=CKV_AWS_116: "Lambda function does not require DLQ for this use case"
+  #checkov:skip=CKV_AWS_117: "Lambda function does not require VPC configuration for this use case"
+  filename         = "event_listener.zip"
+  function_name    = "sftp-event-listener-${random_pet.name.id}"
+  role            = aws_iam_role.event_listener_role[0].arn
+  handler         = "event_listener.lambda_handler"
+  runtime         = "python3.9"
+  timeout         = 60
+  memory_size     = 256
+  source_code_hash = data.archive_file.event_listener_zip[0].output_base64sha256
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE = aws_dynamodb_table.file_transfer_tracking[0].name
+    }
+  }
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  tags = {
+    Environment = "Demo"
+    Project     = "SFTP Event Listener"
+  }
+}
+
+# EventBridge rule for Transfer Family events
+resource "aws_cloudwatch_event_rule" "transfer_events" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  name        = "transfer-family-events-${random_pet.name.id}"
+  description = "Capture Transfer Family connector events"
+
+  event_pattern = jsonencode({
+    source      = ["aws.transfer"]
+    detail-type = [
+      "SFTP Connector File Retrieve Completed",
+      "SFTP Connector File Retrieve Failed",
+      "SFTP Connector Directory Listing Completed", 
+      "SFTP Connector Directory Listing Failed"
+    ]
+    detail = {
+      connectorId = [module.sftp_connector.connector_id]
+    }
+  })
+
+  tags = {
+    Environment = "Demo"
+    Project     = "SFTP Event Processing"
+  }
+}
+
+# EventBridge target for the listener Lambda
+resource "aws_cloudwatch_event_target" "event_listener_target" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  rule      = aws_cloudwatch_event_rule.transfer_events[0].name
+  target_id = "TransferEventListener"
+  arn       = aws_lambda_function.event_listener[0].arn
+}
+
+# Lambda permission for EventBridge
+resource "aws_lambda_permission" "allow_eventbridge_event_listener" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.event_listener[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.transfer_events[0].arn
+}
+
+# IAM role for event listener Lambda
+resource "aws_iam_role" "event_listener_role" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  name = "lambda-event-listener-role-${random_pet.name.id}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy for event listener Lambda
+resource "aws_iam_role_policy" "event_listener_policy" {
+  count = var.enable_dynamodb_tracking ? 1 : 0
+  
+  name = "lambda-event-listener-policy-${random_pet.name.id}"
+  role = aws_iam_role.event_listener_role[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream", 
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "transfer:ListFileTransferResults"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Scan",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = aws_dynamodb_table.file_transfer_tracking[0].arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = local.kms_key_arn
+      }
+    ]
+  })
 }
