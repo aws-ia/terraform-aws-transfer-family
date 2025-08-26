@@ -37,3 +37,8 @@ output "lambda_function_arn" {
   description = "The ARN of the Lambda function that initiates SFTP transfers"
   value       = aws_lambda_function.sftp_transfer.arn
 }
+
+output "connector_static_ips" {
+  description = "Static IP addresses of the SFTP connector"
+  value       = module.sftp_connector.connector_static_ips
+}
