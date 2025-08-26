@@ -288,6 +288,15 @@ resource "aws_dynamodb_table" "file_transfer_tracking" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = local.kms_key_arn
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = {
     Environment = "Demo"
     Project     = "SFTP File Transfer Tracking"
@@ -380,6 +389,8 @@ resource "aws_lambda_function" "event_listener" {
   runtime         = "python3.9"
   timeout         = 60
   memory_size     = 256
+  reserved_concurrent_executions = 10
+  kms_key_arn     = local.kms_key_arn
   source_code_hash = data.archive_file.event_listener_zip[0].output_base64sha256
 
   environment {
