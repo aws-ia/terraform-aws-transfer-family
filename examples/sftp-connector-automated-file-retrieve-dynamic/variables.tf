@@ -26,8 +26,8 @@ variable "sftp_username" {
   default     = "sftp-user"
 
   validation {
-    condition     = length(var.sftp_username) > 0 && length(var.sftp_username) <= 100
-    error_message = "SFTP username must be between 1 and 100 characters long."
+    condition     = var.existing_secret_arn != null || length(var.trusted_host_keys) > 0 || length(var.sftp_username) > 0
+    error_message = "SFTP username is required when existing_secret_arn is not provided and trusted_host_keys are not provided."
   }
 }
 
@@ -36,6 +36,11 @@ variable "sftp_private_key" {
   type        = string
   default     = ""
   sensitive   = true
+
+  validation {
+    condition     = var.existing_secret_arn != null || length(var.trusted_host_keys) > 0 || length(var.sftp_private_key) > 0
+    error_message = "SFTP private key is required when existing_secret_arn is not provided and trusted_host_keys are not provided."
+  }
 }
 
 variable "trusted_host_keys" {

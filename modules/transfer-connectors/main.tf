@@ -238,12 +238,19 @@ resource "terraform_data" "discover_and_test_connector" {
     command = <<-EOT
       # Check if AWS CLI is available
       if ! command -v aws &> /dev/null; then
-        echo "❌ AWS CLI is not present so the Connector Testing feature won't be performed."
-        echo "ℹ️  Deployment completed successfully without connector testing."
+        echo "AWS CLI not found - connector testing skipped"
+        echo "Deployment completed successfully"
         exit 0
       fi
       
-      echo "Step 1: Testing connection to discover host key..."
+      # Check if jq is available (required for JSON parsing)
+      if ! command -v jq &> /dev/null; then
+        echo "jq not found - connector testing skipped"
+        echo "Deployment completed successfully"
+        exit 0
+      fi
+      
+      echo "Testing connection to discover host key..."
       
       MAX_RETRIES=3
       RETRY_COUNT=0
@@ -279,16 +286,16 @@ resource "terraform_data" "discover_and_test_connector" {
         echo "DEBUG - Host Key: $HOST_KEY"
         
         if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
-          echo "✅ Discovered host key: $HOST_KEY"
+          echo "Host key discovered: $HOST_KEY"
           break
         else
-          echo "Host key not found, waiting 10 seconds..."
+          echo "Host key not found, retrying in 10s..."
           sleep 10
         fi
       done
       
       if [ -n "$HOST_KEY" ] && [ "$HOST_KEY" != "null" ]; then
-        echo "Step 2: Updating connector with discovered host key..."
+        echo "Updating connector with discovered host key..."
         UPDATE_RESULT=$(aws transfer update-connector \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
           --region ${data.aws_region.current.id} \
@@ -300,7 +307,7 @@ resource "terraform_data" "discover_and_test_connector" {
         
         echo "DEBUG - Update Result: $UPDATE_RESULT"
         
-        echo "Step 3: Testing final connection with trusted host key..."
+        echo "Testing final connection with trusted host key..."
         FINAL_TEST=$(aws transfer test-connection \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
           --region ${data.aws_region.current.id} \
@@ -312,12 +319,12 @@ resource "terraform_data" "discover_and_test_connector" {
         echo "Final connection status: $FINAL_STATUS"
         
         if [ "$FINAL_STATUS" = "OK" ]; then
-          echo "🎉 Connector fully configured and tested successfully!"
+          echo "Connector configured and tested successfully"
         else
-          echo "❌ Final test failed: $(echo "$FINAL_TEST" | jq -r '.StatusMessage')"
+          echo "Final test failed: $(echo "$FINAL_TEST" | jq -r '.StatusMessage')"
         fi
       else
-        echo "❌ Failed to discover host key after $MAX_RETRIES attempts"
+        echo "Failed to discover host key after $MAX_RETRIES attempts"
         exit 1
       fi
     EOT

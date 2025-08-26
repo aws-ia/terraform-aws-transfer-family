@@ -1,14 +1,21 @@
----
-fail_fast: false
-minimum_pre_commit_version: "2.6.0"
-repos:
-  - repo: local
-    hooks:
-      - id: static-tests
-        name: static tests
-        entry: bash -c 'export PROJECT_PATH=$(pwd) && export PROJECT_TYPE_PATH=$(pwd) && set -x && tail -n +6 ./.project_automation/static_tests/static_tests.sh | bash'
-        language: system
-        pass_filenames: false
-        require_serial: true
-        always_run: true
-        verbose: true
+version: "1.0.0"
+
+init:
+  entrypoint: .project_automation/init/noop.sh
+update:
+  entrypoint: .project_automation/update/noop.sh
+static_tests:
+  dockerfile: .project_automation/static_tests/Dockerfile
+  entrypoint: .project_automation/static_tests/entrypoint.sh
+functional_tests:
+  github_permissions:
+    contents: write
+  dockerfile: .project_automation/functional_tests/Dockerfile
+  entrypoint: .project_automation/functional_tests/entrypoint.sh
+publication:
+  github_permissions:
+    contents: write
+  dockerfile: .project_automation/publication/Dockerfile
+  entrypoint: .project_automation/publication/entrypoint.sh
+deprecation:
+  entrypoint: .project_automation/deprecation/entrypoint.sh
