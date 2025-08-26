@@ -1,9 +1,3 @@
-variable "enable_dynamodb_tracking" {
-  description = "Enable DynamoDB tracking for file transfers"
-  type        = bool
-  default     = true
-}
-
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -104,6 +98,12 @@ variable "file_paths_to_retrieve" {
     ])
     error_message = "All file paths must start with a forward slash (/)."
   }
+}
+
+variable "enable_dynamodb_tracking" {
+  description = "Enable DynamoDB table to track file transfer status"
+  type        = bool
+  default     = false
 }
 
 variable "test_connector_post_deployment" {
