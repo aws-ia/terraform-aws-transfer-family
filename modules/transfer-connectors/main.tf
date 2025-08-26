@@ -136,6 +136,12 @@ data "aws_region" "current" {}
 # Try to get connector IP information via AWS CLI
 data "external" "connector_ips" {
   program = ["bash", "-c", <<-EOF
+    # Check if AWS CLI is available
+    if ! command -v aws >/dev/null 2>&1; then
+      echo "{\"ips\": \"\", \"status\": \"cli_not_available\", \"note\": \"AWS CLI not found\"}"
+      exit 0
+    fi
+    
     # Try to describe the connector and extract any IP information
     connector_info=$(aws transfer describe-connector --connector-id "${aws_transfer_connector.sftp_connector.id}" --region "${data.aws_region.current.id}" 2>/dev/null || echo "{}")
     
