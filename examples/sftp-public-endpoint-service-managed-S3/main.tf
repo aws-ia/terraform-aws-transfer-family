@@ -129,9 +129,15 @@ resource "aws_kms_key_policy" "transfer_family_key_policy" {
           "kms:Decrypt",
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
+          "kms:CreateGrant",
           "kms:Describe*"
         ]
         Resource = aws_kms_key.transfer_family_key.arn
+        Condition = {
+          ArnEquals = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+          }
+        }
       }
     ]
   })

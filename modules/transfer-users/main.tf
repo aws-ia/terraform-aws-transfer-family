@@ -49,7 +49,10 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
       {
         Sid    = "AllowListingOfUserFolder"
         Effect = "Allow"
-        Action = ["s3:ListBucket"]
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
         Resource = [var.s3_bucket_arn]
       },
       {
@@ -58,7 +61,11 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
         Action = [
           "s3:PutObject",
           "s3:GetObject",
-          "s3:DeleteObject"
+          "s3:DeleteObject",
+          "s3:DeleteObjectVersion",
+          "s3:GetObjectVersion",
+          "s3:GetObjectACL",
+          "s3:PutObjectACL"
         ]
         Resource = ["${var.s3_bucket_arn}/*"]
       },
@@ -67,7 +74,10 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
         Effect = "Allow"
         Action = [
           "kms:Decrypt",
-          "kms:GenerateDataKey"
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:GetPublicKey",
+          "kms:ListKeyPolicies"
         ]
         Resource = [var.kms_key_id]
       }
@@ -90,8 +100,8 @@ resource "aws_secretsmanager_secret" "sftp_private_key" {
   #checkov:skip=CKV2_AWS_57: "Rotation not required for SFTP user keys
   count = var.create_test_user ? 1 : 0
 
-  name        = "sftp-user-private-key-${local.test_user.username}-${random_pet.name.id}"
-  description = "Private key for the SFTP test user"
+  name        = "sftp-user-credentials-${local.test_user.username}-${random_pet.name.id}"
+  description = "SFTP credentials for the test user"
   kms_key_id  = var.kms_key_id
 }
 
@@ -99,7 +109,10 @@ resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {
   count = var.create_test_user ? 1 : 0
 
   secret_id     = aws_secretsmanager_secret.sftp_private_key[0].id
-  secret_string = tls_private_key.test_user_key[0].private_key_pem
+  secret_string = jsonencode({
+    Username   = local.test_user.username
+    PrivateKey = tls_private_key.test_user_key[0].private_key_pem
+  })
 }
 
 ######################################

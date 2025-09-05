@@ -13,7 +13,12 @@ output "sftp_bucket_name" {
   value       = module.s3_bucket.s3_bucket_id
 }
 
-output "user_details" {
+output "test_user_details" {
   description = "Map of users with their details including secret names and ARNs"
   value = module.sftp_users.user_details
+}
+
+output "test_user_secret" {
+  description = "Map of users with their details including secret names and ARNs"
+  value = module.sftp_users.test_user_secret
 }

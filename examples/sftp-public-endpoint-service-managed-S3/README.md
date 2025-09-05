@@ -180,5 +180,6 @@ module "transfer_server" {
 | <a name="output_server_endpoint"></a> [server\_endpoint](#output\_server\_endpoint) | The endpoint of the created Transfer Family server |
 | <a name="output_server_id"></a> [server\_id](#output\_server\_id) | The ID of the created Transfer Family server |
 | <a name="output_sftp_bucket_name"></a> [sftp\_bucket\_name](#output\_sftp\_bucket\_name) | The name of the S3 bucket used for SFTP storage |
-| <a name="output_user_details"></a> [user\_details](#output\_user\_details) | Map of users with their details including secret names and ARNs |
+| <a name="output_test_user_details"></a> [test\_user\_details](#output\_test\_user\_details) | Map of users with their details including secret names and ARNs |
+| <a name="output_test_user_secret"></a> [test\_user\_secret](#output\_test\_user\_secret) | Map of users with their details including secret names and ARNs |
 <!-- END_TF_DOCS -->

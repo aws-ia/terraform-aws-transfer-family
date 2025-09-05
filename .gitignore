@@ -166,9 +166,6 @@ vendor/
 # Go
 vendor/
 
-# Remove docs/ from ignore - we want to keep documentation
-# docs/
-
 # Keep .tfvars.example files for reference but ignore actual .tfvars
 *.tfvars
 !*.tfvars.example
@@ -177,4 +174,5 @@ vendor/
 .terraform/
 **/.terraform/
 
+# Documentation directory (from main branch)
 docs/
