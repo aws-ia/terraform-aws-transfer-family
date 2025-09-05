@@ -1,0 +1,34 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Test User Configuration
+test_user_1 = {
+  username = "admin"
+  email    = "admin@yourcompany.com"
+  password = "AdminPass123!"
+}
+
+test_user_2 = {
+  username = "user"
+  email    = "user@yourcompany.com"  
+  password = "UserPass123!"
+}
+
+# LDAP Configuration (optional - disabled by default)
+ldap_config = {
+  server                = "ldap.yourcompany.com"
+  port                  = 389
+  base_dn               = "dc=yourcompany,dc=com"
+  bind_dn               = "cn=service,dc=yourcompany,dc=com"
+  bind_password_secret  = "ldap-bind-password"  # AWS Secrets Manager secret name
+  disabled              = true  # Set to false to enable LDAP authentication
+}
+
+# Resource Tagging
+tags = {
+  Environment = "development"
+  Project     = "transfer-family-api-gateway"
+  Owner       = "your-team"
+  ManagedBy   = "terraform"
+  CostCenter  = "engineering
+  }

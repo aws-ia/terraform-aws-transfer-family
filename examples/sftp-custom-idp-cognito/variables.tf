@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "test_username" {
   description = "Username for the test user (must be email format)"
   type        = string
-  default     = "Test"
+  default     = "test@example.com"
 }
 
 variable "test_user_email" {
