@@ -1,3 +1,4 @@
+<!-- BEGIN_TF_DOCS -->
 # SFTP Server with Multiple SSH Keys Example
 
 This example demonstrates how to create an AWS Transfer Family SFTP server with users that have multiple SSH public keys. This configuration showcases:
@@ -21,76 +22,26 @@ Replace the example SSH keys in the `users` local variable with your actual publ
 
 **Note**: The SSH keys in this example are truncated for readability. You must provide complete, valid SSH public keys.
 
-## User Configuration Examples
-
-### Single Key User (Backward Compatibility)
-```hcl
-{
-  username = "single-key-user"
-  home_dir = "/single-key-user"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... single-key-example"
-}
-```
-
-### Multiple Key User
-```hcl
-{
-  username = "multi-key-user"
-  home_dir = "/multi-key-user"
-  public_keys = [
-    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... primary-key",
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... backup-key",
-    "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY... rotation-key"
-  ]
-}
-```
-
-### Key Rotation Scenario
-```hcl
-{
-  username = "rotation-user"
-  home_dir = "/rotation-user"
-  public_keys = [
-    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... current-key",
-    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQD8... new-key-for-rotation"
-  ]
-}
-```
-
-## Key Management Best Practices
-
-1. **Key Rotation**: Add new keys before removing old ones to ensure continuous access
-2. **Key Limits**: AWS Transfer Family supports up to 10 SSH keys per user
-3. **Key Formats**: Supported formats include ssh-rsa, ssh-ed25519, and ecdsa-sha2-nistp256/384/521
-4. **Validation**: All keys are validated for proper format and uniqueness
-
-## Security Considerations
-
-- All S3 bucket public access is blocked
-- KMS encryption is enabled for Amazon S3
-- CloudWatch logging is enabled
-- IAM roles follow least privilege principles
-
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.95.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.1 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.95.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.1 |
+| <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
 
 ## Modules
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_s3_bucket"></a> [s3\_bucket](#module\_s3\_bucket) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
+| <a name="module_s3_bucket"></a> [s3\_bucket](#module\_s3\_bucket) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v4.1.2 |
 | <a name="module_sftp_users"></a> [sftp\_users](#module\_sftp\_users) | ../../modules/transfer-users | n/a |
 | <a name="module_transfer_server"></a> [transfer\_server](#module\_transfer\_server) | ../.. | n/a |
 
@@ -109,12 +60,18 @@ Replace the example SSH keys in the `users` local variable with your actual publ
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
+| <a name="input_custom_hostname"></a> [custom\_hostname](#input\_custom\_hostname) | The custom hostname for the Transfer Family server | `string` | `null` | no |
+| <a name="input_dns_provider"></a> [dns\_provider](#input\_dns\_provider) | The DNS provider for the custom hostname. Use null for no custom hostname | `string` | `null` | no |
+| <a name="input_logging_role"></a> [logging\_role](#input\_logging\_role) | IAM role ARN that the Transfer Server assumes to write logs to CloudWatch Logs | `string` | `null` | no |
+| <a name="input_route53_hosted_zone_name"></a> [route53\_hosted\_zone\_name](#input\_route53\_hosted\_zone\_name) | The name of the Route53 hosted zone to use (must end with a period, e.g., 'example.com.') | `string` | `null` | no |
+| <a name="input_workflow_details"></a> [workflow\_details](#input\_workflow\_details) | Workflow details to attach to the transfer server | <pre>object({<br/>    on_upload = optional(object({<br/>      execution_role = string<br/>      workflow_id    = string<br/>    }))<br/>    on_partial_upload = optional(object({<br/>      execution_role = string<br/>      workflow_id    = string<br/>    }))<br/>  })</pre> | `null` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_s3_bucket_name"></a> [s3\_bucket\_name](#output\_s3\_bucket\_name) | Name of the S3 bucket used for file storage | 
+| <a name="output_s3_bucket_name"></a> [s3\_bucket\_name](#output\_s3\_bucket\_name) | Name of the S3 bucket used for file storage |
 | <a name="output_server_endpoint"></a> [server\_endpoint](#output\_server\_endpoint) | Endpoint of the Transfer Family server |
 | <a name="output_server_id"></a> [server\_id](#output\_server\_id) | ID of the Transfer Family server |
 | <a name="output_user_details"></a> [user\_details](#output\_user\_details) | Details of created users including their public keys |
+<!-- END_TF_DOCS -->
