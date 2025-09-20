@@ -23,10 +23,12 @@ locals {
       username = "single-key-user"
       home_dir = "/single-key-user"
       public_key = ""
+    },
     {
       username = "multi-key-user"
       home_dir = "/multi-key-user"
       public_keys = [
+        "",
         ""
       ]
     },
@@ -34,6 +36,7 @@ locals {
       username = "rotation-user"
       home_dir = "/rotation-user"
       public_keys = [
+        "",
         ""
       ]
     }

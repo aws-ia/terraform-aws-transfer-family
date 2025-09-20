@@ -164,9 +164,12 @@ resource "aws_transfer_user" "transfer_users" {
 resource "aws_transfer_ssh_key" "user_ssh_keys" {
   for_each = local.user_key_combinations
 
+  depends_on = [
+    aws_transfer_user.transfer_users,
+    tls_private_key.test_user_key
+  ]
+
   server_id = var.server_id
   user_name = each.value.username
   body      = each.value.key_body
-
-  depends_on = [aws_transfer_user.transfer_users]
 }
