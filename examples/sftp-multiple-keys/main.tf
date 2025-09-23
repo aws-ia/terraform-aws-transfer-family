@@ -17,28 +17,22 @@ locals {
   server_name = "transfer-server-${random_pet.name.id}"
   
   # Example users demonstrating both single and multiple key configurations
-  # NOTE: Replace these example keys with your actual SSH public keys before deploying
+  # NOTE: Replace these example keys with your actual SSH public keys before deploying, for multi-key-user and rotation-user, separate each key with commas
   users = [
     {
-      username = "single-key-user"
-      home_dir = "/single-key-user"
+      username   = "single-key-user"
+      home_dir   = "/single-key-user"
       public_key = ""
     },
     {
-      username = "multi-key-user"
-      home_dir = "/multi-key-user"
-      public_keys = [
-        "",
-        ""
-      ]
+      username   = "multi-key-user"
+      home_dir   = "/multi-key-user"
+      public_key = ", "
     },
     {
-      username = "rotation-user"
-      home_dir = "/rotation-user"
-      public_keys = [
-        "",
-        ""
-      ]
+      username   = "rotation-user"
+      home_dir   = "/rotation-user"
+      public_key = ", "
     }
   ]
 }
