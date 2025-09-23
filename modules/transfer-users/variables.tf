@@ -5,28 +5,19 @@ variable "create_test_user" {
 }
 
 variable "users" {
-  description = "List of SFTP users. Each user can have either a single public_key or multiple public_keys, but not both."
+  description = "List of SFTP users. Use public_key as a string - for multiple keys, separate with commas."
   type = list(object({
-    username    = string
-    home_dir    = string
-    public_key  = optional(string)
-    public_keys = optional(list(string))
-    role_arn    = optional(string)
+    username   = string
+    home_dir   = string
+    public_key = optional(string, "")
+    role_arn   = optional(string)
   }))
   default = []
 
   validation {
     condition = alltrue([
       for user in var.users :
-      !(user.public_key != null && user.public_keys != null)
-    ])
-    error_message = "Cannot specify both 'public_key' and 'public_keys' for the same user. Use either single 'public_key' or multiple 'public_keys'."
-  }
-
-  validation {
-    condition = alltrue([
-      for user in var.users :
-      try(length(user.public_keys), 0) <= 10
+      try(length(split(",", user.public_key)), 0) <= 10
     ])
     error_message = "Maximum of 10 public keys allowed per user as per AWS Transfer Family limits."
   }
@@ -34,7 +25,7 @@ variable "users" {
   validation {
     condition = alltrue([
       for user in var.users :
-      user.public_keys == null || try(length(user.public_keys) == length(distinct(user.public_keys)), true)
+      user.public_key == "" || try(length(split(",", user.public_key)) == length(distinct(split(",", user.public_key))), true)
     ])
     error_message = "Duplicate public keys are not allowed for the same user."
   }
@@ -42,8 +33,7 @@ variable "users" {
   validation {
     condition = alltrue(flatten([
       for user in var.users : [
-        for key in (user.public_keys != null ? user.public_keys : 
-                    user.public_key != null ? [user.public_key] : []) :
+        for key in (user.public_key != "" ? [for k in split(",", user.public_key) : trimspace(k)] : []) :
         can(regex("^(ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|ssh-ed25519) AAAA[A-Za-z0-9+/]+[=]{0,3}( .+)?$", key))
       ]
     ]))

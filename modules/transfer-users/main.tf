@@ -9,33 +9,20 @@ resource "random_pet" "name" {
 
 locals {
   test_user = {
-    username    = "test_user"
-    home_dir    = "/test_user"
-    public_key  = var.create_test_user ? tls_private_key.test_user_key[0].public_key_openssh : null
-    public_keys = null
-    role_arn    = aws_iam_role.sftp_user_role.arn
+    username   = "test_user"
+    home_dir   = "/test_user"
+    public_key = var.create_test_user ? tls_private_key.test_user_key[0].public_key_openssh : ""
+    role_arn   = aws_iam_role.sftp_user_role.arn
   }
 
   # Combine test user with provided users if create_test_user is true
   all_users = var.create_test_user ? concat(var.users, [local.test_user]) : var.users
 
-  # Normalize users to have consistent key structure
-  normalized_users = [
-    for user in local.all_users : {
-      username = user.username
-      home_dir = user.home_dir
-      role_arn = user.role_arn
-      keys = user.public_keys != null ? user.public_keys : (
-        user.public_key != null ? [user.public_key] : []
-      )
-    }
-  ]
-
-  # Create flattened map for SSH key resources
+  # Create flattened map for SSH key resources - convert comma-separated string to list
   user_key_combinations = {
     for combo in flatten([
-      for user in local.normalized_users : [
-        for idx, key in user.keys : {
+      for user in local.all_users : [
+        for idx, key in (user.public_key != "" ? [for k in split(",", user.public_key) : trimspace(k)] : []) : {
           key_id   = "${user.username}-${idx}"
           username = user.username
           key_body = key
