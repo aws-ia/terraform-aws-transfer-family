@@ -15,7 +15,7 @@ jobs:
 
       - name: Get latest commit message
         id: commit
-        run: echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+        run: echo "message=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
 
       - name: Determine version bump type
         id: bump-type
