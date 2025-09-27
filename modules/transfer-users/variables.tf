@@ -17,9 +17,9 @@ variable "users" {
   validation {
     condition = alltrue([
       for user in var.users :
-      try(length(split(",", user.public_key)), 0) <= 10
+      try(length(split(",", user.public_key)), 0) <= 50
     ])
-    error_message = "Maximum of 10 public keys allowed per user as per AWS Transfer Family limits."
+    error_message = "Maximum of 50 public keys allowed per user as per AWS Transfer Family limits."
   }
 
   validation {
