@@ -42,3 +42,13 @@ variable "workflow_details" {
   })
   default = null
 }
+
+variable "users" {
+  description = "List of users to create for the Transfer Family server"
+  type = list(object({
+    username   = string
+    home_dir   = string
+    public_key = string
+  }))
+  default = []
+}
