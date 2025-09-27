@@ -21,4 +21,5 @@ output "test_user_details" {
 output "test_user_secret" {
   description = "Map of users with their details including secret names and ARNs"
   value = module.sftp_users.test_user_secret
+  sensitive = true
 }
