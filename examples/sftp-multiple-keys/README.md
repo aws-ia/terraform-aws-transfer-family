@@ -64,6 +64,7 @@ Replace the example SSH keys in the `users` local variable with your actual publ
 | <a name="input_dns_provider"></a> [dns\_provider](#input\_dns\_provider) | The DNS provider for the custom hostname. Use null for no custom hostname | `string` | `null` | no |
 | <a name="input_logging_role"></a> [logging\_role](#input\_logging\_role) | IAM role ARN that the Transfer Server assumes to write logs to CloudWatch Logs | `string` | `null` | no |
 | <a name="input_route53_hosted_zone_name"></a> [route53\_hosted\_zone\_name](#input\_route53\_hosted\_zone\_name) | The name of the Route53 hosted zone to use (must end with a period, e.g., 'example.com.') | `string` | `null` | no |
+| <a name="input_users"></a> [users](#input\_users) | List of users to create for the Transfer Family server | <pre>list(object({<br/>    username   = string<br/>    home_dir   = string<br/>    public_key = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_workflow_details"></a> [workflow\_details](#input\_workflow\_details) | Workflow details to attach to the transfer server | <pre>object({<br/>    on_upload = optional(object({<br/>      execution_role = string<br/>      workflow_id    = string<br/>    }))<br/>    on_partial_upload = optional(object({<br/>      execution_role = string<br/>      workflow_id    = string<br/>    }))<br/>  })</pre> | `null` | no |
 
 ## Outputs

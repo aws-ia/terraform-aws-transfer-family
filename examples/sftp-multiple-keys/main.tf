@@ -15,26 +15,6 @@ resource "random_pet" "name" {
 
 locals {
   server_name = "transfer-server-${random_pet.name.id}"
-  
-  # Example users demonstrating both single and multiple key configurations
-  # NOTE: Replace these example keys with your actual SSH public keys before deploying, for multi-key-user and rotation-user, separate each key with commas
-  users = [
-    {
-      username   = "single-key-user"
-      home_dir   = "/single-key-user"
-      public_key = ""
-    },
-    {
-      username   = "multi-key-user"
-      home_dir   = "/multi-key-user"
-      public_key = ", "
-    },
-    {
-      username   = "rotation-user"
-      home_dir   = "/rotation-user"
-      public_key = ", "
-    }
-  ]
 }
 
 data "aws_caller_identity" "current" {}
@@ -63,7 +43,7 @@ module "transfer_server" {
 
 module "sftp_users" {
   source = "../../modules/transfer-users"
-  users  = local.users
+  users  = var.users
   create_test_user = false # Disabled for this example to focus on multiple key functionality
 
   server_id = module.transfer_server.server_id
