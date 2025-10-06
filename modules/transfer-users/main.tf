@@ -18,10 +18,10 @@ locals {
   # Combine test user with provided users if create_test_user is true
   all_users = var.create_test_user ? concat(var.users, [local.test_user]) : var.users
 
-  # Create flattened map for SSH key resources - convert comma-separated string to list
+  # Create flattened map for SSH key resources - only non-test users
   user_key_combinations = {
     for combo in flatten([
-      for user in local.all_users : [
+      for user in var.users : [
         for idx, key in (user.public_key != "" ? [for k in split(",", user.public_key) : trimspace(k)] : []) : {
           key_id   = "${user.username}-${idx}"
           username = user.username
@@ -152,11 +152,24 @@ resource "aws_transfer_ssh_key" "user_ssh_keys" {
   for_each = local.user_key_combinations
 
   depends_on = [
-    aws_transfer_user.transfer_users,
-    tls_private_key.test_user_key
+    aws_transfer_user.transfer_users
   ]
 
   server_id = var.server_id
   user_name = each.value.username
   body      = each.value.key_body
+}
+
+# Create SSH key for test user (dynamic)
+resource "aws_transfer_ssh_key" "test_user_ssh_key" {
+  count = var.create_test_user ? 1 : 0
+
+  depends_on = [
+    aws_transfer_user.transfer_users,
+    tls_private_key.test_user_key
+  ]
+
+  server_id = var.server_id
+  user_name = "test_user"
+  body      = tls_private_key.test_user_key[0].public_key_openssh
 }

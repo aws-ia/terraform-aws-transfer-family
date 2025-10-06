@@ -9,7 +9,7 @@ variable "users" {
   type = list(object({
     username   = string
     home_dir   = string
-    public_key = optional(string, "")
+    public_key = string
     role_arn   = optional(string)
   }))
   default = []
@@ -25,15 +25,15 @@ variable "users" {
   validation {
     condition = alltrue([
       for user in var.users :
-      user.public_key == "" || try(length(split(",", user.public_key)) == length(distinct(split(",", user.public_key))), true)
+      user.public_key != "" && try(length(split(",", user.public_key)) == length(distinct(split(",", user.public_key))), true)
     ])
-    error_message = "Duplicate public keys are not allowed for the same user."
+    error_message = "Public key is required and duplicate public keys are not allowed for the same user."
   }
 
   validation {
     condition = alltrue(flatten([
       for user in var.users : [
-        for key in (user.public_key != "" ? [for k in split(",", user.public_key) : trimspace(k)] : []) :
+        for key in [for k in split(",", user.public_key) : trimspace(k)] :
         can(regex("^(ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|ssh-ed25519) AAAA[A-Za-z0-9+/]+[=]{0,3}( .+)?$", key))
       ]
     ]))
