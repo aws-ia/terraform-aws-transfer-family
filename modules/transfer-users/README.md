@@ -16,14 +16,17 @@ The Transfer Users module handles:
 
 ### User Management
 
-This module provides user import functionality for AWS Transfer Family. For example CSV configuration and implementation, see the ([../examples/sftp-public-endpoint-service-managed-S3/README.md#user-management](https://github.com/aws-ia/terraform-aws-transfer-family/blob/dev/examples/sftp-public-endpoint-service-managed-S3/.header.md)) in the SFTP public endpoint example.
+This module provides user import functionality for AWS Transfer Family. For example
+CSV configuration and implementation, see the
+([../examples/sftp-public-endpoint-service-managed-S3/README.md#user-management](https://github.com/aws-ia/terraform-aws-transfer-family/blob/dev/examples/sftp-public-endpoint-service-managed-S3/.header.md))
+in the SFTP public endpoint example.
 
 Key capabilities:
 
 - Bulk user creation via CSV file
 - Home directory mapping to S3 paths:
 
-```
+```hcl
 home_directory_type = "LOGICAL"
 home_directory_mappings {
   entry = "/"
@@ -44,7 +47,8 @@ home_directory_mappings {
 
 - `aws_transfer_user`: Creates SFTP users in AWS Transfer Family
 - `aws_transfer_ssh_key`: Creates SSH keys for test user only
-- `aws_iam_role` and `aws_iam_role_policy`: Sets up IAM roles and policies for user access
+- `aws_iam_role` and `aws_iam_role_policy`: Sets up IAM roles and policies
+  for user access
 - `aws_secretsmanager_secret`: Stores SSH keys for test users (when enabled)
 
 ### Key Configurations
