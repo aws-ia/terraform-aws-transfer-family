@@ -16,17 +16,14 @@ The Transfer Users module handles:
 
 ### User Management
 
-This module provides user import functionality for AWS Transfer Family. For example
-CSV configuration and implementation, see the
-([../examples/sftp-public-endpoint-service-managed-S3/README.md#user-management](https://github.com/aws-ia/terraform-aws-transfer-family/blob/dev/examples/sftp-public-endpoint-service-managed-S3/.header.md))
-in the SFTP public endpoint example.
+This module provides user import functionality for AWS Transfer Family. For example CSV configuration and implementation, see the ([../examples/sftp-public-endpoint-service-managed-S3/README.md#user-management](https://github.com/aws-ia/terraform-aws-transfer-family/blob/dev/examples/sftp-public-endpoint-service-managed-S3/.header.md)) in the SFTP public endpoint example.
 
 Key capabilities:
 
 - Bulk user creation via CSV file
 - Home directory mapping to S3 paths:
 
-```hcl
+```
 home_directory_type = "LOGICAL"
 home_directory_mappings {
   entry = "/"
@@ -47,8 +44,7 @@ home_directory_mappings {
 
 - `aws_transfer_user`: Creates SFTP users in AWS Transfer Family
 - `aws_transfer_ssh_key`: Creates SSH keys for test user only
-- `aws_iam_role` and `aws_iam_role_policy`: Sets up IAM roles and policies
-  for user access
+- `aws_iam_role` and `aws_iam_role_policy`: Sets up IAM roles and policies for user access
 - `aws_secretsmanager_secret`: Stores SSH keys for test users (when enabled)
 
 ### Key Configurations
@@ -109,6 +105,7 @@ No modules.
 | [aws_iam_role_policy.sftp_user_policies](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_secretsmanager_secret.sftp_private_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.sftp_private_key_version](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_transfer_ssh_key.test_user_ssh_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_ssh_key) | resource |
 | [aws_transfer_ssh_key.user_ssh_keys](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_ssh_key) | resource |
 | [aws_transfer_user.transfer_users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_user) | resource |
 | [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
@@ -123,7 +120,7 @@ No modules.
 | <a name="input_server_id"></a> [server\_id](#input\_server\_id) | ID of the Transfer Family server | `string` | n/a | yes |
 | <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Whether to create a test SFTP user | `bool` | `false` | no |
 | <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | encryption key | `string` | `null` | no |
-| <a name="input_users"></a> [users](#input\_users) | List of SFTP users. Use public\_key as a string - for multiple keys, separate with commas. | <pre>list(object({<br/>    username   = string<br/>    home_dir   = string<br/>    public_key = optional(string, "")<br/>    role_arn   = optional(string)<br/>  }))</pre> | `[]` | no |
+| <a name="input_users"></a> [users](#input\_users) | List of SFTP users. Use public\_key as a string - for multiple keys, separate with commas. | <pre>list(object({<br/>    username   = string<br/>    home_dir   = string<br/>    public_key = string<br/>    role_arn   = optional(string)<br/>  }))</pre> | `[]` | no |
 
 ## Outputs
 
