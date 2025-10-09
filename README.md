@@ -1,11 +1,13 @@
 <!-- BEGIN_TF_DOCS -->
 # AWS Transfer Family Terraform Module
 
-This repository contains Terraform code which creates resources required to run a Transfer Family Server within AWS.
+This repository contains Terraform code which creates resources required to run
+a Transfer Family Server within AWS.
 
 ## Overview
 
-This module creates and configures AWS Transfer Family resources with the following features:
+This module creates and configures AWS Transfer Family resources with the
+following features:
 
 - **Transfer Server**: SFTP server setup with protocol and security policies
 - **Transfer Connectors**: Automated file transfer to/from external SFTP servers
@@ -36,11 +38,13 @@ module "transfer_sftp" {
 
 ![High-Level Architecture](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/images/AWS%20Transfer%20Family%20Architecture.png)
 
-Figure 1: High-level architecture of AWS Transfer Family deployment using this Terraform module
+Figure 1: High-level architecture of AWS Transfer Family deployment using this
+Terraform module
 
 ![Architecture using VPC Endpoints](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/images/Transfer%20Family%20VPC%20endpoint.png)
 
-Figure 2: Architecture using VPC endpoints of the AWS Transfer Family deployment using this Terraform module
+Figure 2: Architecture using VPC endpoints of the AWS Transfer Family
+deployment using this Terraform module
 
 ## Features
 
@@ -67,11 +71,12 @@ Figure 2: Architecture using VPC endpoints of the AWS Transfer Family deployment
 
 #### DNS Configuration
 
-This module supports custom DNS configurations for your Transfer Family server using Route 53 or other DNS providers.
+This module supports custom DNS configurations for your Transfer Family
+server using Route 53 or other DNS providers.
 
 #### Route 53 Integration
 
-```
+```hcl
 dns_provider = "route53"
 custom_hostname = "sftp.example.com"
 route53_hosted_zone_name = "example.com."
@@ -79,14 +84,14 @@ route53_hosted_zone_name = "example.com."
 
 For Other DNS Providers:
 
-```
+```hcl
 dns_provider = "other"
 custom_hostname = "sftp.example.com"
 ```
 
 #### The module checks
 
-```
+```text
 Route 53 configurations are complete when selected
 Custom hostname is provided when a DNS provider is specified
 ```
@@ -116,19 +121,25 @@ The module includes several built-in checks to ensure proper configuration:
 - DNS provider configuration checks
 - Domain name compatibility verification
 - Security policy name validation
-- Mandatory Elastic IP address allocation and association checks for Internet-facing VPC deployments
+- Mandatory Elastic IP address allocation and association checks for
+  Internet-facing VPC deployments
 
 ## Best Practices
 
-- Enable CloudWatch logging for audit and monitoring purposes (optional, configurable via enable\_logging variable)
-- Use the latest security policies (default is TransferSecurityPolicy-2024-01, configurable with validation)
-- Configure proper DNS settings when using custom hostnames (validated through check blocks)
-- Utilize built-in validation checks for DNS provider and custom hostname configurations
+- Enable CloudWatch logging for audit and monitoring purposes (optional,
+  configurable via enable\_logging variable)
+- Use the latest security policies (default is TransferSecurityPolicy-2024-01,
+  configurable with validation)
+- Configure proper DNS settings when using custom hostnames (validated through
+  check blocks)
+- Utilize built-in validation checks for DNS provider and custom hostname
+  configurations
 - Use proper tagging for resources (supported via tags variable)
 
 ## Modules
 
-This project utilizes multiple modules to create a complete AWS Transfer Family SFTP solution:
+This project utilizes multiple modules to create a complete AWS Transfer
+Family SFTP solution:
 
 ### Core Transfer Server Module (main module)
 
@@ -165,7 +176,7 @@ This project utilizes multiple modules to create a complete AWS Transfer Family 
 
 To use these modules in your Terraform configuration:
 
-1. Reference the modules in your Terraform code:
+- Reference the modules in your Terraform code:
 
 ```hcl
 module "transfer_server" {
@@ -191,19 +202,19 @@ module "transfer_connectors" {
 }
 ```
 
-2. Initialize your Terraform workspace:
+- Initialize your Terraform workspace:
 
 ```bash
 terraform init
 ```
 
-3. Review the planned changes:
+- Review the planned changes:
 
 ```bash
 terraform plan
 ```
 
-4. Apply the configuration:
+- Apply the configuration:
 
 ```bash
 terraform apply
@@ -274,7 +285,7 @@ module "transfer_server" {
 
   endpoint_type = "VPC"
   endpoint_details = {
-    address_allocation_ids = aws_eip.sftp[*].allocation_id  # Makes the endpoint internet-facing
+    address_allocation_ids = aws_eip.sftp[*].allocation_id  # Internet-facing
     security_group_ids     = [aws_security_group.sftp.id]
     subnet_ids             = local.public_subnets
     vpc_id                 = local.vpc_id
@@ -284,7 +295,8 @@ module "transfer_server" {
 
 Key points about VPC endpoint types:
 
-- **Internet-facing endpoint**: Created when `address_allocation_ids` are specified (as shown in this example)
+- **Internet-facing endpoint**: Created when `address_allocation_ids` are specified
+  (as shown in this example)
 - Internet-facing endpoints require Elastic IPs and public subnets
 - **Internal endpoint**: Created when `address_allocation_ids` are omitted
 - Internal endpoints are only accessible from within the VPC or connected networks
@@ -296,6 +308,7 @@ This example demonstrates a simple public endpoint configuration:
 ```hcl
 module "transfer_server" {
   source = "aws-ia/transfer-family/aws//modules/transfer-server"
+
   domain                   = "S3"
   protocols                = ["SFTP"]
   endpoint_type            = "PUBLIC"
@@ -322,15 +335,17 @@ Key points about public endpoint types:
 
 ## Multiple SSH Keys per User Configuration
 
-The Transfer Users module supports multiple SSH keys per user for enhanced security and access management.
+The Transfer Users module supports multiple SSH keys per user for enhanced security
+and access management.
 
 ### Configuration Example
 
 ```hcl
 module "sftp_users" {
   source = "aws-ia/transfer-family/aws//modules/transfer-users"
+
   users = local.users
-  create_test_user = true # Test user is for demo purposes. Key and Access Management required for the created secrets
+  create_test_user = true # Test user is for demo purposes....
   server_id = module.transfer_server.server_id
   s3_bucket_name = module.s3_bucket.s3_bucket_id
   s3_bucket_arn = module.s3_bucket.s3_bucket_arn
@@ -346,7 +361,9 @@ users_config_file = "users.csv"
 
 ### CSV File Format for Multiple Keys
 
-Create a `users.csv` file (available in `examples/sftp-public-endpoint-service-managed-S3` and `examples/sftp-internet-facing-vpc-endpoint-service-managed-S3`) with the following format:
+Create a `users.csv` file (available in `examples/sftp-public-endpoint-service-managed-S3`
+and `examples/sftp-internet-facing-vpc-endpoint-service-managed-S3`) with the
+following format:
 
 ```csv
 username,home_dir,public_key,role_arn
@@ -359,27 +376,40 @@ user2,/user2,"key2, key3, key4",
 
 ### Requirements
 
-- **Multiple keys per user**: Separate multiple SSH keys with commas in a single string, wrapped in quotes
+- **Multiple keys per user**: Separate multiple SSH keys with commas in a
+  single string, wrapped in quotes
 
 ## Key Connector Configuration
 
 When using Transfer Connectors, pay attention to these critical attributes:
 
-- **`url`**: SFTP server endpoint (required) - automatically adds `sftp://` prefix if not provided
-- **`access_role`**: IAM role ARN for connector permissions (required, user-provided)
-- **`trusted_host_keys`**: SSH host keys for server validation - leave empty for auto-discovery
+- **`url`**: SFTP server endpoint (required) - automatically adds `sftp://`
+  prefix if not provided
+- **`access_role`**: IAM role ARN for connector permissions (required,
+  user-provided)
+- **`trusted_host_keys`**: SSH host keys for server validation - leave empty
+  for auto-discovery
 - **`sftp_username`** and **`sftp_private_key`**: Authentication credentials
-- **`user_secret_id`**: Alternative to providing credentials directly - use existing Secrets Manager secret
-- **`security_policy_name`**: Must use connector-specific policies (default: `TransferSFTPConnectorSecurityPolicy-2024-03`)
-- **`test_connector_post_deployment`**: Enable to validate connectivity after deployment - requires AWS CLI installation and checks for specific version compatibility. Will warn but not fail deployment if conditions aren't met.
+- **`user_secret_id`**: Alternative to providing credentials directly - use
+  existing Secrets Manager secret
+- **`security_policy_name`**: Must use connector-specific policies (default:
+  `TransferSFTPConnectorSecurityPolicy-2024-03`)
+- **`test_connector_post_deployment`**: Enable to validate connectivity after
+  deployment - requires AWS CLI installation and checks for specific version
+  compatibility. Will warn but not fail deployment if conditions aren't met.
 
 ## Support & Feedback
 
-The AWS Transfer Family module for Terraform is maintained by AWS Solution Architects. It is not part of an AWS service and support is provided best-effort by the AWS Storage community.
+The AWS Transfer Family module for Terraform is maintained by AWS Solution
+Architects. It is not part of an AWS service and support is provided
+best-effort by the AWS Storage community.
 
-To post feedback, submit feature ideas, or report bugs, please use the [Issues section](https://github.com/aws-ia/terraform-aws-transfer-family/issues) of this GitHub repo.
+To post feedback, submit feature ideas, or report bugs, please use the
+[Issues section](https://github.com/aws-ia/terraform-aws-transfer-family/issues)
+of this GitHub repo.
 
-If you are interested in contributing to the Storage Gateway module, see the [Contribution guide](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/CONTRIBUTING.md).
+If you are interested in contributing to the Storage Gateway module, see the
+[Contribution guide](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/CONTRIBUTING.md).
 
 ## Requirements
 
