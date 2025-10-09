@@ -149,6 +149,7 @@ This project utilizes multiple modules to create a complete AWS Transfer Family 
   - IAM role and policy management
   - Integration with S3 bucket permissions
   - KMS encryption key access management
+  - Multiple SSH keys per user support
 
 ### Transfer Connectors Module
 
@@ -294,10 +295,21 @@ This example demonstrates a simple public endpoint configuration:
 
 ```hcl
 module "transfer_server" {
-  # Other configurations go here
-
-  endpoint_type = "PUBLIC"
-  # No endpoint_details block needed for public endpoints
+  source = "aws-ia/transfer-family/aws//modules/transfer-server"
+  domain                   = "S3"
+  protocols                = ["SFTP"]
+  endpoint_type            = "PUBLIC"
+  server_name              = "transfer-server-${random_pet.name.id}"
+  dns_provider             = var.dns_provider
+  custom_hostname          = var.custom_hostname
+  route53_hosted_zone_name = var.route53_hosted_zone_name
+  identity_provider        = "SERVICE_MANAGED"
+  security_policy_name     = "TransferSecurityPolicy-2024-01"
+  enable_logging           = true
+  log_retention_days       = 30
+  log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
+  logging_role             = var.logging_role
+  workflow_details         = var.workflow_details
 }
 ```
 
@@ -307,6 +319,47 @@ Key points about public endpoint types:
 - Direct internet access without VPC configuration
 - Suitable for basic SFTP server deployments
 - **Example location**: `examples/sftp-public-endpoint-service-managed-S3`
+
+## Multiple SSH Keys per User Configuration
+
+The Transfer Users module supports multiple SSH keys per user for enhanced security and access management.
+
+### Configuration Example
+
+```hcl
+module "sftp_users" {
+  source = "aws-ia/transfer-family/aws//modules/transfer-users"
+  users = local.users
+  create_test_user = true # Test user is for demo purposes. Key and Access Management required for the created secrets
+  server_id = module.transfer_server.server_id
+  s3_bucket_name = module.s3_bucket.s3_bucket_id
+  s3_bucket_arn = module.s3_bucket.s3_bucket_arn
+  kms_key_id = aws_kms_key.transfer_family_key.arn
+}
+```
+
+### terraform.tfvars
+
+```hcl
+users_config_file = "users.csv"
+```
+
+### CSV File Format for Multiple Keys
+
+Create a `users.csv` file (available in `examples/sftp-public-endpoint-service-managed-S3` and `examples/sftp-internet-facing-vpc-endpoint-service-managed-S3`) with the following format:
+
+```csv
+username,home_dir,public_key,role_arn
+user1,/user1,"key1",
+user2,/user2,"key2, key3, key4",
+```
+
+- **user1**: Single SSH key example
+- **user2**: Multiple SSH keys example
+
+### Requirements
+
+- **Multiple keys per user**: Separate multiple SSH keys with commas in a single string, wrapped in quotes
 
 ## Key Connector Configuration
 

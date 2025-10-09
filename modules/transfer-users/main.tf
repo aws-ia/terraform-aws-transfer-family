@@ -98,9 +98,9 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
   })
 }
 
-######################################
-# SSH Key Creation (Optional)
-######################################
+########################################
+# SSH Key Creation (for test user only)
+########################################
 
 resource "tls_private_key" "test_user_key" {
   count = var.create_test_user ? 1 : 0
