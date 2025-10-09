@@ -307,7 +307,7 @@ This example demonstrates a simple public endpoint configuration:
 
 ```hcl
 module "transfer_server" {
-  source = "aws-ia/transfer-family/aws//modules/transfer-server"
+  source = "aws-ia/transfer-family/aws"
 
   domain                   = "S3"
   protocols                = ["SFTP"]
