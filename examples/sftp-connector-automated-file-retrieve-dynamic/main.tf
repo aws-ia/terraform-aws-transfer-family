@@ -13,6 +13,10 @@ resource "random_pet" "name" {
   length = 1
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 ######################################
 # Data Sources
 ######################################
@@ -265,7 +269,7 @@ module "retrieve_s3_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 4.0"
 
-  bucket = "${random_pet.name.id}-retrieve-bucket"
+  bucket = "${random_pet.name.id}-${random_id.suffix.hex}-retrieve-bucket"
 
   # S3 bucket-level Public Access Block configuration
   block_public_acls       = true

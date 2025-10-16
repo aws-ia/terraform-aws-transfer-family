@@ -13,6 +13,10 @@ resource "random_pet" "name" {
   length = 1
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 locals {
   server_name               = "transfer-server-${random_pet.name.id}"
   users                     = var.users_file != null ? (fileexists(var.users_file) ? csvdecode(file(var.users_file)) : []) : [] # Read users from CSV
@@ -137,7 +141,7 @@ resource "aws_vpc_security_group_egress_rule" "sftp_egress" {
 ###################################################################
 module "s3_bucket" {
   source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
-  bucket                   = lower("${random_pet.name.id}-${module.transfer_server.server_id}-s3-sftp")
+  bucket                   = lower("${random_pet.name.id}-${random_id.suffix.hex}-${module.transfer_server.server_id}-s3-sftp")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
   block_public_acls        = true

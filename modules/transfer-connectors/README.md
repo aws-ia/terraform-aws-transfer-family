@@ -11,14 +11,16 @@ This module creates and configures an SFTP connector with the following features
 - Automated discovery of Host Keys of the remote server (Optional), used to verify server identity at each connection
 - CloudWatch logging configuration
 
+**Note**: You must provide an `access_role` ARN - an IAM role that the connector assumes to access S3 and other AWS services. This module does not create the IAM role for you.
+
 ## Quick Start
 
 ```hcl
-module "transfer_connector" {
+module "transfer_connectors" {
   source = "aws-ia/transfer-family/aws//modules/transfer-connectors"
 
-  url           = "sftp://external-server.com"
-  s3_bucket_arn = "arn:aws:s3:::my-bucket"
+  url         = "sftp://external-server.com"
+  access_role = "arn:aws:iam::123456789012:role/transfer-connector-role"
   sftp_username    = "sftp-user"
   sftp_private_key = file("~/.ssh/id_rsa")
 
@@ -62,7 +64,7 @@ Figure 1: High-Level Architecture of SFTP connector deployment using this Terraf
 
 - SSH host key validation
 - Credential configuration verification
-- S3 bucket ARN validation
+- IAM access role validation
 - Security policy compatibility checks
 
 ## Best Practices
@@ -83,8 +85,8 @@ To use this module in your Terraform configuration:
 module "transfer_connector" {
   source = "aws-ia/transfer-family/aws//modules/transfer-connectors"
 
-  url           = "sftp://external-server.com"
-  s3_bucket_arn = "arn:aws:s3:::my-bucket"
+  url         = "sftp://external-server.com"
+  access_role = "arn:aws:iam::123456789012:role/transfer-connector-role"
   sftp_username    = "sftp-user"
   sftp_private_key = file("~/.ssh/id_rsa")
 
@@ -118,11 +120,11 @@ terraform apply
 ### SFTP connector setup
 
 ```hcl
-module "sftp_connector" {
+module "transfer-connectors" {
   source = "aws-ia/transfer-family/aws//modules/transfer-connectors"
 
-  url           = "sftp://external-server.com"
-  s3_bucket_arn = aws_s3_bucket.files.arn
+  url         = "sftp://external-server.com"
+  access_role = "arn:aws:iam::123456789012:role/transfer-connector-role"
 
   sftp_username    = "sftp-user"
   sftp_private_key = file("~/.ssh/id_rsa")
@@ -163,7 +165,6 @@ module "sftp_connector" {
 | <a name="provider_archive"></a> [archive](#provider\_archive) | >= 2.0 |
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.95.0 |
 | <a name="provider_external"></a> [external](#provider\_external) | >= 2.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.1 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
@@ -187,7 +188,6 @@ No modules.
 | [aws_secretsmanager_secret_rotation.sftp_credentials_rotation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_rotation) | resource |
 | [aws_secretsmanager_secret_version.sftp_credentials](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_transfer_connector.sftp_connector](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_connector) | resource |
-| [random_id.connector_id](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
 | [terraform_data.discover_and_test_connector](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [terraform_data.trusted_host_keys_warning](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [archive_file.rotation_lambda_zip](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |

@@ -1,0 +1,56 @@
+name: Sync Transfer Server Module
+permissions:
+  contents: write
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'main.tf'
+      - 'outputs.tf'
+      - 'variables.tf'
+      - 'versions.tf'
+
+jobs:
+  sync-module:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Copy Terraform files to transfer-server module
+        run: |
+          cp main.tf modules/transfer-server/
+          cp outputs.tf modules/transfer-server/
+          cp variables.tf modules/transfer-server/
+          cp versions.tf modules/transfer-server/
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+
+      - name: Generate terraform-docs
+        uses: terraform-docs/gh-actions@v1.2.0
+        with:
+          working-dir: modules/transfer-server
+          output-file: README.md
+          output-method: inject
+          git-push: true
+          git-commit-message: "docs: update transfer-server module documentation"
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add modules/transfer-server/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "sync: update transfer-server module files"
+            git push
+          fi

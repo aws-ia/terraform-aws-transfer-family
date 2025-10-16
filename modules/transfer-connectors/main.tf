@@ -7,11 +7,6 @@
 # Defaults and Locals
 ######################################
 
-resource "random_id" "connector_id" {
-  count       = local.should_scan ? 1 : 0
-  byte_length = 8
-} 
-
 data "aws_caller_identity" "current" {}
 locals {
   should_scan = false

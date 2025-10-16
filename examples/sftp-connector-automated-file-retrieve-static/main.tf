@@ -13,6 +13,10 @@ resource "random_pet" "name" {
   length = 1
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
@@ -227,7 +231,7 @@ module "retrieve_s3_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 4.0"
 
-  bucket = "${random_pet.name.id}-retrieve-bucket"
+  bucket = "${random_pet.name.id}-${random_id.suffix.hex}-retrieve-bucket"
 
   # S3 bucket-level Public Access Block configuration (by default now AWS has made this default as true for S3 bucket-level block public access)
   block_public_acls       = true

@@ -13,6 +13,10 @@ resource "random_pet" "name" {
   length = 1
 }
 
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
 ######################################
 # Data Sources
 ######################################
@@ -142,7 +146,7 @@ resource "aws_iam_role_policy_attachment" "connector_policy_attachment" {
 ###################################################################
 module "test_s3_bucket" {
   source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=179576ca9e3d524f09370ff643ea80a0f753cdd7"
-  bucket                   = lower("${random_pet.name.id}-test-upload-bucket")
+  bucket                   = lower("${random_pet.name.id}-${random_id.suffix.hex}-test-upload-bucket")
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
   block_public_acls        = true
@@ -359,10 +363,6 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 resource "aws_signer_signing_profile" "lambda_signing_profile" {
   platform_id = "AWSLambda-SHA384-ECDSA"
   name        = "lambdasigningprofile${replace(random_pet.name.id, "-", "")}${random_id.suffix.hex}"
-}
-
-resource "random_id" "suffix" {
-  byte_length = 4
 }
 
 resource "aws_lambda_code_signing_config" "lambda_code_signing" {
