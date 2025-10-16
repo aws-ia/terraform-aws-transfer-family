@@ -45,73 +45,14 @@ resource "terraform_data" "trusted_host_keys_warning" {
 #####################################################################################
 
 resource "aws_secretsmanager_secret" "sftp_credentials" {
+  #checkov:skip=CKV2_AWS_57: "Automatic rotation not required for SFTP connector credentials"
   count       = local.create_secret ? 1 : 0
   name        = var.secret_name
   description = "SFTP credentials for connector"
   kms_key_id  = var.secrets_manager_kms_key_arn
 }
 
-resource "aws_secretsmanager_secret_rotation" "sftp_credentials_rotation" {
-  count           = local.create_secret ? 1 : 0
-  secret_id       = aws_secretsmanager_secret.sftp_credentials[0].id
-  rotation_lambda_arn = aws_lambda_function.rotation_lambda[0].arn
 
-  rotation_rules {
-    automatically_after_days = 30
-  }
-}
-
-resource "aws_lambda_function" "rotation_lambda" {
-  count         = local.create_secret ? 1 : 0
-  filename      = data.archive_file.rotation_lambda_zip[0].output_path
-  function_name = "secretsmanager-rotation-${var.secret_name}"
-  role          = aws_iam_role.rotation_lambda_role[0].arn
-  handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.9"
-  timeout       = 30
-}
-
-resource "aws_iam_role" "rotation_lambda_role" {
-  count = local.create_secret ? 1 : 0
-  name  = "secretsmanager-rotation-role-${var.secret_name}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "rotation_lambda_basic" {
-  count      = local.create_secret ? 1 : 0
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = aws_iam_role.rotation_lambda_role[0].name
-}
-
-resource "aws_lambda_permission" "allow_secretsmanager" {
-  count         = local.create_secret ? 1 : 0
-  statement_id  = "AllowExecutionFromSecretsManager"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.rotation_lambda[0].function_name
-  principal     = "secretsmanager.amazonaws.com"
-}
-
-data "archive_file" "rotation_lambda_zip" {
-  count       = local.create_secret ? 1 : 0
-  type        = "zip"
-  output_path = "/tmp/rotation_lambda.zip"
-  source {
-    content = "def lambda_handler(event, context): pass"
-    filename = "lambda_function.py"
-  }
-}
 
 resource "aws_secretsmanager_secret_version" "sftp_credentials" {
   count     = local.create_secret ? 1 : 0

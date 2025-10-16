@@ -476,7 +476,7 @@ resource "aws_lambda_function" "event_listener" {
   function_name    = "sftp-event-listener-${random_pet.name.id}"
   role            = aws_iam_role.event_listener_role[0].arn
   handler         = "event_listener.lambda_handler"
-  runtime         = "python3.9"
+  runtime         = "python3.12"
   timeout         = 60
   memory_size     = 256
   reserved_concurrent_executions = 10
