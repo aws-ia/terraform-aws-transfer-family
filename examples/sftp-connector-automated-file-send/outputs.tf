@@ -26,6 +26,7 @@ output "test_bucket_arn" {
 output "kms_key_arn" {
   description = "The ARN of the KMS key used for encryption"
   value       = local.kms_key_arn
+  sensitive   = true
 }
 
 output "eventbridge_rule_arn" {
