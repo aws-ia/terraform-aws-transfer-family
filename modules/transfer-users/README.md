@@ -107,6 +107,7 @@ No modules.
 | [aws_secretsmanager_secret_version.sftp_private_key_version](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_transfer_ssh_key.test_user_ssh_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_ssh_key) | resource |
 | [aws_transfer_ssh_key.user_ssh_keys](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_ssh_key) | resource |
+| [aws_transfer_user.test_user](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_user) | resource |
 | [aws_transfer_user.transfer_users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_user) | resource |
 | [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 | [tls_private_key.test_user_key](https://registry.terraform.io/providers/hashicorp/tls/latest/docs/resources/private_key) | resource |
