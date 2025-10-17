@@ -382,7 +382,7 @@ resource "aws_lambda_function" "sftp_transfer" {
   function_name    = "s3-copy-${random_pet.name.id}"
   role             = aws_iam_role.lambda_role.arn
   handler          = "index.handler"
-  runtime          = "python3.9"
+  runtime          = "python3.12"
   timeout          = 60
   memory_size      = 256
   reserved_concurrent_executions = 10
