@@ -45,14 +45,12 @@ resource "terraform_data" "trusted_host_keys_warning" {
 #####################################################################################
 
 resource "aws_secretsmanager_secret" "sftp_credentials" {
-  #checkov:skip=CKV2_AWS_57: "Automatic rotation not required for SFTP connector credentials"
+  #checkov:skip=CKV2_AWS_57: "Automatic rotation should be enabled for secrets in a production environements"
   count       = local.create_secret ? 1 : 0
   name        = var.secret_name
   description = "SFTP credentials for connector"
   kms_key_id  = var.secrets_manager_kms_key_arn
 }
-
-
 
 resource "aws_secretsmanager_secret_version" "sftp_credentials" {
   count     = local.create_secret ? 1 : 0
