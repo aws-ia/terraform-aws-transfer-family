@@ -4,7 +4,11 @@ output "user_details" {
     for username, user in aws_transfer_user.transfer_users : username => {
       user_arn       = user.arn
       home_directory = user.home_directory
-      public_key     = aws_transfer_ssh_key.user_ssh_keys[username].body
+      public_keys    = [
+        for key_id, key_data in local.user_key_combinations :
+        aws_transfer_ssh_key.user_ssh_keys[key_id].body
+        if key_data.username == username
+      ]
     }
   }
 }
