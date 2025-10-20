@@ -17,7 +17,18 @@ jobs:
         id: commit
         run: echo "message=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
 
+      - name: Check if commit is a version bump
+        id: skip-check
+        run: |
+          if [[ "${{ steps.commit.outputs.message }}" == "Bump version to"* ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Skipping version bump workflow - commit is already a version bump"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine version bump type
+        if: steps.skip-check.outputs.skip == 'false'
         id: bump-type
         run: |
           if [[ "${{ steps.commit.outputs.message }}" == *"[Major Release]"* ]]; then
@@ -29,6 +40,7 @@ jobs:
           fi
 
       - name: Calculate new version
+        if: steps.skip-check.outputs.skip == 'false'
         id: version
         run: |
           if [ ! -f VERSION ]; then
@@ -59,6 +71,7 @@ jobs:
           echo "new_version=$new_version" >> $GITHUB_OUTPUT
 
       - name: Check for existing version bump PR
+        if: steps.skip-check.outputs.skip == 'false'
         id: check-pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,7 +86,7 @@ jobs:
           fi
 
       - name: Update existing PR
-        if: steps.check-pr.outputs.exists == 'true'
+        if: steps.skip-check.outputs.skip == 'false' && steps.check-pr.outputs.exists == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -89,7 +102,7 @@ jobs:
           gh pr edit "${{ steps.check-pr.outputs.number }}" --title "Version bump to ${{ steps.version.outputs.new_version }}"
 
       - name: Create new PR
-        if: steps.check-pr.outputs.exists == 'false'
+        if: steps.skip-check.outputs.skip == 'false' && steps.check-pr.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
