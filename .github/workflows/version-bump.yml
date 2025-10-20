@@ -13,14 +13,23 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Get latest commit message
-        id: commit
-        run: echo "message=$(git log -1 --pretty=%s)" >> $GITHUB_OUTPUT
+      - name: Get PR title
+        id: pr-title
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pr_number=$(git log -1 --pretty=%s | grep -o '#[0-9]\+' | sed 's/#//')
+          if [ -n "$pr_number" ]; then
+            pr_title=$(gh pr view $pr_number --json title --jq '.title')
+            echo "title=$pr_title" >> $GITHUB_OUTPUT
+          else
+            echo "title=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check if commit is a version bump
         id: skip-check
         run: |
-          if [[ "${{ steps.commit.outputs.message }}" == "Bump version to"* ]]; then
+          if [[ "${{ steps.pr-title.outputs.title }}" == "Version bump to"* ]]; then
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "Skipping version bump workflow - commit is already a version bump"
           else
@@ -31,9 +40,9 @@ jobs:
         if: steps.skip-check.outputs.skip == 'false'
         id: bump-type
         run: |
-          if [[ "${{ steps.commit.outputs.message }}" == *"[Major Release]"* ]]; then
+          if [[ "${{ steps.pr-title.outputs.title }}" == *"[Major Release]"* ]]; then
             echo "type=major" >> $GITHUB_OUTPUT
-          elif [[ "${{ steps.commit.outputs.message }}" == *"[Minor Release]"* ]]; then
+          elif [[ "${{ steps.pr-title.outputs.title }}" == *"[Minor Release]"* ]]; then
             echo "type=minor" >> $GITHUB_OUTPUT
           else
             echo "type=patch" >> $GITHUB_OUTPUT
