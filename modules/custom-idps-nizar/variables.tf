@@ -76,15 +76,13 @@ variable "enable_tracing" {
 }
 
 variable "users_table_name" {
-  description = "DynamoDB users table name"
+  description = "DynamoDB users table name (required)"
   type        = string
-  default     = ""
 }
 
 variable "identity_providers_table_name" {
-  description = "DynamoDB identity providers table name"
+  description = "DynamoDB identity providers table name (required)"
   type        = string
-  default     = ""
 }
 
 variable "tags" {

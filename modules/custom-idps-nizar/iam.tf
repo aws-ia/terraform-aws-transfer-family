@@ -50,8 +50,8 @@ resource "aws_iam_role_policy" "dynamodb_access" {
           "dynamodb:Scan"
         ]
         Resource = [
-          var.users_table_name != "" ? "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.users_table_name}" : aws_dynamodb_table.users[0].arn,
-          var.identity_providers_table_name != "" ? "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.identity_providers_table_name}" : aws_dynamodb_table.identity_providers[0].arn
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.users_table_name}",
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.identity_providers_table_name}"
         ]
       }
     ]

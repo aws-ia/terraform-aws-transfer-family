@@ -20,12 +20,12 @@ output "api_gateway_url" {
 
 output "users_table_name" {
   description = "DynamoDB users table name"
-  value       = var.users_table_name != "" ? var.users_table_name : try(aws_dynamodb_table.users[0].name, null)
+  value       = var.users_table_name
 }
 
 output "identity_providers_table_name" {
   description = "DynamoDB identity providers table name"
-  value       = var.identity_providers_table_name != "" ? var.identity_providers_table_name : try(aws_dynamodb_table.identity_providers[0].name, null)
+  value       = var.identity_providers_table_name
 }
 
 output "users_table_hash_key" {

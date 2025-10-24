@@ -12,10 +12,10 @@ resource "aws_lambda_function" "identity_provider" {
 
   environment {
     variables = {
-      LOG_LEVEL                    = var.log_level
-      USER_NAME_DELIMITER          = var.user_name_delimiter
-      USERS_TABLE_NAME            = var.users_table_name != "" ? var.users_table_name : aws_dynamodb_table.users[0].name
-      IDENTITY_PROVIDERS_TABLE_NAME = var.identity_providers_table_name != "" ? var.identity_providers_table_name : aws_dynamodb_table.identity_providers[0].name
+      LOG_LEVEL                = var.log_level
+      USER_NAME_DELIMITER      = var.user_name_delimiter
+      USERS_TABLE             = var.users_table_name
+      IDENTITY_PROVIDERS_TABLE = var.identity_providers_table_name
     }
   }
 
@@ -100,31 +100,5 @@ resource "aws_api_gateway_integration" "lambda" {
   uri                    = aws_lambda_function.identity_provider.invoke_arn
 }
 
-# DynamoDB tables
-resource "aws_dynamodb_table" "users" {
-  count        = var.users_table_name == "" ? 1 : 0
-  name         = "${var.stack_name}-users"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "Username"
-
-  attribute {
-    name = "Username"
-    type = "S"
-  }
-
-  tags = var.tags
-}
-
-resource "aws_dynamodb_table" "identity_providers" {
-  count        = var.identity_providers_table_name == "" ? 1 : 0
-  name         = "${var.stack_name}-identity-providers"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "ServerId"
-
-  attribute {
-    name = "ServerId"
-    type = "S"
-  }
-
-  tags = var.tags
-}
+# DynamoDB tables - these should be created externally and passed via variables
+# No table creation in the module
