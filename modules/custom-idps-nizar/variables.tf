@@ -1,12 +1,13 @@
 variable "stack_name" {
   description = "Name of the stack resources"
   type        = string
-  default     = "sam-app"
+  default     = "transfer-idp"
 }
 
-variable "lambda_zip_path" {
-  description = "Path to Lambda function ZIP file"
+variable "aws_region" {
+  description = "AWS Region for deployment"
   type        = string
+  default     = "us-east-1"
 }
 
 variable "use_vpc" {
@@ -18,7 +19,7 @@ variable "use_vpc" {
 variable "create_vpc" {
   description = "Whether to create a new VPC"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "vpc_cidr" {
@@ -28,19 +29,19 @@ variable "vpc_cidr" {
 }
 
 variable "vpc_id" {
-  description = "Existing VPC ID"
+  description = "Existing VPC ID (leave empty if creating new VPC)"
   type        = string
   default     = ""
 }
 
 variable "subnets" {
-  description = "Subnet IDs (comma-separated)"
+  description = "Subnet IDs (leave empty if creating new VPC)"
   type        = string
   default     = ""
 }
 
 variable "security_groups" {
-  description = "Security Group IDs (comma-separated)"
+  description = "Security Group IDs (leave empty if creating new VPC)"
   type        = string
   default     = ""
 }
@@ -48,31 +49,41 @@ variable "security_groups" {
 variable "secrets_manager_permissions" {
   description = "Enable Secrets Manager permissions"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "user_name_delimiter" {
   description = "Delimiter for usernames"
   type        = string
-  default     = "ee"
+  default     = "@@"
 }
 
 variable "log_level" {
   description = "Log level for Lambda functions"
   type        = string
-  default     = "INFO"
+  default     = "DEBUG"
+  
+  validation {
+    condition     = contains(["DEBUG", "INFO", "WARNING", "ERROR"], var.log_level)
+    error_message = "Log level must be one of: DEBUG, INFO, WARNING, ERROR."
+  }
 }
 
 variable "provision_api" {
   description = "Whether to provision API Gateway"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_tracing" {
   description = "Enable X-Ray tracing"
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "lambda_zip_path" {
+  description = "Path to Lambda function ZIP file"
+  type        = string
 }
 
 variable "users_table_name" {
