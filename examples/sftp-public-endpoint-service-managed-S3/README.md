@@ -178,6 +178,7 @@ module "transfer_server" {
 
 | Name | Description |
 |------|-------------|
+| <a name="output_kms_key_arn"></a> [kms\_key\_arn](#output\_kms\_key\_arn) | The ARN of the KMS key used for encryption |
 | <a name="output_server_endpoint"></a> [server\_endpoint](#output\_server\_endpoint) | The endpoint of the created Transfer Family server |
 | <a name="output_server_id"></a> [server\_id](#output\_server\_id) | The ID of the created Transfer Family server |
 | <a name="output_sftp_bucket_name"></a> [sftp\_bucket\_name](#output\_sftp\_bucket\_name) | The name of the S3 bucket used for SFTP storage |
