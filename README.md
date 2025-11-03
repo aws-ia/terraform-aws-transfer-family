@@ -227,11 +227,14 @@ module "transfer_malware_protection" {
   create_kms_key_for_lambda_sqs           = false
   create_sqs_dlq                          = false
   enable_sqs_buffer                       = true
+
   # VPC configuration (optional)
   vpc_subnet_ids         = ["[subnet-id-1]", "[subnet-id-2]"]
   vpc_security_group_ids = ["[security-group-id]"]
+
   # Security (optional)
   code_signing_config_arn = "[code-signing-config-arn]"
+
   # Tagging
   tags = {
     Environment = "[environment]"
@@ -419,6 +422,7 @@ This example builds on the public endpoint configuration and adds GuardDuty malw
 **Example location**: `examples/sftp-malware-protection-guardduty`
 
 Key features:
+
 - Builds on the base SFTP server example (`sftp-public-endpoint-service-managed-S3`)
 - Automatic malware scanning with GuardDuty
 - Smart file routing based on scan results
