@@ -42,3 +42,18 @@ output "api_gateway_role_arn" {
   description = "API Gateway invocation role ARN"
   value       = aws_iam_role.transfer_invocation_role.arn
 }
+
+output "vpc_id" {
+  description = "ID of the created VPC"
+  value       = var.create_vpc ? aws_vpc.main[0].id : null
+}
+
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = var.create_vpc ? aws_subnet.private[*].id : []
+}
+
+output "security_group_id" {
+  description = "ID of the Lambda security group"
+  value       = var.create_vpc ? aws_security_group.lambda[0].id : null
+}
