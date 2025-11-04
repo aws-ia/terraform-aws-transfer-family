@@ -222,6 +222,8 @@ module "transfer_malware_protection" {
   }
 
   # Optional parameters
+  sns_topic_arn_for_threats               = "[sns-topic-arn]"  # SNS notifications for malware detection
+  enable_object_tagging                   = false              # Disable GuardDuty object tagging (default: true)
   delete_processed_file_from_ingest_bucket = false
   ingest_bucket_kms_key_arn               = "[kms-key-arn]"
   create_kms_key_for_lambda_sqs           = false
