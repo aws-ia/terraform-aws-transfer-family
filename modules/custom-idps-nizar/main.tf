@@ -1,6 +1,217 @@
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
+#########################################
+# S3 bucket to store CodeBuild artifacts 
+#########################################
+
+resource "aws_s3_bucket" "artifacts" {
+  bucket = "${var.stack_name}-custom-idp-codebuild-artifacts-bucket-${data.aws_caller_identity.current.account_id}"
+  tags   = var.tags
+}
+
+######################################################################################
+# CodeBuild project to download code from Tookit Git repo and publish artifacts to S3
+######################################################################################
+
+resource "aws_codebuild_project" "build" {
+  name          = "${var.stack_name}-custom-idp-codebuild-project"
+  description   = "Build Lambda artifacts for Transfer Family Custom IdP"
+  service_role  = aws_iam_role.codebuild_role.arn
+  build_timeout = 30
+  
+  artifacts {
+    type = "S3"
+    location = aws_s3_bucket.artifacts.bucket
+    path = ""
+    packaging = "ZIP"
+  }
+  
+  environment {
+    compute_type                = var.codebuild_compute_type
+    image                       = var.codebuild_image
+    type                        = "LINUX_CONTAINER"
+    image_pull_credentials_type = "CODEBUILD"
+    privileged_mode             = false
+    
+    environment_variable {
+      name  = "ARTIFACTS_BUCKET"
+      value = aws_s3_bucket.artifacts.bucket
+    }
+    
+    environment_variable {
+      name  = "FUNCTION_ARTIFACT_KEY"
+      value = var.function_artifact_key
+    }
+    
+    environment_variable {
+      name  = "LAYER_ARTIFACT_KEY"
+      value = var.layer_artifact_key
+    }
+    
+    environment_variable {
+      name  = "GITHUB_REPO"
+      value = var.github_repository_url
+    }
+    
+    environment_variable {
+      name  = "GITHUB_BRANCH"
+      value = var.github_branch
+    }
+    
+    environment_variable {
+      name  = "SOLUTION_PATH"
+      value = var.solution_path
+    }
+  }
+  
+  source {
+    type      = "NO_SOURCE"
+    buildspec = file("${path.module}/buildspec.yml")
+  }
+  
+  logs_config {
+    cloudwatch_logs {
+      group_name = aws_cloudwatch_log_group.codebuild_log_group.name
+    }
+  }
+  
+  tags = var.tags
+}
+
+###########################################
+# CloudWatch Log group for CodeBuild logs 
+###########################################
+
+resource "aws_cloudwatch_log_group" "codebuild_log_group" {
+  name              = "/aws/codebuild/${var.stack_name}-custom-idp-codebuild-project"
+  retention_in_days = 7
+  tags              = var.tags
+}
+
+########################################
+# Trigger CodeBuild to create artifacts
+########################################
+
+resource "null_resource" "build_trigger" {
+  triggers = {
+    force_build        = var.force_build ? timestamp() : "false"
+    codebuild_project  = aws_codebuild_project.build.id
+    github_repo        = var.github_repository_url
+    github_branch      = var.github_branch
+  }
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      BUILD_ID=$(aws codebuild start-build \
+        --project-name ${aws_codebuild_project.build.name} \
+        --query 'build.id' \
+        --output text)
+      
+      echo "CodeBuild started: $BUILD_ID"
+      
+      # Wait for build to complete
+      while true; do
+        BUILD_STATUS=$(aws codebuild batch-get-builds \
+          --ids $BUILD_ID \
+          --query 'builds[0].buildStatus' \
+          --output text)
+        
+        if [ "$BUILD_STATUS" == "SUCCEEDED" ]; then
+          echo "Build succeeded"
+          exit 0
+        elif [ "$BUILD_STATUS" == "FAILED" ] || [ "$BUILD_STATUS" == "FAULT" ] || [ "$BUILD_STATUS" == "TIMED_OUT" ] || [ "$BUILD_STATUS" == "STOPPED" ]; then
+          echo "Build failed with status: $BUILD_STATUS"
+          exit 1
+        fi
+        
+        echo "Build status: $BUILD_STATUS, waiting..."
+        sleep 10
+      done
+    EOT
+  }
+  
+  depends_on = [
+    aws_codebuild_project.build,
+    aws_s3_bucket.artifacts
+  ]
+}
+
+######################################
+# IAM Role for CodeBuild
+######################################
+
+resource "aws_iam_role" "codebuild_role" {
+  name = "${var.stack_name}-custom-idp-codebuild-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "codebuild.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+  
+  tags = var.tags
+}
+
+######################################
+# IAM policy for CodeBuild role
+######################################
+
+resource "aws_iam_role_policy" "codebuild_policy" {
+  name = "${var.stack_name}-custom-idp-codebuild-policy"
+  role        = aws_iam_role.codebuild_role.id
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "${aws_cloudwatch_log_group.codebuild_log_group.arn}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          aws_s3_bucket.artifacts.arn,
+          "${aws_s3_bucket.artifacts.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+##############################################
+# Lambda layer for Transfer Family Custom IdP
+##############################################
+
+resource "aws_lambda_layer_version" "idp_handler_layer" {
+  layer_name          = "${var.stack_name}-idp-handler-layer"
+  s3_bucket           = aws_s3_bucket.artifacts.bucket
+  s3_key              = var.layer_artifact_key
+  compatible_runtimes = [var.lambda_runtime]
+  description         = "Dependencies for Transfer Family Custom IdP"
+  
+  lifecycle {
+    replace_triggered_by = [null_resource.build_trigger]
+  }
+  
+  depends_on = [null_resource.build_trigger]
+}
+
 # VPC Resources
 resource "aws_vpc" "main" {
   count      = var.create_vpc ? 1 : 0
@@ -128,12 +339,15 @@ data "aws_availability_zones" "available" {
 
 # Lambda function for identity provider
 resource "aws_lambda_function" "identity_provider" {
-  filename         = var.lambda_zip_path
   function_name    = "${var.stack_name}-identity-provider"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "index.handler"
-  runtime         = "python3.9"
-  timeout         = 30
+  handler         = "app.lambda_handler"
+  runtime         = var.lambda_runtime
+  timeout         = var.lambda_timeout
+  memory_size     = var.lambda_memory_size
+  layers          = [aws_lambda_layer_version.idp_handler_layer.arn]
+  s3_bucket       = aws_s3_bucket.artifacts.bucket
+  s3_key          = var.function_artifact_key
 
   environment {
     variables = {
