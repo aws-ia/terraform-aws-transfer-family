@@ -377,7 +377,7 @@ user2,/user2,"key2, key3, key4",
 
 ## Example for SFTP Server with Malware Protection
 
-This example builds on the public endpoint configuration and adds GuardDuty malware protection (https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/examples/sftp-malware-protection-guardduty)
+This example builds on the public endpoint configuration and adds [GuardDuty malware protection](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/examples/sftp-malware-protection-guardduty)
 
 **Example location**: `examples/sftp-malware-protection-guardduty`
 
