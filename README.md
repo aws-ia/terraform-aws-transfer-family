@@ -201,48 +201,6 @@ module "transfer_connectors" {
 
   # ...
 }
-
-module "transfer_malware_protection" {
-  source = "aws-ia/transfer-family/aws//modules/transfer-malware-protection"
-
-  # Required parameters
-  s3_ingest_bucket = {
-    bucket_name     = "[sftp-bucket-name]"
-    object_prefixes = ["[user1-prefix]", "[user2-prefix]", "[user3-prefix]"]
-  }
-  name_prefix = "[resource-name-prefix]"
-
-  # Routing configuration
-  routing_config = {
-    "NO_THREATS_FOUND" = "[clean-bucket-name]/[clean-prefix]"
-    "THREATS_FOUND"    = "[quarantine-bucket-name]/[quarantine-prefix]"
-    "UNSUPPORTED"      = "[error-bucket-name]/[error-prefix]"
-    "ACCESS_DENIED"    = "[error-bucket-name]/[access-denied-prefix]"
-    "FAILED"           = "[error-bucket-name]/[failed-prefix]"
-  }
-
-  # Optional parameters
-  sns_topic_arn_for_threats               = "[sns-topic-arn]"  # SNS notifications for malware detection
-  enable_object_tagging                   = false              # Disable GuardDuty object tagging (default: true)
-  delete_processed_file_from_ingest_bucket = false
-  ingest_bucket_kms_key_arn               = "[kms-key-arn]"
-  create_kms_key_for_lambda_sqs           = false
-  create_sqs_dlq                          = false
-  enable_sqs_buffer                       = true
-
-  # VPC configuration (optional)
-  vpc_subnet_ids         = ["[subnet-id-1]", "[subnet-id-2]"]
-  vpc_security_group_ids = ["[security-group-id]"]
-
-  # Security (optional)
-  code_signing_config_arn = "[code-signing-config-arn]"
-
-  # Tagging
-  tags = {
-    Environment = "[environment]"
-    Project     = "[project-name]"
-  }
-}
 ```
 
 - Initialize your Terraform workspace:
@@ -419,7 +377,7 @@ user2,/user2,"key2, key3, key4",
 
 ## Example for SFTP Server with Malware Protection
 
-This example builds on the public endpoint configuration and adds GuardDuty malware protection:
+This example builds on the public endpoint configuration and adds GuardDuty malware protection (https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/examples/sftp-malware-protection-guardduty)
 
 **Example location**: `examples/sftp-malware-protection-guardduty`
 
@@ -430,12 +388,6 @@ Key features:
 - Smart file routing based on scan results
 - Configurable destination buckets for clean, infected, and error files
 - Optional file cleanup from ingestion bucket
-
-Configure variables in `terraform.tfvars`:
-
-```hcl
-users_file = "users.csv"  # Optional - omit to skip bulk user creation
-```
 
 ## Key Connector Configuration
 
