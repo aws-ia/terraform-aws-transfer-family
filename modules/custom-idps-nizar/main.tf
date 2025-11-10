@@ -6,8 +6,37 @@ data "aws_region" "current" {}
 #########################################
 
 resource "aws_s3_bucket" "artifacts" {
-  bucket = "${var.stack_name}-custom-idp-codebuild-artifacts-bucket-${data.aws_caller_identity.current.account_id}"
+  bucket = "${var.stack_name}-idp-artifacts-${data.aws_caller_identity.current.account_id}"
   tags   = var.tags
+}
+
+# DynamoDB Tables
+#########################################
+
+resource "aws_dynamodb_table" "users" {
+  name           = var.users_table_name
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "user"
+
+  attribute {
+    name = "user"
+    type = "S"
+  }
+
+  tags = var.tags
+}
+
+resource "aws_dynamodb_table" "identity_providers" {
+  name           = var.identity_providers_table_name
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "provider"
+
+  attribute {
+    name = "provider"
+    type = "S"
+  }
+
+  tags = var.tags
 }
 
 ######################################################################################
@@ -194,22 +223,8 @@ resource "aws_iam_role_policy" "codebuild_policy" {
   })
 }
 
-##############################################
-# Lambda layer for Transfer Family Custom IdP
-##############################################
-
-resource "aws_lambda_layer_version" "idp_handler_layer" {
-  layer_name          = "${var.stack_name}-idp-handler-layer"
-  s3_bucket           = aws_s3_bucket.artifacts.bucket
-  s3_key              = var.layer_artifact_key
-  compatible_runtimes = [var.lambda_runtime]
-  description         = "Dependencies for Transfer Family Custom IdP"
-  
-  lifecycle {
-    replace_triggered_by = [null_resource.build_trigger]
-  }
-  
-  depends_on = [null_resource.build_trigger]
+data "aws_availability_zones" "available" {
+  state = "available"
 }
 
 # VPC Resources
@@ -333,21 +348,42 @@ resource "aws_security_group" "lambda" {
   })
 }
 
-data "aws_availability_zones" "available" {
-  state = "available"
+# Cognito User Pool
+resource "aws_cognito_user_pool" "sftp_users" {
+  name = var.cognito_user_pool_name
+
+  password_policy {
+    minimum_length    = 8
+    require_lowercase = true
+    require_numbers   = true
+    require_symbols   = true
+    require_uppercase = true
+  }
+
+  tags = var.tags
+}
+
+# Cognito User Pool Client
+resource "aws_cognito_user_pool_client" "sftp_client" {
+  name         = var.cognito_user_pool_client
+  user_pool_id = aws_cognito_user_pool.sftp_users.id
+
+  generate_secret = false
+  explicit_auth_flows = [
+    "ADMIN_NO_SRP_AUTH"
+  ]
 }
 
 # Lambda function for identity provider
 resource "aws_lambda_function" "identity_provider" {
   function_name    = "${var.stack_name}-identity-provider"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "app.lambda_handler"
+  handler         = "simple-app.lambda_handler"
   runtime         = var.lambda_runtime
   timeout         = var.lambda_timeout
   memory_size     = var.lambda_memory_size
-  layers          = [aws_lambda_layer_version.idp_handler_layer.arn]
-  s3_bucket       = aws_s3_bucket.artifacts.bucket
-  s3_key          = var.function_artifact_key
+  filename        = "${path.module}/simple-lambda.zip"
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
   environment {
     variables = {
@@ -355,6 +391,9 @@ resource "aws_lambda_function" "identity_provider" {
       USER_NAME_DELIMITER      = var.user_name_delimiter
       USERS_TABLE             = var.users_table_name
       IDENTITY_PROVIDERS_TABLE = var.identity_providers_table_name
+      COGNITO_USER_POOL_ID    = aws_cognito_user_pool.sftp_users.id
+      COGNITO_CLIENT_ID       = aws_cognito_user_pool_client.sftp_client.id
+      AWS_REGION              = data.aws_region.current.name
     }
   }
 
@@ -373,9 +412,44 @@ resource "aws_lambda_function" "identity_provider" {
   tags = var.tags
 }
 
+# Create ZIP file for Lambda function
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  output_path = "${path.module}/simple-lambda.zip"
+  
+  source {
+    content  = file("${path.module}/simple-app.py")
+    filename = "simple-app.py"
+  }
+  
+  source {
+    content  = file("${path.module}/cognito.py")
+    filename = "cognito.py"
+  }
+}
+
+# Lambda permission for AWS Transfer Family to invoke the function
+resource "aws_lambda_permission" "transfer_invoke" {
+  count         = var.use_api_gateway ? 0 : 1
+  statement_id  = "AllowTransferInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.identity_provider.function_name
+  principal     = "transfer.amazonaws.com"
+}
+
+# Lambda permission for API Gateway to invoke the function
+resource "aws_lambda_permission" "api_gateway_invoke" {
+  count         = var.use_api_gateway ? 1 : 0
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.identity_provider.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.identity_provider[0].execution_arn}/*/*"
+}
+
 # API Gateway for identity provider
 resource "aws_api_gateway_rest_api" "identity_provider" {
-  count = var.provision_api ? 1 : 0
+  count = var.use_api_gateway ? 1 : 0
   name  = "${var.stack_name}-identity-provider-api"
 
   endpoint_configuration {
@@ -386,42 +460,42 @@ resource "aws_api_gateway_rest_api" "identity_provider" {
 }
 
 resource "aws_api_gateway_resource" "servers" {
-  count       = var.provision_api ? 1 : 0
+  count       = var.use_api_gateway ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_rest_api.identity_provider[0].root_resource_id
   path_part   = "servers"
 }
 
 resource "aws_api_gateway_resource" "server_id" {
-  count       = var.provision_api ? 1 : 0
+  count       = var.use_api_gateway ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.servers[0].id
   path_part   = "{serverId}"
 }
 
 resource "aws_api_gateway_resource" "users" {
-  count       = var.provision_api ? 1 : 0
+  count       = var.use_api_gateway ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.server_id[0].id
   path_part   = "users"
 }
 
 resource "aws_api_gateway_resource" "username" {
-  count       = var.provision_api ? 1 : 0
+  count       = var.use_api_gateway ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.users[0].id
   path_part   = "{username}"
 }
 
 resource "aws_api_gateway_resource" "config" {
-  count       = var.provision_api ? 1 : 0
+  count       = var.use_api_gateway ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.username[0].id
   path_part   = "config"
 }
 
 resource "aws_api_gateway_method" "get_user_config" {
-  count         = var.provision_api ? 1 : 0
+  count         = var.use_api_gateway ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
   resource_id   = aws_api_gateway_resource.config[0].id
   http_method   = "GET"
@@ -429,7 +503,7 @@ resource "aws_api_gateway_method" "get_user_config" {
 }
 
 resource "aws_api_gateway_integration" "lambda" {
-  count       = var.provision_api ? 1 : 0
+  count       = var.use_api_gateway ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   resource_id = aws_api_gateway_resource.config[0].id
   http_method = aws_api_gateway_method.get_user_config[0].http_method
@@ -439,5 +513,23 @@ resource "aws_api_gateway_integration" "lambda" {
   uri                    = aws_lambda_function.identity_provider.invoke_arn
 }
 
-# DynamoDB tables - these should be created externally and passed via variables
-# No table creation in the module
+resource "aws_api_gateway_deployment" "identity_provider" {
+  count       = var.use_api_gateway ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+
+  depends_on = [
+    aws_api_gateway_method.get_user_config[0],
+    aws_api_gateway_integration.lambda[0]
+  ]
+}
+
+resource "aws_api_gateway_stage" "identity_provider" {
+  count         = var.use_api_gateway ? 1 : 0
+  deployment_id = aws_api_gateway_deployment.identity_provider[0].id
+  rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
+  stage_name    = "prod"
+}
+
+
+
+

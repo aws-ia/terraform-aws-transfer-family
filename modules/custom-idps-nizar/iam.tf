@@ -78,8 +78,30 @@ resource "aws_iam_role_policy" "secrets_manager" {
   })
 }
 
-# Transfer Family invocation role
+# Cognito access policy
+resource "aws_iam_role_policy" "cognito_access" {
+  name = "${var.stack_name}-cognito-policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:AdminInitiateAuth",
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminListGroupsForUser"
+        ]
+        Resource = aws_cognito_user_pool.sftp_users.arn
+      }
+    ]
+  })
+}
+
+# Transfer Family invocation role (for direct Lambda)
 resource "aws_iam_role" "transfer_invocation_role" {
+  count = var.use_api_gateway ? 0 : 1
   name = "${var.stack_name}-transfer-invocation-role"
 
   assume_role_policy = jsonencode({
@@ -99,8 +121,9 @@ resource "aws_iam_role" "transfer_invocation_role" {
 }
 
 resource "aws_iam_role_policy" "transfer_invoke_lambda" {
+  count = var.use_api_gateway ? 0 : 1
   name = "${var.stack_name}-transfer-invoke-policy"
-  role = aws_iam_role.transfer_invocation_role.id
+  role = aws_iam_role.transfer_invocation_role[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -113,5 +136,39 @@ resource "aws_iam_role_policy" "transfer_invoke_lambda" {
         Resource = aws_lambda_function.identity_provider.arn
       }
     ]
+  })
+}
+
+# Transfer Family invocation role (for API Gateway)
+resource "aws_iam_role" "transfer_api_gateway_role" {
+  count = var.use_api_gateway ? 1 : 0
+  name  = "${var.stack_name}-transfer-api-gateway-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "transfer.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "transfer_api_gateway_policy" {
+  count = var.use_api_gateway ? 1 : 0
+  name  = "${var.stack_name}-transfer-api-gateway-policy"
+  role  = aws_iam_role.transfer_api_gateway_role[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "execute-api:Invoke"
+      Resource = "${aws_api_gateway_rest_api.identity_provider[0].execution_arn}/*/*"
+    }]
   })
 }

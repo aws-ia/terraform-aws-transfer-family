@@ -4,36 +4,29 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "stack_name" {
-  description = "Name prefix for all resources"
+variable "cognito_user_pool_name" {
+  description = "Name for the Cognito User Pool"
   type        = string
-  default     = "sftp-cognito-gateway"
+  default     = "sftp-users"
 }
 
-variable "test_username" {
-  description = "Test username for SFTP access"
+variable "cognito_user_pool_client" {
+  description = "Name for the Cognito User Pool Client"
   type        = string
-  default     = "testuser"
+  default     = "sftp-client"
 }
 
-variable "test_email" {
-  description = "Test user email"
+variable "bucket_prefix" {
+  description = "Prefix for S3 bucket name"
   type        = string
-  default     = "test@example.com"
-}
-
-variable "test_password" {
-  description = "Test user password"
-  type        = string
-  default     = "TempPass123!"
-  sensitive   = true
+  default     = "example"
 }
 
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
   default = {
-    Environment = "demo"
-    Project     = "transfer-family-cognito-gateway"
+    Environment = "example"
+    Project     = "sftp-idp-cognito-gateway"
   }
 }

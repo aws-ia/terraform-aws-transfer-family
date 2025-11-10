@@ -1,42 +1,57 @@
-# SFTP Server with Cognito Identity Provider
+# SFTP with Cognito Identity Provider Example
 
-This example demonstrates how to set up an AWS Transfer Family SFTP server using Amazon Cognito as the identity provider through the custom-idps-nizar module.
+This example demonstrates how to set up AWS Transfer Family SFTP server with a custom identity provider using Cognito and Lambda.
 
 ## Architecture
 
-- **AWS Transfer Family**: SFTP server with API Gateway identity provider
-- **Amazon Cognito**: User pool for authentication
-- **DynamoDB**: Stores user configurations and identity provider settings
-- **Lambda**: Handles authentication requests using cognito.py
-- **S3**: File storage for SFTP users
+- **Transfer Server**: SFTP server with API Gateway identity provider
+- **Cognito User Pool**: Manages user authentication
+- **Lambda Function**: Custom identity provider logic
+- **DynamoDB Tables**: Stores user configurations and identity provider settings
+- **S3 Bucket**: File storage for SFTP users
 
-## Quick Start
+## Resources Created
 
+- AWS Transfer Family SFTP server
+- Cognito User Pool and Client
+- Custom identity provider Lambda function (via module)
+- DynamoDB tables for users and identity providers
+- S3 bucket for file transfers
+- IAM roles and policies
+
+## Usage
+
+1. Deploy the infrastructure:
 ```bash
 terraform init
+terraform plan
 terraform apply
 ```
 
-## Test SFTP Connection
-
-After deployment, test the connection:
+2. Test the SFTP connection using the mock user:
 ```bash
-sftp testuser@<transfer-server-endpoint>
-# Use password: TempPass123!
+sftp $default$@<transfer-server-endpoint>
 ```
 
-## Configuration
+The mock user `$default$` is pre-configured with:
+- Identity provider key: `domain2019.local`
+- Home directory: Logical mapping to S3 bucket
+- IP allowlist: `0.0.0.0/0` (all IPs allowed)
+- S3 permissions for user-specific folder access
 
-The example creates:
-- A Cognito user pool with a test user
-- DynamoDB tables seeded with user and identity provider configurations
-- An SFTP server configured to use the custom IDP module
-- S3 bucket with appropriate permissions for the test user
+## Mock User Configuration
 
-## User Management
+The example creates a user with username `$default$` that has:
+- Logical home directory mapping to S3
+- IAM policy allowing S3 access to user-specific folders
+- IP allowlist permitting connections from any IP
+- Integration with the public key authentication module
 
-Users are managed through:
-1. **Cognito User Pool**: For authentication
-2. **DynamoDB Users Table**: For SFTP-specific configuration (home directory, IAM role, policies)
+## Testing
 
-To add more users, create them in both Cognito and the DynamoDB users table.
+After deployment, you can test the SFTP connection using any SFTP client:
+```bash
+sftp $default$@<server-endpoint>
+```
+
+The user will have access to their dedicated folder in the S3 bucket.

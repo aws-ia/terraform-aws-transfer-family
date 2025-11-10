@@ -184,6 +184,12 @@ variable "lambda_function_arn" {
   default     = null
 }
 
+variable "lambda_invocation_role" {
+  description = "IAM role ARN for Lambda invocation (required when identity_provider is AWS_LAMBDA)"
+  type        = string
+  default     = null
+}
+
 variable "api_gateway_url" {
   description = "API Gateway URL for custom identity provider (required when identity_provider is API_GATEWAY)"
   type        = string

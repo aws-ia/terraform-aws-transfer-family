@@ -17,15 +17,24 @@ phases:
       - chmod +x build.sh
       - ./build.sh
       
+      - echo "Installing aws-lambda-powertools in layer..."
+      - mkdir -p layer_deps/python
+      - cd layer_deps/python
+      - python3.11 -m pip install aws-lambda-powertools -t .
+      - cd ../..
+      
+      - echo "Copying existing layer contents..."
+      - cp -r src/handler_layer/python/* layer_deps/python/
+      
       - echo "Packaging Lambda function..."
       - cd src/idp_handler
       - zip -r ../../function.zip . -x "*.pyc" -x "__pycache__/*"
       - cd ../..
       
-      - echo "Packaging Lambda layer..."
-      - cd src/handler_layer/python
-      - zip -r ../../../layer.zip . -x "*.pyc" -x "__pycache__/*"
-      - cd ../../..
+      - echo "Packaging Lambda layer with powertools..."
+      - cd layer_deps/python
+      - zip -r ../../layer.zip . -x "*.pyc" -x "__pycache__/*"
+      - cd ../..
       
   post_build:
     commands:

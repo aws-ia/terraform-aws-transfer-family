@@ -1,3 +1,13 @@
+output "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  value       = aws_cognito_user_pool.sftp_users.id
+}
+
+output "cognito_user_pool_client_id" {
+  description = "Cognito User Pool Client ID"
+  value       = aws_cognito_user_pool_client.sftp_client.id
+}
+
 output "lambda_function_arn" {
   description = "Lambda function ARN for identity provider"
   value       = aws_lambda_function.identity_provider.arn
@@ -10,22 +20,32 @@ output "lambda_function_name" {
 
 output "transfer_invocation_role_arn" {
   description = "Transfer Family invocation role ARN"
-  value       = aws_iam_role.transfer_invocation_role.arn
+  value       = var.use_api_gateway ? aws_iam_role.transfer_api_gateway_role[0].arn : aws_iam_role.transfer_invocation_role[0].arn
 }
 
 output "api_gateway_url" {
   description = "API Gateway URL (if provisioned)"
-  value       = var.provision_api ? "https://${aws_api_gateway_rest_api.identity_provider[0].id}.execute-api.${data.aws_region.current.name}.amazonaws.com" : null
+  value       = var.use_api_gateway ? "https://${aws_api_gateway_rest_api.identity_provider[0].id}.execute-api.${data.aws_region.current.name}.amazonaws.com/prod" : null
 }
 
 output "users_table_name" {
   description = "DynamoDB users table name"
-  value       = var.users_table_name
+  value       = aws_dynamodb_table.users.name
+}
+
+output "users_table_arn" {
+  description = "DynamoDB users table ARN"
+  value       = aws_dynamodb_table.users.arn
 }
 
 output "identity_providers_table_name" {
   description = "DynamoDB identity providers table name"
-  value       = var.identity_providers_table_name
+  value       = aws_dynamodb_table.identity_providers.name
+}
+
+output "identity_providers_table_arn" {
+  description = "DynamoDB identity providers table ARN"
+  value       = aws_dynamodb_table.identity_providers.arn
 }
 
 output "users_table_hash_key" {
@@ -38,10 +58,7 @@ output "identity_providers_table_hash_key" {
   value       = "ServerId"
 }
 
-output "api_gateway_role_arn" {
-  description = "API Gateway invocation role ARN"
-  value       = aws_iam_role.transfer_invocation_role.arn
-}
+
 
 output "vpc_id" {
   description = "ID of the created VPC"

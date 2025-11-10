@@ -69,6 +69,24 @@ variable "log_level" {
   }
 }
 
+variable "cognito_user_pool_name" {
+  description = "Name for the Cognito User Pool"
+  type        = string
+  default     = "sftp-users"
+}
+
+variable "cognito_user_pool_client" {
+  description = "Name for the Cognito User Pool Client"
+  type        = string
+  default     = "sftp-client"
+}
+
+variable "use_api_gateway" {
+  description = "Whether to use API Gateway for identity provider"
+  type        = bool
+  default     = false
+}
+
 variable "provision_api" {
   description = "Whether to provision API Gateway"
   type        = bool
