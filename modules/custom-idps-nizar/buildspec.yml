@@ -23,9 +23,9 @@ phases:
       - cd ../..
       
       - echo "Packaging Lambda layer..."
-      - cd src/handler_layer/python
-      - zip -r ../../../layer.zip . -x "*.pyc" -x "__pycache__/*"
-      - cd ../../..
+      - cd src/handler_layer
+      - zip -r ../../layer.zip python/ -x "*.pyc" -x "__pycache__/*"
+      - cd ../../
       
   post_build:
     commands:
