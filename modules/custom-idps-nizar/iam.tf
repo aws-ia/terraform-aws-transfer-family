@@ -78,6 +78,13 @@ resource "aws_iam_role_policy" "secrets_manager" {
   })
 }
 
+# API Gateway Lambda execution policy (when using API Gateway)
+resource "aws_iam_role_policy_attachment" "lambda_api_gateway" {
+  count      = var.use_api_gateway ? 1 : 0
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+  role       = aws_iam_role.lambda_role.name
+}
+
 # Cognito access policy
 resource "aws_iam_role_policy" "cognito_access" {
   name = "${var.stack_name}-cognito-policy"

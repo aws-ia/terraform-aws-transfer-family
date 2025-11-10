@@ -387,13 +387,9 @@ resource "aws_lambda_function" "identity_provider" {
 
   environment {
     variables = {
-      LOG_LEVEL                = var.log_level
-      USER_NAME_DELIMITER      = var.user_name_delimiter
       USERS_TABLE             = var.users_table_name
       IDENTITY_PROVIDERS_TABLE = var.identity_providers_table_name
-      COGNITO_USER_POOL_ID    = aws_cognito_user_pool.sftp_users.id
-      COGNITO_CLIENT_ID       = aws_cognito_user_pool_client.sftp_client.id
-      AWS_REGION              = data.aws_region.current.name
+      USER_NAME_DELIMITER      = var.user_name_delimiter
     }
   }
 
@@ -509,8 +505,20 @@ resource "aws_api_gateway_integration" "lambda" {
   http_method = aws_api_gateway_method.get_user_config[0].http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
+  type                   = "AWS"
   uri                    = aws_lambda_function.identity_provider.invoke_arn
+  
+  request_templates = {
+    "application/json" = <<EOF
+{
+  "username": "$input.params('username')",
+  "serverId": "$input.params('serverId')",
+  "password": "$input.params('Password')",
+  "sourceIp": "$input.params('sourceIp')",
+  "protocol": "$input.params('protocol')"
+}
+EOF
+  }
 }
 
 resource "aws_api_gateway_deployment" "identity_provider" {
