@@ -14,7 +14,7 @@ provider "aws" {
 
 # Create the custom identity provider module with API Gateway
 module "custom_idp" {
-  source = "../../modules/custom-idps-nizar"
+  source = "../../modules/custom-idps"
 
   # Enable API Gateway integration
   use_api_gateway = true

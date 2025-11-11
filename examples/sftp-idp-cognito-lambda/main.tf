@@ -129,7 +129,7 @@ resource "null_resource" "create_cognito_user" {
 
 # Custom IDP module
 module "custom_idp" {
-  source = "../../modules/custom-idps-nizar"
+  source = "../../modules/custom-idps"
 
   stack_name                      = var.stack_name
   users_table_name               = "${var.stack_name}-users"

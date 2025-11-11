@@ -374,16 +374,31 @@ resource "aws_cognito_user_pool_client" "sftp_client" {
   ]
 }
 
+# Lambda layer for dependencies
+resource "aws_lambda_layer_version" "dependencies" {
+  layer_name = "${var.stack_name}-dependencies"
+  
+  s3_bucket = aws_s3_bucket.artifacts.bucket
+  s3_key    = "lambda-layer.zip"
+  
+  compatible_runtimes = [var.lambda_runtime]
+  
+  depends_on = [null_resource.build_trigger]
+}
+
 # Lambda function for identity provider
 resource "aws_lambda_function" "identity_provider" {
   function_name    = "${var.stack_name}-identity-provider"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "simple-app.lambda_handler"
+  handler         = "app.lambda_handler"
   runtime         = var.lambda_runtime
   timeout         = var.lambda_timeout
   memory_size     = var.lambda_memory_size
-  filename        = "${path.module}/simple-lambda.zip"
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  
+  s3_bucket = aws_s3_bucket.artifacts.bucket
+  s3_key    = "lambda-function.zip"
+  
+  layers = [aws_lambda_layer_version.dependencies.arn]
 
   environment {
     variables = {
@@ -406,22 +421,11 @@ resource "aws_lambda_function" "identity_provider" {
   }
 
   tags = var.tags
-}
-
-# Create ZIP file for Lambda function
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  output_path = "${path.module}/simple-lambda.zip"
   
-  source {
-    content  = file("${path.module}/simple-app.py")
-    filename = "simple-app.py"
-  }
-  
-  source {
-    content  = file("${path.module}/cognito.py")
-    filename = "cognito.py"
-  }
+  depends_on = [
+    null_resource.build_trigger,
+    aws_lambda_layer_version.dependencies
+  ]
 }
 
 # Lambda permission for AWS Transfer Family to invoke the function

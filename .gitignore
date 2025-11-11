@@ -176,3 +176,4 @@ vendor/
 
 # Documentation directory (from main branch)
 docs/
+modules/custom-idps/lambda-layer/

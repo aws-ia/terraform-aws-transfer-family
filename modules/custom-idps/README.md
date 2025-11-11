@@ -6,7 +6,7 @@ This module creates AWS Transfer Family custom identity providers using native T
 
 ```hcl
 module "custom_idp" {
-  source = "./modules/custom-idps-nizar"
+  source = "./modules/custom-idps"
 
   lambda_zip_path = "path/to/lambda.zip"
   stack_name      = "my-custom-idp"
