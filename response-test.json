@@ -1,0 +1,1 @@
+{"Role": "arn:aws:iam::820242930679:role/sftp-cognito-example-AWSTransferRole", "HomeDirectoryDetails": "[{\"Entry\": \"/\", \"Target\": \"/example-sftp-storage-699cf3fc/user1\"}]", "HomeDirectoryType": "LOGICAL"}

@@ -370,7 +370,8 @@ resource "aws_cognito_user_pool_client" "sftp_client" {
 
   generate_secret = false
   explicit_auth_flows = [
-    "ADMIN_NO_SRP_AUTH"
+    "ADMIN_NO_SRP_AUTH",
+    "USER_PASSWORD_AUTH"
   ]
 }
 
@@ -522,6 +523,34 @@ resource "aws_api_gateway_integration" "lambda" {
   "protocol": "$input.params('protocol')"
 }
 EOF
+  }
+}
+
+# Add integration response
+resource "aws_api_gateway_integration_response" "lambda_response" {
+  count       = var.use_api_gateway ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = aws_api_gateway_method_response.lambda_response[0].status_code
+
+  response_templates = {
+    "application/json" = "$input.body"
+  }
+
+  depends_on = [aws_api_gateway_integration.lambda[0]]
+}
+
+# Add method response
+resource "aws_api_gateway_method_response" "lambda_response" {
+  count       = var.use_api_gateway ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
   }
 }
 

@@ -1,3 +1,9 @@
+variable "enable_api_gateway_logging" {
+  description = "Enable API Gateway access logging"
+  type        = bool
+  default     = true
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
