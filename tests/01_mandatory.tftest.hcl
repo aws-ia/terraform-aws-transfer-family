@@ -101,3 +101,17 @@ run "connector_retrieve_dynamic_apply" {
     existing_secret_arn = run.mandatory_apply_basic.test_user_secret.private_key_secret.arn
   }
 }
+
+run "malware_protection_plan" {
+  command = plan
+  module {
+    source = "./examples/sftp-malware-protection-guardduty"
+  }
+}
+
+run "malware_protection_apply" {
+  command = apply
+  module {
+    source = "./examples/sftp-malware-protection-guardduty"
+  }
+}
