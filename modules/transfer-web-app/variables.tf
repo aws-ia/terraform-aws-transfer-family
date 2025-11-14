@@ -23,6 +23,24 @@ variable "provisioned_units" {
   }
 }
 
+variable "logo_file" {
+  description = "Path to logo file for web app customization"
+  type        = string
+  default     = null
+}
+
+variable "favicon_file" {
+  description = "Path to favicon file for web app customization"
+  type        = string
+  default     = null
+}
+
+variable "custom_title" {
+  description = "Custom title for the web app"
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "A map of tags to assign to the resources"
   type        = map(string)
