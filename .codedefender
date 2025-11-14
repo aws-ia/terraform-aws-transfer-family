@@ -1,0 +1,2 @@
+# Ignore false positives in third-party libraries
+modules/custom-idp/lambda-layer/
