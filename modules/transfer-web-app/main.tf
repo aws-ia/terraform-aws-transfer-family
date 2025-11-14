@@ -83,6 +83,12 @@ resource "aws_transfer_web_app" "this" {
   web_app_units {
     provisioned = var.provisioned_units
   }
+
+  web_app_customization {
+    logo_file    = var.logo_file
+    favicon_file = var.favicon_file
+    title        = var.custom_title
+  }
   
   tags = var.tags
 }
