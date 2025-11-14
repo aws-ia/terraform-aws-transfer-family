@@ -10,7 +10,8 @@ This module creates and configures AWS Transfer Family resources with the follow
 - **Transfer Server**: SFTP server setup with protocol and security policies
 - **Transfer Connectors**: Automated file transfer to/from external SFTP servers
 - **Transfer Users**: User management with S3 bucket permissions and KMS access
-- **Malware Protection**: GuardDuty integration for automatic file scanning and smart routing
+- **Malware Protection**: GuardDuty integration for automatic file scanning,
+  smart routing, and thread notification
 - Custom hostname support through AWS Route53 or other DNS providers (Optional)
 - CloudWatch logging configuration with a customizable retention
 
@@ -164,12 +165,13 @@ This project utilizes multiple modules to create a complete AWS Transfer Family 
 
 ### Transfer Malware Protection Module
 
-- Purpose: Provides automated malware scanning and file routing for Transfer Family servers
+- Purpose: Provides automated malware scanning, file routing, and threat notifications
 - Key features:
   - GuardDuty malware protection integration
   - Smart file routing based on scan results (clean, infected, errors)
   - Event-driven architecture with EventBridge and optional SQS buffering
   - Configurable destination buckets and prefixes
+  - Optional SNS integration for immediate malware alerts
   - Optional file deletion from ingestion bucket after processing
   - Optional X-Ray tracing, KMS encryption, and dead letter queue support
 
