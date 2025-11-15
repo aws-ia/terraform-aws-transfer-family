@@ -16,7 +16,7 @@ variable "provisioned_units" {
   description = "Number of provisioned web app units"
   type        = number
   default     = 1
-  
+
   validation {
     condition     = var.provisioned_units >= 1 && var.provisioned_units <= 10
     error_message = "Provisioned units must be between 1 and 10."
@@ -42,35 +42,29 @@ variable "custom_title" {
 }
 
 variable "s3_access_grants_instance_id" {
-  description = "ID of the S3 Access Grants instance to use"
+  description = "ID of the S3 Access Grants instance to use. If null, a new instance will be created"
   type        = string
   default     = null
-}
-
-variable "create_access_grants" {
-  description = "Create S3 Access Grants location and grant"
-  type        = bool
-  default     = false
 }
 
 variable "access_grants" {
   description = "Map of access grants to create"
   type = map(object({
-    location_scope    = string
-    permission        = optional(string, "READ")
-    s3_sub_prefix     = optional(string)
-    grantee_type      = optional(string, "IAM")
+    location_scope     = string
+    permission         = optional(string, "READ")
+    s3_sub_prefix      = optional(string)
+    grantee_type       = optional(string, "IAM")
     grantee_identifier = string
   }))
   default = {}
-  
+
   validation {
     condition = alltrue([
       for grant in var.access_grants : contains(["READ", "WRITE", "READWRITE"], grant.permission)
     ])
     error_message = "Permission must be READ, WRITE, or READWRITE."
   }
-  
+
   validation {
     condition = alltrue([
       for grant in var.access_grants : contains(["IAM", "DIRECTORY_USER", "DIRECTORY_GROUP"], grant.grantee_type)
@@ -82,13 +76,6 @@ variable "access_grants" {
 variable "s3_bucket_arn" {
   description = "ARN of the S3 bucket to grant access to via the web app"
   type        = string
-  default     = null
-}
-
-variable "enable_cors" {
-  description = "Enable CORS configuration for the S3 bucket"
-  type        = bool
-  default     = true
 }
 
 variable "cors_allowed_origins" {
@@ -137,6 +124,33 @@ variable "cloudtrail_kms_key_id" {
   description = "KMS key ID for CloudTrail log encryption"
   type        = string
   default     = null
+}
+
+variable "identity_store_groups" {
+  description = "Map of Identity Store groups to create"
+  type = map(object({
+    display_name = string
+    description  = optional(string)
+  }))
+  default = {}
+}
+
+variable "identity_store_users" {
+  description = "Map of Identity Store users to create"
+  type = map(object({
+    display_name = string
+    user_name    = string
+    given_name   = string
+    family_name  = string
+    email        = string
+  }))
+  default = {}
+}
+
+variable "group_memberships" {
+  description = "Map of group memberships (group_key -> list of user_keys)"
+  type        = map(list(string))
+  default     = {}
 }
 
 variable "tags" {

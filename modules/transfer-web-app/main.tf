@@ -7,6 +7,64 @@ data "aws_partition" "current" {}
 
 data "aws_ssoadmin_instances" "identity_center" {}
 
+# Identity Store Groups
+resource "aws_identitystore_group" "groups" {
+  for_each = var.identity_store_groups
+
+  display_name      = each.value.display_name
+  description       = each.value.description
+  identity_store_id = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
+}
+
+# Identity Store Users
+resource "aws_identitystore_user" "users" {
+  for_each = var.identity_store_users
+
+  identity_store_id = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
+  display_name      = each.value.display_name
+  user_name         = each.value.user_name
+
+  name {
+    given_name  = each.value.given_name
+    family_name = each.value.family_name
+  }
+
+  emails {
+    value = each.value.email
+  }
+}
+
+# Group Memberships
+resource "aws_identitystore_group_membership" "memberships" {
+  for_each = {
+    for membership in flatten([
+      for group_key, user_keys in var.group_memberships : [
+        for user_key in user_keys : {
+          key       = "${group_key}-${user_key}"
+          group_key = group_key
+          user_key  = user_key
+        }
+      ]
+    ]) : membership.key => membership
+  }
+
+  identity_store_id = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
+  group_id          = aws_identitystore_group.groups[each.value.group_key].group_id
+  member_id         = aws_identitystore_user.users[each.value.user_key].user_id
+}
+
+# S3 Access Grants Instance (create if not provided)
+resource "aws_s3control_access_grants_instance" "this" {
+  count               = var.s3_access_grants_instance_id == null ? 1 : 0
+  identity_center_arn = tolist(data.aws_ssoadmin_instances.identity_center.arns)[0]
+  tags                = var.tags
+}
+
+# Local to determine which instance to use
+locals {
+  access_grants_instance_id = var.s3_access_grants_instance_id != null ? var.s3_access_grants_instance_id : aws_s3control_access_grants_instance.this[0].id
+}
+
 # IAM assume role policy for Transfer service
 data "aws_iam_policy_document" "assume_role_transfer" {
   statement {
@@ -43,7 +101,7 @@ data "aws_iam_policy_document" "transfer_web_app" {
       "s3:ListCallerAccessGrants",
     ]
     resources = [
-      "arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/*"
+      "arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:access-grants/*"
     ]
     condition {
       test     = "StringEquals"
@@ -79,48 +137,64 @@ resource "aws_transfer_web_app" "web_app" {
       role         = aws_iam_role.transfer_web_app.arn
     }
   }
-  
+
   web_app_units {
     provisioned = var.provisioned_units
   }
 
-  web_app_customization {
-    logo_file    = var.logo_file
-    favicon_file = var.favicon_file
-    title        = var.custom_title
-  }
-  
   tags = var.tags
+}
+
+# Transfer Web App Customization (separate resource)
+resource "aws_transfer_web_app_customization" "web_app" {
+  count = var.logo_file != null || var.favicon_file != null || var.custom_title != null ? 1 : 0
+  
+  web_app_id   = aws_transfer_web_app.web_app.web_app_id
+  favicon_file = var.favicon_file != null ? filebase64(var.favicon_file) : null
+  logo_file    = var.logo_file != null ? filebase64(var.logo_file) : null
+  title        = var.custom_title
 }
 
 # CORS configuration for S3 bucket
 locals {
   bucket_name = var.s3_bucket_arn != null ? regex("arn:aws:s3:::([^/]+)", var.s3_bucket_arn)[0] : null
+  # Combine user-defined origins with the Transfer Family web app endpoint
+  cors_origins = var.s3_bucket_arn != null ? concat(
+    var.cors_allowed_origins,
+    ["https://${aws_transfer_web_app.web_app.access_endpoint}"]
+  ) : []
 }
 
 resource "aws_s3_bucket_cors_configuration" "web_app_cors" {
-  count  = var.enable_cors && var.s3_bucket_arn != null ? 1 : 0
   bucket = local.bucket_name
 
   cors_rule {
     allowed_headers = var.cors_allowed_headers
     allowed_methods = var.cors_allowed_methods
-    allowed_origins = var.cors_allowed_origins
+    allowed_origins = local.cors_origins
   }
+
+  depends_on = [aws_transfer_web_app.web_app]
 }
 
 # S3 Access Grants Location
 resource "aws_s3control_access_grants_location" "web_app" {
-  for_each = var.create_access_grants ? var.access_grants : {}
+  for_each = var.access_grants
 
   iam_role_arn   = aws_iam_role.transfer_web_app.arn
   location_scope = each.value.location_scope
   tags           = var.tags
+
+  depends_on = [
+    aws_transfer_web_app.web_app,
+    aws_identitystore_group.groups,
+    aws_identitystore_user.users
+  ]
 }
 
 # S3 Access Grant
 resource "aws_s3control_access_grant" "web_app" {
-  for_each                  = var.create_access_grants ? var.access_grants : {}
+  for_each                  = var.access_grants
   access_grants_location_id = aws_s3control_access_grants_location.web_app[each.key].access_grants_location_id
   permission                = each.value.permission
 
@@ -159,7 +233,7 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
 
 data "aws_iam_policy_document" "cloudtrail_s3" {
   count = var.enable_cloudtrail && var.cloudtrail_s3_bucket_name == null ? 1 : 0
-  
+
   statement {
     sid    = "AWSCloudTrailAclCheck"
     effect = "Allow"
@@ -190,24 +264,24 @@ data "aws_iam_policy_document" "cloudtrail_s3" {
 
 # CloudTrail for audit logging
 resource "aws_cloudtrail" "audit_trail" {
-  count                         = var.enable_cloudtrail ? 1 : 0
-  name                         = var.cloudtrail_name
-  s3_bucket_name               = var.cloudtrail_s3_bucket_name != null ? var.cloudtrail_s3_bucket_name : aws_s3_bucket.cloudtrail[0].bucket
-  
+  count          = var.enable_cloudtrail ? 1 : 0
+  name           = var.cloudtrail_name
+  s3_bucket_name = var.cloudtrail_s3_bucket_name != null ? var.cloudtrail_s3_bucket_name : aws_s3_bucket.cloudtrail[0].bucket
+
   # Security configurations
-  enable_log_file_validation   = true
-  is_multi_region_trail       = true
-  sns_topic_name              = var.cloudtrail_sns_topic_arn
-  kms_key_id                  = var.cloudtrail_kms_key_id
+  enable_log_file_validation = true
+  is_multi_region_trail      = true
+  sns_topic_name             = var.cloudtrail_sns_topic_arn
+  kms_key_id                 = var.cloudtrail_kms_key_id
 
   event_selector {
-    read_write_type                 = "All"
-    include_management_events       = true
+    read_write_type                  = "All"
+    include_management_events        = true
     exclude_management_event_sources = []
 
     data_resource {
       type   = "AWS::S3::Object"
-      values = ["arn:aws:s3:::*/*"]
+      values = ["${var.s3_bucket_arn}/*"]
     }
   }
 
