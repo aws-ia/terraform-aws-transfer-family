@@ -12,14 +12,13 @@ This module creates and configures a Transfer Family web app and related depende
 - S3 Access Grants creation for fine-grained permissions
 - Transfer Family web app provisioning, configuration, and customization
 - Cross-Origin Resource Sharing (CORS) policies for S3 buckets
-- Create a CloudFront distribution for custom URL
 - Logging and monitoring via AWS CloudTrail
 
 ## Features
 
 - **Browser-based interface** providing secure access to Amazon S3 data
 - **Authentication** through AWS IAM Identity Center, supporting existing identity provider federation, multi-factor authentication
-- **Granular permission management** through S3 Access Grants for user and group-level access control, folder and file-level permissions, and time-based access policies
+- **Granular permission management** through S3 Access Grants for user and group-level access control with configurable paths and permissions
 - **Built-in compliance** including HIPAA eligibility, PCI DSS compliance, SOC 1, 2, and 3, and ISO certifications
 - **Customization options** including logo, favicon, and personalized browser page title
 - **Detailed audit trails** through CloudTrail capturing user authentication and data operations
@@ -30,29 +29,42 @@ This module creates and configures a Transfer Family web app and related depende
 module "transfer_web_app" {
   source = "aws-ia/transfer-family/aws//modules/transfer-web-app"
 
-  # Basic configuration
-  iam_role_name = "my-transfer-web-app-role"
-  # S3 bucket for web app access
-  s3_bucket_arn = "arn:aws:s3:::my-bucket"
-  # Customization
-  custom_title = "My Company File Portal"
-  logo_file    = "path/to/logo.png"
-  # Access grants
-  create_access_grants = true
-  access_grants = {
-    "user1-read" = {
-      location_scope     = "s3://my-bucket/user1/*"
-      permission         = "READ"
-      grantee_identifier = "arn:aws:iam::123456789012:user/user1"
+  # S3 Configuration
+  s3_bucket_names = ["my-bucket"]
+
+  # CORS Configuration - Restrict to web app only
+  cors_allowed_origins = []  # Only web app endpoint will be allowed by default
+
+  # Identity Center Configuration
+  identity_center_users = [
+    {
+      username = "admin"
+      access_grants = [{
+        location_id = "location-id"
+        path        = "*"
+        permission  = "READWRITE"
+      }]
     }
-    "admin-full" = {
-      location_scope     = "s3://my-bucket/*"
-      permission         = "READWRITE"
-      grantee_identifier = "arn:aws:iam::123456789012:user/admin"
+  ]
+
+  identity_center_groups = [
+    {
+      group_name = "Analysts"
+      access_grants = [{
+        location_id = "location-id"
+        path        = "*"
+        permission  = "READ"
+      }]
     }
-  }
+  ]
+
+  # CloudTrail Configuration
+  enable_cloudtrail        = true
+  cloudtrail_name         = "my-audit-trail"
+  cloudtrail_kms_key_id   = "arn:aws:kms:region:account:key/key-id"
+
   tags = {
-    Environment = "Production"
+    Environment = "Demo"
     Project     = "File Portal"
   }
 }
@@ -61,21 +73,20 @@ module "transfer_web_app" {
 ## Key Variables
 
 ### Required Variables
-None - all variables have sensible defaults.
+- `s3_bucket_names` - List of S3 bucket names to configure CORS for
 
 ### Important Optional Variables
 
-- `iam_role_name` - Name for the IAM role (default: "transfer-web-app-role")
-- `s3_bucket_arn` - S3 bucket ARN for web app access
-- `custom_title` - Custom title for the web app
-- `logo_file` - Path to logo file for branding
-- `favicon_file` - Path to favicon file
-- `create_access_grants` - Enable S3 Access Grants creation (default: false)
-- `access_grants` - Map of access grants to create for fine-grained permissions
-- `enable_cors` - Enable CORS configuration for S3 bucket (default: true)
-- `enable_cloudtrail` - Enable CloudTrail audit logging (default: true)
-- `cloudtrail_sns_topic_arn` - SNS topic ARN for CloudTrail notifications
+- `identity_center_users` - List of users with access grants configuration
+- `identity_center_groups` - List of groups with access grants configuration  
+- `cors_allowed_origins` - List of allowed origins for CORS (default: [])
+- `cors_allowed_methods` - List of allowed HTTP methods for CORS
+- `cors_allowed_headers` - List of allowed headers for CORS
+- `enable_cloudtrail` - Enable CloudTrail audit logging (default: false)
+- `cloudtrail_name` - Name for the CloudTrail
 - `cloudtrail_kms_key_id` - KMS key ID for CloudTrail log encryption
+- `cloudtrail_sns_topic_arn` - SNS topic ARN for CloudTrail notifications
+- `access_grants_location_arn` - ARN of existing S3 Access Grants location
 
 ## Requirements
 
@@ -102,15 +113,13 @@ No modules.
 | [aws_cloudtrail.audit_trail](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudtrail) | resource |
 | [aws_iam_role.transfer_web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.transfer_web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
-| [aws_identitystore_group.groups](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_group) | resource |
-| [aws_identitystore_group_membership.memberships](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_group_membership) | resource |
-| [aws_identitystore_user.users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_user) | resource |
 | [aws_s3_bucket.cloudtrail](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
 | [aws_s3_bucket_cors_configuration.web_app_cors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_cors_configuration) | resource |
 | [aws_s3_bucket_policy.cloudtrail](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
-| [aws_s3control_access_grant.web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3control_access_grant) | resource |
-| [aws_s3control_access_grants_instance.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3control_access_grants_instance) | resource |
-| [aws_s3control_access_grants_location.web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3control_access_grants_location) | resource |
+| [aws_s3control_access_grant.group_grants](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3control_access_grant) | resource |
+| [aws_s3control_access_grant.user_grants](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3control_access_grant) | resource |
+| [aws_ssoadmin_application_assignment.groups](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssoadmin_application_assignment) | resource |
+| [aws_ssoadmin_application_assignment.users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssoadmin_application_assignment) | resource |
 | [aws_transfer_web_app.web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_web_app) | resource |
 | [aws_transfer_web_app_customization.web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/transfer_web_app_customization) | resource |
 | [random_id.bucket_suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
@@ -118,6 +127,8 @@ No modules.
 | [aws_iam_policy_document.assume_role_transfer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.cloudtrail_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_iam_policy_document.transfer_web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_identitystore_group.groups](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/identitystore_group) | data source |
+| [aws_identitystore_user.users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/identitystore_user) | data source |
 | [aws_partition.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/partition) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_ssoadmin_instances.identity_center](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ssoadmin_instances) | data source |
@@ -126,26 +137,25 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_s3_bucket_arn"></a> [s3\_bucket\_arn](#input\_s3\_bucket\_arn) | ARN of the S3 bucket to grant access to via the web app | `string` | n/a | yes |
-| <a name="input_access_grants"></a> [access\_grants](#input\_access\_grants) | Map of access grants to create | <pre>map(object({<br/>    location_scope     = string<br/>    permission         = optional(string, "READ")<br/>    s3_sub_prefix      = optional(string)<br/>    grantee_type       = optional(string, "IAM")<br/>    grantee_identifier = string<br/>  }))</pre> | `{}` | no |
+| <a name="input_access_grants_instance_arn"></a> [access\_grants\_instance\_arn](#input\_access\_grants\_instance\_arn) | ARN of the S3 Access Grants instance (required if access grants are configured) | `string` | `null` | no |
 | <a name="input_cloudtrail_kms_key_id"></a> [cloudtrail\_kms\_key\_id](#input\_cloudtrail\_kms\_key\_id) | KMS key ID for CloudTrail log encryption | `string` | `null` | no |
 | <a name="input_cloudtrail_name"></a> [cloudtrail\_name](#input\_cloudtrail\_name) | Name for the CloudTrail | `string` | `"transfer-web-app-audit-trail"` | no |
 | <a name="input_cloudtrail_s3_bucket_name"></a> [cloudtrail\_s3\_bucket\_name](#input\_cloudtrail\_s3\_bucket\_name) | S3 bucket name for CloudTrail logs. If not provided, a bucket will be created | `string` | `null` | no |
 | <a name="input_cloudtrail_sns_topic_arn"></a> [cloudtrail\_sns\_topic\_arn](#input\_cloudtrail\_sns\_topic\_arn) | SNS topic ARN for CloudTrail notifications | `string` | `null` | no |
 | <a name="input_cors_allowed_headers"></a> [cors\_allowed\_headers](#input\_cors\_allowed\_headers) | List of allowed headers for CORS | `list(string)` | <pre>[<br/>  "*"<br/>]</pre> | no |
 | <a name="input_cors_allowed_methods"></a> [cors\_allowed\_methods](#input\_cors\_allowed\_methods) | List of allowed HTTP methods for CORS | `list(string)` | <pre>[<br/>  "GET",<br/>  "PUT",<br/>  "POST",<br/>  "DELETE",<br/>  "HEAD"<br/>]</pre> | no |
-| <a name="input_cors_allowed_origins"></a> [cors\_allowed\_origins](#input\_cors\_allowed\_origins) | List of allowed origins for CORS | `list(string)` | <pre>[<br/>  "*"<br/>]</pre> | no |
+| <a name="input_cors_allowed_origins"></a> [cors\_allowed\_origins](#input\_cors\_allowed\_origins) | List of allowed origins for CORS | `list(string)` | `[]` | no |
 | <a name="input_custom_title"></a> [custom\_title](#input\_custom\_title) | Custom title for the web app | `string` | `null` | no |
 | <a name="input_enable_cloudtrail"></a> [enable\_cloudtrail](#input\_enable\_cloudtrail) | Enable CloudTrail for audit logging of user authentication and data operations | `bool` | `true` | no |
 | <a name="input_favicon_file"></a> [favicon\_file](#input\_favicon\_file) | Path to favicon file for web app customization | `string` | `null` | no |
-| <a name="input_group_memberships"></a> [group\_memberships](#input\_group\_memberships) | Map of group memberships (group\_key -> list of user\_keys) | `map(list(string))` | `{}` | no |
 | <a name="input_iam_role_name"></a> [iam\_role\_name](#input\_iam\_role\_name) | Name for the IAM role used by the Transfer web app | `string` | `"transfer-web-app-role"` | no |
+| <a name="input_identity_center_groups"></a> [identity\_center\_groups](#input\_identity\_center\_groups) | List of groups to assign to the web app | <pre>list(object({<br/>    group_name = string<br/>    access_grants = optional(list(object({<br/>      location_id = string<br/>      path        = string<br/>      permission  = string<br/>    })))<br/>  }))</pre> | `[]` | no |
 | <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the Identity Center instance. If not provided, will use the first available instance | `string` | `null` | no |
-| <a name="input_identity_store_groups"></a> [identity\_store\_groups](#input\_identity\_store\_groups) | Map of Identity Store groups to create | <pre>map(object({<br/>    display_name = string<br/>    description  = optional(string)<br/>  }))</pre> | `{}` | no |
-| <a name="input_identity_store_users"></a> [identity\_store\_users](#input\_identity\_store\_users) | Map of Identity Store users to create | <pre>map(object({<br/>    display_name = string<br/>    user_name    = string<br/>    given_name   = string<br/>    family_name  = string<br/>    email        = string<br/>  }))</pre> | `{}` | no |
+| <a name="input_identity_center_users"></a> [identity\_center\_users](#input\_identity\_center\_users) | List of users to assign to the web app | <pre>list(object({<br/>    username = string<br/>    access_grants = optional(list(object({<br/>      location_id = string<br/>      path        = string<br/>      permission  = string<br/>    })))<br/>  }))</pre> | `[]` | no |
 | <a name="input_logo_file"></a> [logo\_file](#input\_logo\_file) | Path to logo file for web app customization | `string` | `null` | no |
 | <a name="input_provisioned_units"></a> [provisioned\_units](#input\_provisioned\_units) | Number of provisioned web app units | `number` | `1` | no |
-| <a name="input_s3_access_grants_instance_id"></a> [s3\_access\_grants\_instance\_id](#input\_s3\_access\_grants\_instance\_id) | ID of the S3 Access Grants instance to use. If null, a new instance will be created | `string` | `null` | no |
+| <a name="input_s3_access_grants_instance_id"></a> [s3\_access\_grants\_instance\_id](#input\_s3\_access\_grants\_instance\_id) | ID of the S3 Access Grants instance to use. If not provided, will use the first available instance | `string` | `null` | no |
+| <a name="input_s3_bucket_names"></a> [s3\_bucket\_names](#input\_s3\_bucket\_names) | List of S3 bucket names to configure CORS for | `list(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to assign to the resources | `map(string)` | `{}` | no |
 
 ## Outputs

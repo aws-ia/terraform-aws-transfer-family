@@ -38,8 +38,13 @@ output "created_groups" {
   description = "Map of created Identity Store groups"
   value = {
     for key, group in var.groups : key => {
-      display_name = group.display_name
-      description  = group.description
+      group_name  = group.group_name
+      description = group.description
     }
   }
+}
+
+output "access_grants_instance_arn" {
+  description = "The ARN of the S3 Access Grants instance"
+  value       = var.access_grants_instance_arn == null ? aws_s3control_access_grants_instance.instance[0].access_grants_instance_arn : null
 }
