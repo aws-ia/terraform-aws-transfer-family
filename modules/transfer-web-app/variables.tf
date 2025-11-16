@@ -16,11 +16,6 @@ variable "provisioned_units" {
   description = "Number of provisioned web app units"
   type        = number
   default     = 1
-
-  validation {
-    condition     = var.provisioned_units >= 1 && var.provisioned_units <= 10
-    error_message = "Provisioned units must be between 1 and 10."
-  }
 }
 
 variable "logo_file" {
@@ -42,46 +37,21 @@ variable "custom_title" {
 }
 
 variable "s3_access_grants_instance_id" {
-  description = "ID of the S3 Access Grants instance to use. If null, a new instance will be created"
+  description = "ID of the S3 Access Grants instance to use. If not provided, will use the first available instance"
   type        = string
   default     = null
 }
 
-variable "access_grants" {
-  description = "Map of access grants to create"
-  type = map(object({
-    location_scope     = string
-    permission         = optional(string, "READ")
-    s3_sub_prefix      = optional(string)
-    grantee_type       = optional(string, "IAM")
-    grantee_identifier = string
-  }))
-  default = {}
-
-  validation {
-    condition = alltrue([
-      for grant in var.access_grants : contains(["READ", "WRITE", "READWRITE"], grant.permission)
-    ])
-    error_message = "Permission must be READ, WRITE, or READWRITE."
-  }
-
-  validation {
-    condition = alltrue([
-      for grant in var.access_grants : contains(["IAM", "DIRECTORY_USER", "DIRECTORY_GROUP"], grant.grantee_type)
-    ])
-    error_message = "Grantee type must be IAM, DIRECTORY_USER, or DIRECTORY_GROUP."
-  }
-}
-
-variable "s3_bucket_arn" {
-  description = "ARN of the S3 bucket to grant access to via the web app"
-  type        = string
+variable "s3_bucket_names" {
+  description = "List of S3 bucket names to configure CORS for"
+  type        = list(string)
+  default     = []
 }
 
 variable "cors_allowed_origins" {
   description = "List of allowed origins for CORS"
   type        = list(string)
-  default     = ["*"]
+  default     = []
 }
 
 variable "cors_allowed_methods" {
@@ -126,31 +96,54 @@ variable "cloudtrail_kms_key_id" {
   default     = null
 }
 
-variable "identity_store_groups" {
-  description = "Map of Identity Store groups to create"
-  type = map(object({
-    display_name = string
-    description  = optional(string)
-  }))
-  default = {}
+variable "access_grants_instance_arn" {
+  description = "ARN of the S3 Access Grants instance (required if access grants are configured)"
+  type        = string
+  default     = null
 }
 
-variable "identity_store_users" {
-  description = "Map of Identity Store users to create"
-  type = map(object({
-    display_name = string
-    user_name    = string
-    given_name   = string
-    family_name  = string
-    email        = string
+variable "identity_center_users" {
+  description = "List of users to assign to the web app"
+  type = list(object({
+    username = string
+    access_grants = optional(list(object({
+      location_id = string
+      path        = string
+      permission  = string
+    })))
   }))
-  default = {}
+  default = []
+
+  validation {
+    condition = alltrue([
+      for user in var.identity_center_users : alltrue([
+        for grant in coalesce(user.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
+      ])
+    ])
+    error_message = "Access grant permission must be READ, WRITE, or READWRITE."
+  }
 }
 
-variable "group_memberships" {
-  description = "Map of group memberships (group_key -> list of user_keys)"
-  type        = map(list(string))
-  default     = {}
+variable "identity_center_groups" {
+  description = "List of groups to assign to the web app"
+  type = list(object({
+    group_name = string
+    access_grants = optional(list(object({
+      location_id = string
+      path        = string
+      permission  = string
+    })))
+  }))
+  default = []
+
+  validation {
+    condition = alltrue([
+      for group in var.identity_center_groups : alltrue([
+        for grant in coalesce(group.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
+      ])
+    ])
+    error_message = "Access grant permission must be READ, WRITE, or READWRITE."
+  }
 }
 
 variable "tags" {

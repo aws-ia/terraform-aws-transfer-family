@@ -28,7 +28,7 @@ output "iam_role_name" {
 output "identity_store_group_ids" {
   description = "Map of Identity Store group names to their IDs"
   value = {
-    for key, group in aws_identitystore_group.groups : key => group.group_id
+    for key, group in data.aws_identitystore_group.groups : key => group.group_id
   }
 }
 
