@@ -21,6 +21,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          ref: ${{ github.head_ref }}
 
       - name: Copy Terraform files to transfer-server module
         run: |
@@ -42,15 +43,17 @@ jobs:
           output-method: inject
           git-push: true
           git-commit-message: "docs: update transfer-server module documentation"
+          git-push-user-name: "GitHub Action"
+          git-push-user-email: "action@github.com"
 
-      - name: Commit changes
+      - name: Commit module sync changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add modules/transfer-server/
+          git add modules/transfer-server/*.tf
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "No module files to commit"
           else
             git commit -m "sync: update transfer-server module files"
-            git push
+            git push origin ${{ github.head_ref }}
           fi
