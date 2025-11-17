@@ -41,6 +41,7 @@ output "lambda_function_arn" {
 output "kms_key_arn" {
   description = "ARN of the KMS key used for encryption"
   value       = local.kms_key_arn
+  sensitive   = true
 }
 
 output "eventbridge_schedule_name" {
@@ -56,6 +57,7 @@ output "eventbridge_schedule_arn" {
 output "sftp_credentials_secret_arn" {
   description = "ARN of the SFTP credentials secret"
   value       = var.existing_secret_arn
+  sensitive = true
 }
 
 output "connector_static_ips" {

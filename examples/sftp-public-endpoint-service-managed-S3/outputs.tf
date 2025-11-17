@@ -21,4 +21,10 @@ output "test_user_details" {
 output "test_user_secret" {
   description = "Map of users with their details including secret names and ARNs"
   value = module.sftp_users.test_user_secret
+  sensitive = true
+}
+
+output "kms_key_arn" {
+  description = "The ARN of the KMS key used for encryption"
+  value       = aws_kms_key.transfer_family_key.arn
 }

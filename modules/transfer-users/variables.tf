@@ -5,7 +5,7 @@ variable "create_test_user" {
 }
 
 variable "users" {
-  description = "List of SFTP users"
+  description = "List of SFTP users. Use public_key as a string - for multiple keys, separate with commas."
   type = list(object({
     username   = string
     home_dir   = string
@@ -17,9 +17,27 @@ variable "users" {
   validation {
     condition = alltrue([
       for user in var.users :
-      can(regex("^(ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|ssh-ed25519) AAAA[A-Za-z0-9+/]+[=]{0,3}( .+)?$", user.public_key))
+      try(length(split(",", user.public_key)), 0) <= 50
     ])
-    error_message = "Public key must be in the format '<key-type> <base64-encoded-key> [comment]' where key-type is one of: ssh-rsa (including rsa-sha2-256 and rsa-sha2-512), ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521, or ssh-ed25519. The comment is optional."
+    error_message = "Maximum of 50 public keys allowed per user as per AWS Transfer Family limits."
+  }
+
+  validation {
+    condition = alltrue([
+      for user in var.users :
+      user.public_key != "" && try(length(split(",", user.public_key)) == length(distinct(split(",", user.public_key))), true)
+    ])
+    error_message = "Public key is required and duplicate public keys are not allowed for the same user."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for user in var.users : [
+        for key in [for k in split(",", user.public_key) : trimspace(k)] :
+        can(regex("^(ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|ssh-ed25519) AAAA[A-Za-z0-9+/]+[=]{0,3}( .+)?$", key))
+      ]
+    ]))
+    error_message = "All public keys must be in the format '<key-type> <base64-encoded-key> [comment]' where key-type is one of: ssh-rsa (including rsa-sha2-256 and rsa-sha2-512), ecdsa-sha2-nistp256, ecdsa-sha2-nistp384, ecdsa-sha2-nistp521, or ssh-ed25519. The comment is optional."
   }
 
   validation {

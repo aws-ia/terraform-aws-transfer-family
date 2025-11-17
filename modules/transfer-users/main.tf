@@ -15,8 +15,18 @@ locals {
     role_arn   = aws_iam_role.sftp_user_role.arn
   }
 
-  # Combine test user with provided users if create_test_user is true
-  all_users = var.create_test_user ? concat(var.users, [local.test_user]) : var.users
+  # Create flattened map for SSH key resources - only non-test users
+  user_key_combinations = {
+    for combo in flatten([
+      for user in var.users : [
+        for idx, key in (user.public_key != "" ? [for k in split(",", user.public_key) : trimspace(k)] : []) : {
+          key_id   = "${user.username}-${idx}"
+          username = user.username
+          key_body = key
+        }
+      ]
+    ]) : combo.key_id => combo
+  }
 }
 
 ######################################
@@ -85,9 +95,9 @@ resource "aws_iam_role_policy" "sftp_user_policies" {
   })
 }
 
-######################################
-# SSH Key Creation (Optional)
-######################################
+########################################
+# SSH Key Creation (for test user only)
+########################################
 
 resource "tls_private_key" "test_user_key" {
   count = var.create_test_user ? 1 : 0
@@ -115,13 +125,41 @@ resource "aws_secretsmanager_secret_version" "sftp_private_key_version" {
   })
 }
 
+# Create SFTP test_user
+resource "aws_transfer_user" "test_user" {
+  count = var.create_test_user ? 1 : 0
+
+  server_id = var.server_id
+  user_name = local.test_user.username
+  role      = local.test_user.role_arn
+
+  home_directory_type = "LOGICAL"
+  home_directory_mappings {
+    entry  = "/"
+    target = "/${var.s3_bucket_name}${local.test_user.home_dir}"
+  }
+}
+
+# Create SSH key for test user (dynamic)
+resource "aws_transfer_ssh_key" "test_user_ssh_key" {
+  count = var.create_test_user ? 1 : 0
+
+  depends_on = [
+    aws_transfer_user.test_user
+  ]
+
+  server_id = var.server_id
+  user_name = local.test_user.username
+  body      = local.test_user.public_key
+}
+
 ######################################
 # SFTP User Creation
 ######################################
 
 # Create SFTP users
 resource "aws_transfer_user" "transfer_users" {
-  for_each = { for user in local.all_users : user.username => user }
+  for_each = { for user in var.users : user.username => user }
 
   server_id = var.server_id
   user_name = each.value.username
@@ -136,11 +174,13 @@ resource "aws_transfer_user" "transfer_users" {
 
 # Create SSH keys for users
 resource "aws_transfer_ssh_key" "user_ssh_keys" {
-  for_each = { for user in local.all_users : user.username => user }
+  for_each = local.user_key_combinations
+
+  depends_on = [
+    aws_transfer_user.transfer_users
+  ]
 
   server_id = var.server_id
   user_name = each.value.username
-  body      = each.value.public_key
-
-  depends_on = [aws_transfer_user.transfer_users]
+  body      = each.value.key_body
 }

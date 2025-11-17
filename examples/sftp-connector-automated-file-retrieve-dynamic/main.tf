@@ -321,7 +321,7 @@ resource "aws_lambda_function" "file_discovery" {
   function_name    = "sftp-file-discovery-${random_pet.name.id}"
   role            = aws_iam_role.lambda_role.arn
   handler         = "index.lambda_handler"
-  runtime         = "python3.9"
+  runtime         = "python3.12"
   timeout         = 300
   
   reserved_concurrent_executions = 10
@@ -610,7 +610,7 @@ resource "aws_lambda_function" "event_listener" {
   function_name    = "sftp-event-listener-${random_pet.name.id}"
   role            = aws_iam_role.event_listener_role[0].arn
   handler         = "event_listener.lambda_handler"
-  runtime         = "python3.9"
+  runtime         = "python3.12"
   timeout         = 60
   memory_size     = 256
   source_code_hash = data.archive_file.event_listener_zip[0].output_base64sha256
