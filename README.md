@@ -50,7 +50,7 @@ Figure 2: Architecture using VPC endpoints of the AWS Transfer Family deployment
 - Automated file transfer to/from external SFTP servers
 - Support for scheduled file retrieval using EventBridge Scheduler
 - Secure credential management via AWS Secrets Manager
-- SSH host key validation and auto-discovery
+- SSH host key validation and auto-discovery feature
 - Static IP addresses for outbound connections
 - Integration with S3 for file storage and KMS for encryption
 
