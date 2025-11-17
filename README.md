@@ -423,7 +423,7 @@ If you are interested in contributing to the Storage Gateway module, see the [Co
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.13.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.95.0 |
 
 ## Modules
 
