@@ -7,7 +7,7 @@ This repository contains Terraform code which creates resources required to run 
 
 This module creates and configures AWS Transfer Family resources with the following features:
 
-- **Transfer Server**: SFTP server setup with protocol and security policies
+- **Transfer Server**: SFTP server setup with protocol and security policies, supporting custom identity providers via API Gateway and Lambda
 - **Transfer Connectors**: Automated file transfer to/from external SFTP servers
 - **Transfer Users**: User management with S3 bucket permissions and KMS access
 - **Malware Protection**: GuardDuty integration for automatic file scanning and smart routing
@@ -60,7 +60,7 @@ Figure 2: Architecture using VPC endpoints of the AWS Transfer Family deployment
 - Server name customization (default: "transfer-server")
 - S3 domain support
 - SFTP protocol support
-- Service-managed identity provider
+- Service-managed identity provider or custom identity providers via API Gateway and Lambda
 - Support for custom hostnames and DNS configurations
 - Integration with CloudWatch for logging and monitoring
 
