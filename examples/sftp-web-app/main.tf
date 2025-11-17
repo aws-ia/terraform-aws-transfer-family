@@ -19,6 +19,7 @@ data "aws_ssoadmin_instances" "identity_center" {}
 locals {
   identity_store_id         = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
   access_grants_instance_id = var.access_grants_instance_arn != null ? var.access_grants_instance_arn : aws_s3control_access_grants_instance.instance[0].access_grants_instance_id
+  access_grants_location    = try(aws_s3control_access_grants_location.location_new_instance[0], aws_s3control_access_grants_location.location_existing_instance[0])
 }
 
 # S3 bucket for file storage
@@ -143,8 +144,22 @@ resource "aws_iam_role_policy" "access_grants_location_policy" {
   policy = data.aws_iam_policy_document.access_grants_location_policy.json
 }
 
-# S3 Access Grants Location
-resource "aws_s3control_access_grants_location" "location" {
+# S3 Access Grants Location - when creating new instance
+resource "aws_s3control_access_grants_location" "location_new_instance" {
+  count = var.access_grants_instance_arn == null ? 1 : 0
+  
+  account_id     = data.aws_caller_identity.current.account_id
+  iam_role_arn   = aws_iam_role.access_grants_location_role.arn
+  location_scope = "s3://${module.s3_bucket.s3_bucket_id}"
+  tags           = var.tags
+
+  depends_on = [aws_s3control_access_grants_instance.instance]
+}
+
+# S3 Access Grants Location - when using existing instance
+resource "aws_s3control_access_grants_location" "location_existing_instance" {
+  count = var.access_grants_instance_arn != null ? 1 : 0
+  
   account_id     = data.aws_caller_identity.current.account_id
   iam_role_arn   = aws_iam_role.access_grants_location_role.arn
   location_scope = "s3://${module.s3_bucket.s3_bucket_id}"
@@ -254,7 +269,7 @@ module "transfer_web_app" {
     for user_key, user in var.users : {
       username = user.user_name
       access_grants = user.access_path != null ? [{
-        location_id = aws_s3control_access_grants_location.location.access_grants_location_id
+        location_id = local.access_grants_location.access_grants_location_id
         path        = user.access_path
         permission  = coalesce(user.permission, "READWRITE")
       }] : []
@@ -265,7 +280,7 @@ module "transfer_web_app" {
     for group_key, group in var.groups : {
       group_name = group.group_name
       access_grants = [{
-        location_id = aws_s3control_access_grants_location.location.access_grants_location_id
+        location_id = local.access_grants_location.access_grants_location_id
         path        = coalesce(group.access_path, "*")
         permission  = coalesce(group.permission, "READWRITE")
       }]
@@ -277,6 +292,7 @@ module "transfer_web_app" {
   depends_on = [
     aws_identitystore_user.users,
     aws_identitystore_group.groups,
-    aws_s3control_access_grants_location.location
+    aws_s3control_access_grants_location.location_new_instance,
+    aws_s3control_access_grants_location.location_existing_instance
   ]
 }
