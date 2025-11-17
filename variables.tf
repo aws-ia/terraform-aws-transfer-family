@@ -184,6 +184,7 @@ variable "lambda_function_arn" {
   default     = null
 }
 
+# tflint-ignore: terraform_unused_declarations
 variable "lambda_invocation_role" {
   description = "IAM role ARN for Lambda invocation (required when identity_provider is AWS_LAMBDA)"
   type        = string
