@@ -21,14 +21,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
 
       - name: Copy Terraform files to transfer-server module
         run: |
-          cp main.tf modules/transfer-server/
-          cp outputs.tf modules/transfer-server/
-          cp variables.tf modules/transfer-server/
-          cp versions.tf modules/transfer-server/
+          cp main.tf outputs.tf variables.tf versions.tf modules/transfer-server/
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -41,19 +37,11 @@ jobs:
           working-dir: modules/transfer-server
           output-file: README.md
           output-method: inject
-          git-push: true
-          git-commit-message: "docs: update transfer-server module documentation"
-          git-push-user-name: "GitHub Action"
-          git-push-user-email: "action@github.com"
+          git-push: false  # Important: Don't push here, we'll do it in the next step
 
-      - name: Commit module sync changes
+      - name: Commit all changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add modules/transfer-server/*.tf
-          if git diff --staged --quiet; then
-            echo "No module files to commit"
-          else
-            git commit -m "sync: update transfer-server module files"
-            git push origin ${{ github.head_ref }}
-          fi
+          git add modules/transfer-server/
+          git diff --staged --quiet || (git commit -m "chore: sync transfer-server module files and update documentation" && git push origin ${{ github.head_ref }})
