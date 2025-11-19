@@ -87,8 +87,8 @@ check "vpc_endpoint_requirements" {
 
 check "lambda_integration_requirements" {
   assert {
-    condition     = var.identity_provider != "AWS_LAMBDA" || var.lambda_function_arn != null
-    error_message = "lambda_function_arn is required when identity_provider is AWS_LAMBDA."
+    condition     = var.identity_provider != "AWS_LAMBDA" || (var.lambda_function_arn != null && var.lambda_invocation_role != null)
+    error_message = "lambda_function_arn and lambda_invocation_role are required when identity_provider is AWS_LAMBDA."
   }
 }
 
