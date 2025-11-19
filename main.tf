@@ -203,8 +203,4 @@ resource "aws_cloudwatch_log_group" "transfer" {
   retention_in_days = var.log_retention_days
   tags              = var.tags
   kms_key_id        = var.log_group_kms_key_id
-
-  lifecycle {
-    ignore_changes = [name]
-  }
 }
