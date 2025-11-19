@@ -85,6 +85,20 @@ check "vpc_endpoint_requirements" {
   }
 }
 
+check "lambda_integration_requirements" {
+  assert {
+    condition     = var.identity_provider != "AWS_LAMBDA" || var.lambda_function_arn != null
+    error_message = "lambda_function_arn is required when identity_provider is AWS_LAMBDA."
+  }
+}
+
+check "api_gateway_integration_requirements" {
+  assert {
+    condition     = var.identity_provider != "API_GATEWAY" || (var.api_gateway_url != null && var.api_gateway_invocation_role != null)
+    error_message = "api_gateway_url and api_gateway_invocation_role are required when identity_provider is API_GATEWAY."
+  }
+}
+
 ######################################
 # Transfer Module
 ######################################
@@ -98,6 +112,11 @@ resource "aws_transfer_server" "transfer_server" {
   security_policy_name        = var.security_policy_name
   structured_log_destinations = var.enable_logging ? ["${aws_cloudwatch_log_group.transfer[0].arn}:*"] : []
   logging_role                = var.logging_role
+
+  # Custom Identity Provider Integration
+  function        = var.identity_provider == "AWS_LAMBDA" ? var.lambda_function_arn : null
+  url             = var.identity_provider == "API_GATEWAY" ? var.api_gateway_url : null
+  invocation_role = var.identity_provider == "API_GATEWAY" ? var.api_gateway_invocation_role : null
 
   dynamic "endpoint_details" {
     for_each = var.endpoint_details != null ? [1] : []
