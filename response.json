@@ -1,1 +1,0 @@
-{"errorMessage": "Unable to import module 'app': No module named 'aws_lambda_powertools'", "errorType": "Runtime.ImportModuleError", "requestId": "", "stackTrace": []}
