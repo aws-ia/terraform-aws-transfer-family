@@ -1,0 +1,46 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Installing dependencies..."
+      - yum install -y python3.11 python3.11-pip git
+      - python3.11 -m pip install pipenv
+      
+      - echo "Cloning repository..."
+      - git clone --branch $GITHUB_BRANCH --depth 1 $GITHUB_REPO repo
+      - cd repo/$SOLUTION_PATH
+      
+  build:
+    commands:
+      - echo "Running build script..."
+      - chmod +x build.sh
+      - ./build.sh
+      
+      - echo "Installing aws-lambda-powertools in layer..."
+      - mkdir -p modules/custom-idps/lambda-layer
+      - cd modules/custom-idps/lambda-layer
+      - python3.11 -m pip install aws-lambda-powertools -t .
+      - cd ../../..
+      
+      - echo "Copying existing layer contents..."
+      - cp -r src/handler_layer/python/* modules/custom-idps/lambda-layer/
+      
+      - echo "Packaging Lambda function..."
+      - cd src/idp_handler
+      - zip -r ../../function.zip . -x "*.pyc" -x "__pycache__/*"
+      - cd ../..
+      
+      - echo "Packaging Lambda layer..."
+      - cd modules/custom-idps/lambda-layer
+      - zip -r ../../../layer.zip . -x "*.pyc" -x "__pycache__/*"
+      - cd ../../../
+
+      
+      
+  post_build:
+    commands:
+      - echo "Uploading artifacts to S3..."
+      - aws s3 cp function.zip s3://$ARTIFACTS_BUCKET/$FUNCTION_ARTIFACT_KEY
+      - aws s3 cp layer.zip s3://$ARTIFACTS_BUCKET/$LAYER_ARTIFACT_KEY
+      - echo "Build completed successfully"
