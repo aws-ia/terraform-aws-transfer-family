@@ -58,8 +58,6 @@ output "identity_providers_table_arn" {
   value       = var.identity_providers_table_name == "" ? aws_dynamodb_table.identity_providers[0].arn : "arn:aws:dynamodb:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:table/${var.identity_providers_table_name}"
 }
 
-
-
 output "vpc_id" {
   description = "ID of the created VPC"
   value       = var.create_vpc ? aws_vpc.main[0].id : null
