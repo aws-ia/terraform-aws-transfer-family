@@ -10,6 +10,7 @@ resource "aws_s3_bucket" "artifacts" {
   tags   = var.tags
 }
 
+#########################################
 # DynamoDB Tables
 #########################################
 
@@ -227,7 +228,9 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+#########################################
 # VPC Resources
+#########################################
 resource "aws_vpc" "main" {
   count      = var.create_vpc ? 1 : 0
   cidr_block = var.vpc_cidr
@@ -348,7 +351,9 @@ resource "aws_security_group" "lambda" {
   })
 }
 
+#########################################
 # Cognito User Pool
+#########################################
 resource "aws_cognito_user_pool" "sftp_users" {
   name = var.cognito_user_pool_name
 
@@ -363,7 +368,9 @@ resource "aws_cognito_user_pool" "sftp_users" {
   tags = var.tags
 }
 
+#########################################
 # Cognito User Pool Client
+#########################################
 resource "aws_cognito_user_pool_client" "sftp_client" {
   name         = var.cognito_user_pool_client
   user_pool_id = aws_cognito_user_pool.sftp_users.id
@@ -373,6 +380,10 @@ resource "aws_cognito_user_pool_client" "sftp_client" {
     "ADMIN_NO_SRP_AUTH"
   ]
 }
+
+#########################################
+# Lambda resources
+#########################################
 
 # Lambda layer for dependencies
 resource "aws_lambda_layer_version" "dependencies" {
@@ -446,6 +457,10 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.identity_provider[0].execution_arn}/*/*"
 }
+
+#########################################
+# API Gateway resources
+#########################################
 
 # API Gateway for identity provider
 resource "aws_api_gateway_rest_api" "identity_provider" {
@@ -541,7 +556,3 @@ resource "aws_api_gateway_stage" "identity_provider" {
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
   stage_name    = "prod"
 }
-
-
-
-
