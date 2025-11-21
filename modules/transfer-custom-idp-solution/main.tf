@@ -65,13 +65,6 @@ resource "aws_dynamodb_table" "users" {
     enabled = true
   }
 
-  dynamic "lifecycle" {
-    for_each = var.enable_dynamodb_protection ? [1] : []
-    content {
-      prevent_destroy = true
-    }
-  }
-
   tags = local.common_tags
 }
 
@@ -93,13 +86,6 @@ resource "aws_dynamodb_table" "identity_providers" {
 
   server_side_encryption {
     enabled = true
-  }
-
-  dynamic "lifecycle" {
-    for_each = var.enable_dynamodb_protection ? [1] : []
-    content {
-      prevent_destroy = true
-    }
   }
 
   tags = local.common_tags
@@ -167,21 +153,11 @@ resource "aws_codebuild_project" "build" {
   
   logs_config {
     cloudwatch_logs {
-      group_name = aws_cloudwatch_log_group.codebuild_log_group.name
+      group_name = "/aws/codebuild/${local.codebuild_project}"
     }
   }
   
   tags = local.common_tags
-}
-
-###########################################
-# CloudWatch Log group for CodeBuild logs 
-###########################################
-
-resource "aws_cloudwatch_log_group" "codebuild_log_group" {
-  name              = "/aws/codebuild/${local.codebuild_project}"
-  retention_in_days = 7
-  tags              = local.common_tags
 }
 
 ########################################
@@ -232,8 +208,7 @@ resource "null_resource" "build_trigger" {
   depends_on = [
     aws_codebuild_project.build,
     aws_s3_bucket.artifacts,
-    aws_iam_role_policy.codebuild_policy,
-    aws_cloudwatch_log_group.codebuild_log_group
+    aws_iam_role_policy.codebuild_policy
   ]
 }
 
@@ -367,17 +342,10 @@ resource "aws_lambda_function" "identity_provider" {
 
   depends_on = [
     null_resource.build_trigger,
-    aws_lambda_layer_version.dependencies,
-    aws_cloudwatch_log_group.lambda
+    aws_lambda_layer_version.dependencies
   ]
 
   tags = local.common_tags
-}
-
-resource "aws_cloudwatch_log_group" "lambda" {
-  name              = "/aws/lambda/${local.function_name}"
-  retention_in_days = 14
-  tags              = local.common_tags
 }
 
 # Lambda permission for AWS Transfer Family to invoke the function
@@ -497,4 +465,8 @@ resource "aws_api_gateway_stage" "identity_provider" {
   deployment_id = aws_api_gateway_deployment.identity_provider[0].id
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
   stage_name    = "prod"
+
+  xray_tracing_enabled = var.enable_tracing
+
+  tags = local.common_tags
 }

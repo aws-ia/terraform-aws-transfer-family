@@ -107,12 +107,6 @@ variable "identity_providers_table_name" {
   default     = ""
 }
 
-variable "enable_dynamodb_protection" {
-  description = "Enable lifecycle prevent_destroy on DynamoDB tables to prevent accidental deletion"
-  type        = bool
-  default     = false
-}
-
 # API Gateway Configuration
 variable "provision_api" {
   description = "Create API Gateway REST API"

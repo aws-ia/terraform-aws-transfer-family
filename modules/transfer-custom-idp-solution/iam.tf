@@ -68,7 +68,7 @@ resource "aws_iam_role_policy" "secrets_manager" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = "*"
+        Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:transfer-idp*"
       }
     ]
   })
