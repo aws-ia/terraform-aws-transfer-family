@@ -178,7 +178,7 @@ resource "aws_dynamodb_table_item" "cognito_provider" {
 
   item = jsonencode({
     provider = {
-      S = "domain2019.local"
+      S = "cognito_pool"
     }
     public_key_support = {
       BOOL = false
@@ -206,13 +206,14 @@ resource "aws_dynamodb_table_item" "cognito_provider" {
 resource "aws_dynamodb_table_item" "mock_user" {
   table_name = module.custom_idp.users_table_name
   hash_key   = "user"
+  range_key  = "identity_provider_key"
 
   item = jsonencode({
     user = {
       S = var.cognito_username
     }
     identity_provider_key = {
-      S = "user_pool"
+      S = "cognito_pool"
     }
     config = {
       M = {
