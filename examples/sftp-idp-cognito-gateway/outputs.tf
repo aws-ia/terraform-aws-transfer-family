@@ -27,3 +27,23 @@ output "dynamodb_users_table" {
   description = "DynamoDB table for user configuration"
   value       = module.custom_idp.users_table_name
 }
+
+output "cognito_user_password_secret_arn" {
+  description = "ARN of the Secrets Manager secret containing the Cognito user password"
+  value       = aws_secretsmanager_secret.cognito_user_password.arn
+}
+
+output "cognito_username" {
+  description = "Cognito username for SFTP login"
+  value       = var.cognito_username
+}
+
+output "retrieve_password_command" {
+  description = "AWS CLI command to retrieve the Cognito user password"
+  value       = "aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.cognito_user_password.arn} --query SecretString --output text | jq -r '.password'"
+}
+
+output "test_connection_command" {
+  description = "Command to test SFTP connection (retrieve password first using retrieve_password_command)"
+  value       = "sftp ${var.cognito_username}@@user_pool@${aws_transfer_server.sftp_server.endpoint}"
+}

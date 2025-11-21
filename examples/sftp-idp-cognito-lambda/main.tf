@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.95.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.6.0"
+    }
   }
 }
 
@@ -16,12 +20,12 @@ data "aws_caller_identity" "current" {}
 
 # S3 bucket for user files
 resource "aws_s3_bucket" "transfer_files" {
-  bucket = "${var.stack_name}-awstransfer-filestest-${data.aws_caller_identity.current.account_id}"
+  bucket = "${var.name_prefix}-awstransfer-filestest-${data.aws_caller_identity.current.account_id}"
 }
 
 # IAM role for Transfer Family users
 resource "aws_iam_role" "transfer_role" {
-  name = "${var.stack_name}-AWSTransferRole"
+  name = "${var.name_prefix}-AWSTransferRole"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -38,7 +42,7 @@ resource "aws_iam_role" "transfer_role" {
 }
 
 resource "aws_iam_role_policy" "transfer_policy" {
-  name = "${var.stack_name}-transfer-policy"
+  name = "${var.name_prefix}-transfer-policy"
   role = aws_iam_role.transfer_role.id
 
   policy = jsonencode({
@@ -82,7 +86,7 @@ resource "aws_iam_role_policy" "transfer_policy" {
 
 # Cognito User Pool
 resource "aws_cognito_user_pool" "transfer_users" {
-  name = "${var.stack_name}-transfer-users"
+  name = "${var.name_prefix}-transfer-users"
 
   password_policy {
     minimum_length    = 8
@@ -96,7 +100,7 @@ resource "aws_cognito_user_pool" "transfer_users" {
 }
 
 resource "aws_cognito_user_pool_client" "transfer_client" {
-  name         = "${var.stack_name}-transfer-client"
+  name         = "${var.name_prefix}-transfer-client"
   user_pool_id = aws_cognito_user_pool.transfer_users.id
 
   generate_secret = false
@@ -106,34 +110,59 @@ resource "aws_cognito_user_pool_client" "transfer_client" {
   ]
 }
 
-# Create Cognito user that matches DynamoDB user record
-resource "null_resource" "create_cognito_user" {
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws cognito-idp admin-create-user \
-        --user-pool-id ${aws_cognito_user_pool.transfer_users.id} \
-        --username 'user1' \
-        --temporary-password 'TempPass123!' \
-        --message-action SUPPRESS || true
-      
-      aws cognito-idp admin-set-user-password \
-        --user-pool-id ${aws_cognito_user_pool.transfer_users.id} \
-        --username 'user1' \
-        --password 'MySecurePass123!' \
-        --permanent
-    EOT
+# Generate secure random password
+resource "random_password" "cognito_user" {
+  length           = 16
+  special          = true
+  numeric          = true
+  lower            = true
+  upper            = true
+  min_numeric      = 1
+  min_special      = 1
+  min_lower        = 1
+  min_upper        = 1
+  override_special = "!@#$%^&*()-_=+[]{}|;:,.<>?"
+}
+
+# Store password in Secrets Manager
+resource "aws_secretsmanager_secret" "cognito_user_password" {
+  name_prefix             = "${var.name_prefix}-cognito-user-password-"
+  recovery_window_in_days = 0
+  tags                    = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "cognito_user_password" {
+  secret_id = aws_secretsmanager_secret.cognito_user_password.id
+  secret_string = jsonencode({
+    username = var.cognito_username
+    password = random_password.cognito_user.result
+  })
+}
+
+# Create Cognito user with secure password
+resource "aws_cognito_user" "user" {
+  user_pool_id = aws_cognito_user_pool.transfer_users.id
+  username     = var.cognito_username
+
+  attributes = {
+    email          = var.cognito_user_email
+    email_verified = true
   }
 
-  depends_on = [aws_cognito_user_pool.transfer_users]
+  password = random_password.cognito_user.result
+
+  lifecycle {
+    ignore_changes = [password]
+  }
 }
 
 # Custom IDP module
 module "custom_idp" {
-  source = "../../modules/custom-idps"
+  source = "../../modules/transfer-custom-idp-solution"
 
-  stack_name                      = var.stack_name
-  users_table_name               = "${var.stack_name}-users"
-  identity_providers_table_name  = "${var.stack_name}-identity-providers"
+  name_prefix = var.name_prefix
+  users_table_name               = "${var.name_prefix}-users"
+  identity_providers_table_name  = "${var.name_prefix}-identity-providers"
   
   create_vpc = false
   use_vpc    = false
@@ -180,10 +209,10 @@ resource "aws_dynamodb_table_item" "mock_user" {
 
   item = jsonencode({
     user = {
-      S = "user1"
+      S = var.cognito_username
     }
     identity_provider_key = {
-      S = "domain2019.local"
+      S = "user_pool"
     }
     config = {
       M = {
@@ -281,7 +310,7 @@ resource "aws_cloudwatch_log_group" "lambda_logs" {
 
 # IAM role for Transfer server logging
 resource "aws_iam_role" "transfer_logging_role" {
-  name = "${var.stack_name}-transfer-logging-role"
+  name = "${var.name_prefix}-transfer-logging-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

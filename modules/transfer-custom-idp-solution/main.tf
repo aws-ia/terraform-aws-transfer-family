@@ -1,13 +1,38 @@
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
 #########################################
 # S3 bucket to store CodeBuild artifacts 
 #########################################
 
 resource "aws_s3_bucket" "artifacts" {
-  bucket = "${var.stack_name}-idp-artifacts-${data.aws_caller_identity.current.account_id}"
-  tags   = var.tags
+  bucket        = local.artifacts_bucket
+  force_destroy = var.artifacts_force_destroy
+  tags          = local.common_tags
+}
+
+resource "aws_s3_bucket_versioning" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 #########################################
@@ -15,29 +40,69 @@ resource "aws_s3_bucket" "artifacts" {
 #########################################
 
 resource "aws_dynamodb_table" "users" {
-  name           = var.users_table_name
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "user"
+  count = var.users_table_name == "" ? 1 : 0
+
+  name         = local.users_table
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user"
+  range_key    = "identity_provider_key"
 
   attribute {
     name = "user"
     type = "S"
   }
 
-  tags = var.tags
+  attribute {
+    name = "identity_provider_key"
+    type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  dynamic "lifecycle" {
+    for_each = var.enable_dynamodb_protection ? [1] : []
+    content {
+      prevent_destroy = true
+    }
+  }
+
+  tags = local.common_tags
 }
 
 resource "aws_dynamodb_table" "identity_providers" {
-  name           = var.identity_providers_table_name
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "provider"
+  count = var.identity_providers_table_name == "" ? 1 : 0
+
+  name         = local.providers_table
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "provider"
 
   attribute {
     name = "provider"
     type = "S"
   }
 
-  tags = var.tags
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  dynamic "lifecycle" {
+    for_each = var.enable_dynamodb_protection ? [1] : []
+    content {
+      prevent_destroy = true
+    }
+  }
+
+  tags = local.common_tags
 }
 
 ######################################################################################
@@ -45,7 +110,7 @@ resource "aws_dynamodb_table" "identity_providers" {
 ######################################################################################
 
 resource "aws_codebuild_project" "build" {
-  name          = "${var.stack_name}-custom-idp-codebuild-project"
+  name          = local.codebuild_project
   description   = "Build Lambda artifacts for Transfer Family Custom IdP"
   service_role  = aws_iam_role.codebuild_role.arn
   build_timeout = 30
@@ -71,12 +136,12 @@ resource "aws_codebuild_project" "build" {
     
     environment_variable {
       name  = "FUNCTION_ARTIFACT_KEY"
-      value = var.function_artifact_key
+      value = local.function_artifact_key
     }
     
     environment_variable {
       name  = "LAYER_ARTIFACT_KEY"
-      value = var.layer_artifact_key
+      value = local.layer_artifact_key
     }
     
     environment_variable {
@@ -106,7 +171,7 @@ resource "aws_codebuild_project" "build" {
     }
   }
   
-  tags = var.tags
+  tags = local.common_tags
 }
 
 ###########################################
@@ -114,9 +179,9 @@ resource "aws_codebuild_project" "build" {
 ###########################################
 
 resource "aws_cloudwatch_log_group" "codebuild_log_group" {
-  name              = "/aws/codebuild/${var.stack_name}-custom-idp-codebuild-project"
+  name              = "/aws/codebuild/${local.codebuild_project}"
   retention_in_days = 7
-  tags              = var.tags
+  tags              = local.common_tags
 }
 
 ########################################
@@ -133,6 +198,9 @@ resource "null_resource" "build_trigger" {
   
   provisioner "local-exec" {
     command = <<-EOT
+      echo "Waiting for IAM role propagation..."
+      sleep 10
+      
       BUILD_ID=$(aws codebuild start-build \
         --project-name ${aws_codebuild_project.build.name} \
         --query 'build.id' \
@@ -163,7 +231,9 @@ resource "null_resource" "build_trigger" {
   
   depends_on = [
     aws_codebuild_project.build,
-    aws_s3_bucket.artifacts
+    aws_s3_bucket.artifacts,
+    aws_iam_role_policy.codebuild_policy,
+    aws_cloudwatch_log_group.codebuild_log_group
   ]
 }
 
@@ -172,7 +242,7 @@ resource "null_resource" "build_trigger" {
 ######################################
 
 resource "aws_iam_role" "codebuild_role" {
-  name = "${var.stack_name}-custom-idp-codebuild-role"
+  name = "${var.name_prefix}-custom-idp-codebuild-role"
   
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -185,7 +255,7 @@ resource "aws_iam_role" "codebuild_role" {
     }]
   })
   
-  tags = var.tags
+  tags = local.common_tags
 }
 
 ######################################
@@ -193,7 +263,7 @@ resource "aws_iam_role" "codebuild_role" {
 ######################################
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  name = "${var.stack_name}-custom-idp-codebuild-policy"
+  name = "${var.name_prefix}-custom-idp-codebuild-policy"
   role        = aws_iam_role.codebuild_role.id
   
   policy = jsonencode({
@@ -224,206 +294,70 @@ resource "aws_iam_role_policy" "codebuild_policy" {
   })
 }
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-#########################################
-# VPC Resources
-#########################################
-resource "aws_vpc" "main" {
-  count      = var.create_vpc ? 1 : 0
-  cidr_block = var.vpc_cidr
-  
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-vpc"
-  })
-}
-
-resource "aws_subnet" "private" {
-  count             = var.create_vpc ? 2 : 0
-  vpc_id            = aws_vpc.main[0].id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-private-${count.index + 1}"
-  })
-}
-
-resource "aws_internet_gateway" "main" {
-  count  = var.create_vpc ? 1 : 0
-  vpc_id = aws_vpc.main[0].id
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-igw"
-  })
-}
-
-resource "aws_eip" "nat" {
-  count  = var.create_vpc ? 1 : 0
-  domain = "vpc"
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-nat-eip"
-  })
-}
-
-resource "aws_nat_gateway" "main" {
-  count         = var.create_vpc ? 1 : 0
-  allocation_id = aws_eip.nat[0].id
-  subnet_id     = aws_subnet.public[0].id
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-nat"
-  })
-}
-
-resource "aws_subnet" "public" {
-  count                   = var.create_vpc ? 1 : 0
-  vpc_id                  = aws_vpc.main[0].id
-  cidr_block              = cidrsubnet(var.vpc_cidr, 8, 10)
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-public"
-  })
-}
-
-resource "aws_route_table" "private" {
-  count  = var.create_vpc ? 1 : 0
-  vpc_id = aws_vpc.main[0].id
-  
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[0].id
-  }
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-private-rt"
-  })
-}
-
-resource "aws_route_table" "public" {
-  count  = var.create_vpc ? 1 : 0
-  vpc_id = aws_vpc.main[0].id
-  
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main[0].id
-  }
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-public-rt"
-  })
-}
-
-resource "aws_route_table_association" "private" {
-  count          = var.create_vpc ? 2 : 0
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[0].id
-}
-
-resource "aws_route_table_association" "public" {
-  count          = var.create_vpc ? 1 : 0
-  subnet_id      = aws_subnet.public[0].id
-  route_table_id = aws_route_table.public[0].id
-}
-
-resource "aws_security_group" "lambda" {
-  count  = var.create_vpc ? 1 : 0
-  name   = "${var.stack_name}-lambda-sg"
-  vpc_id = aws_vpc.main[0].id
-  
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  tags = merge(var.tags, {
-    Name = "${var.stack_name}-lambda-sg"
-  })
-}
-
-#########################################
-# Cognito User Pool
-#########################################
-resource "aws_cognito_user_pool" "sftp_users" {
-  name = var.cognito_user_pool_name
-
-  password_policy {
-    minimum_length    = 8
-    require_lowercase = true
-    require_numbers   = true
-    require_symbols   = true
-    require_uppercase = true
-  }
-
-  tags = var.tags
-}
-
-#########################################
-# Cognito User Pool Client
-#########################################
-resource "aws_cognito_user_pool_client" "sftp_client" {
-  name         = var.cognito_user_pool_client
-  user_pool_id = aws_cognito_user_pool.sftp_users.id
-
-  generate_secret = false
-  explicit_auth_flows = [
-    "ADMIN_NO_SRP_AUTH"
-  ]
-}
-
 #########################################
 # Lambda resources
 #########################################
 
+# Data sources to detect artifact changes
+data "aws_s3_object" "layer_artifact" {
+  bucket = aws_s3_bucket.artifacts.bucket
+  key    = local.layer_artifact_key
+
+  depends_on = [null_resource.build_trigger]
+}
+
+data "aws_s3_object" "function_artifact" {
+  bucket = aws_s3_bucket.artifacts.bucket
+  key    = local.function_artifact_key
+
+  depends_on = [null_resource.build_trigger]
+}
+
 # Lambda layer for dependencies
 resource "aws_lambda_layer_version" "dependencies" {
-  layer_name = "${var.stack_name}-dependencies"
-  
-  s3_bucket = aws_s3_bucket.artifacts.bucket
-  s3_key    = "lambda-layer.zip"
-  
+  layer_name          = local.layer_name
+  s3_bucket           = aws_s3_bucket.artifacts.bucket
+  s3_key              = local.layer_artifact_key
+  s3_object_version   = data.aws_s3_object.layer_artifact.version_id
   compatible_runtimes = [var.lambda_runtime]
-  
+  description         = "Dependencies for Transfer Family Custom IdP"
+  source_code_hash    = data.aws_s3_object.layer_artifact.etag
+
   depends_on = [null_resource.build_trigger]
 }
 
 # Lambda function for identity provider
 resource "aws_lambda_function" "identity_provider" {
-  function_name    = "${var.stack_name}-identity-provider"
-  role            = aws_iam_role.lambda_role.arn
-  handler         = "app.lambda_handler"
-  runtime         = var.lambda_runtime
-  timeout         = var.lambda_timeout
-  memory_size     = var.lambda_memory_size
-  
-  s3_bucket = aws_s3_bucket.artifacts.bucket
-  s3_key    = "lambda-function.zip"
-  
+  function_name = local.function_name
+  description   = "AWS Transfer Family Custom IdP Handler"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "app.lambda_handler"
+  runtime       = var.lambda_runtime
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
+
+  s3_bucket         = aws_s3_bucket.artifacts.bucket
+  s3_key            = local.function_artifact_key
+  s3_object_version = data.aws_s3_object.function_artifact.version_id
+  source_code_hash  = data.aws_s3_object.function_artifact.etag
+
   layers = [aws_lambda_layer_version.dependencies.arn]
 
   environment {
     variables = {
-      USERS_TABLE             = var.users_table_name
-      IDENTITY_PROVIDERS_TABLE = var.identity_providers_table_name
-      USER_NAME_DELIMITER      = var.user_name_delimiter
+      USERS_TABLE              = local.users_table
+      IDENTITY_PROVIDERS_TABLE = local.providers_table
+      USER_NAME_DELIMITER      = var.username_delimiter
+      LOGLEVEL                 = var.log_level
+      AWS_XRAY_TRACING_NAME    = local.function_name
     }
   }
 
   dynamic "vpc_config" {
-    for_each = var.use_vpc ? [1] : []
+    for_each = local.vpc_config != null ? [local.vpc_config] : []
     content {
-      subnet_ids = var.create_vpc ? aws_subnet.private[*].id : split(",", var.subnets)
-      security_group_ids = var.create_vpc ? [aws_security_group.lambda[0].id] : split(",", var.security_groups)
+      subnet_ids         = vpc_config.value.subnet_ids
+      security_group_ids = vpc_config.value.security_group_ids
     }
   }
 
@@ -431,26 +365,34 @@ resource "aws_lambda_function" "identity_provider" {
     mode = var.enable_tracing ? "Active" : "PassThrough"
   }
 
-  tags = var.tags
-  
   depends_on = [
     null_resource.build_trigger,
-    aws_lambda_layer_version.dependencies
+    aws_lambda_layer_version.dependencies,
+    aws_cloudwatch_log_group.lambda
   ]
+
+  tags = local.common_tags
+}
+
+resource "aws_cloudwatch_log_group" "lambda" {
+  name              = "/aws/lambda/${local.function_name}"
+  retention_in_days = 14
+  tags              = local.common_tags
 }
 
 # Lambda permission for AWS Transfer Family to invoke the function
 resource "aws_lambda_permission" "transfer_invoke" {
-  count         = var.use_api_gateway ? 0 : 1
-  statement_id  = "AllowTransferInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.identity_provider.function_name
-  principal     = "transfer.amazonaws.com"
+  count          = var.provision_api ? 0 : 1
+  statement_id   = "AllowTransferFamilyInvoke"
+  action         = "lambda:InvokeFunction"
+  function_name  = aws_lambda_function.identity_provider.function_name
+  principal      = "transfer.amazonaws.com"
+  source_account = data.aws_caller_identity.current.account_id
 }
 
 # Lambda permission for API Gateway to invoke the function
 resource "aws_lambda_permission" "api_gateway_invoke" {
-  count         = var.use_api_gateway ? 1 : 0
+  count         = var.provision_api ? 1 : 0
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.identity_provider.function_name
@@ -464,53 +406,53 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
 
 # API Gateway for identity provider
 resource "aws_api_gateway_rest_api" "identity_provider" {
-  count = var.use_api_gateway ? 1 : 0
-  name  = "${var.stack_name}-identity-provider-api"
+  count = var.provision_api ? 1 : 0
+  name  = "${var.name_prefix}-identity-provider-api"
 
   endpoint_configuration {
     types = ["REGIONAL"]
   }
 
-  tags = var.tags
+  tags = local.common_tags
 }
 
 resource "aws_api_gateway_resource" "servers" {
-  count       = var.use_api_gateway ? 1 : 0
+  count       = var.provision_api ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_rest_api.identity_provider[0].root_resource_id
   path_part   = "servers"
 }
 
 resource "aws_api_gateway_resource" "server_id" {
-  count       = var.use_api_gateway ? 1 : 0
+  count       = var.provision_api ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.servers[0].id
   path_part   = "{serverId}"
 }
 
 resource "aws_api_gateway_resource" "users" {
-  count       = var.use_api_gateway ? 1 : 0
+  count       = var.provision_api ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.server_id[0].id
   path_part   = "users"
 }
 
 resource "aws_api_gateway_resource" "username" {
-  count       = var.use_api_gateway ? 1 : 0
+  count       = var.provision_api ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.users[0].id
   path_part   = "{username}"
 }
 
 resource "aws_api_gateway_resource" "config" {
-  count       = var.use_api_gateway ? 1 : 0
+  count       = var.provision_api ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   parent_id   = aws_api_gateway_resource.username[0].id
   path_part   = "config"
 }
 
 resource "aws_api_gateway_method" "get_user_config" {
-  count         = var.use_api_gateway ? 1 : 0
+  count         = var.provision_api ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
   resource_id   = aws_api_gateway_resource.config[0].id
   http_method   = "GET"
@@ -518,15 +460,15 @@ resource "aws_api_gateway_method" "get_user_config" {
 }
 
 resource "aws_api_gateway_integration" "lambda" {
-  count       = var.use_api_gateway ? 1 : 0
+  count       = var.provision_api ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
   resource_id = aws_api_gateway_resource.config[0].id
   http_method = aws_api_gateway_method.get_user_config[0].http_method
 
   integration_http_method = "POST"
-  type                   = "AWS"
-  uri                    = aws_lambda_function.identity_provider.invoke_arn
-  
+  type                    = "AWS"
+  uri                     = aws_lambda_function.identity_provider.invoke_arn
+
   request_templates = {
     "application/json" = <<EOF
 {
@@ -541,7 +483,7 @@ EOF
 }
 
 resource "aws_api_gateway_deployment" "identity_provider" {
-  count       = var.use_api_gateway ? 1 : 0
+  count       = var.provision_api ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
 
   depends_on = [
@@ -551,7 +493,7 @@ resource "aws_api_gateway_deployment" "identity_provider" {
 }
 
 resource "aws_api_gateway_stage" "identity_provider" {
-  count         = var.use_api_gateway ? 1 : 0
+  count         = var.provision_api ? 1 : 0
   deployment_id = aws_api_gateway_deployment.identity_provider[0].id
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
   stage_name    = "prod"

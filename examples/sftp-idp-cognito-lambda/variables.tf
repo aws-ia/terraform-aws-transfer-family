@@ -4,8 +4,8 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "stack_name" {
-  description = "Name prefix for all resources"
+variable "name_prefix" {
+  description = "Prefix for resource names"
   type        = string
   default     = "sftp-cognito-example"
 }
@@ -17,4 +17,16 @@ variable "tags" {
     Environment = "demo"
     Project     = "transfer-family-cognito"
   }
+}
+
+variable "cognito_username" {
+  description = "Username for the Cognito user"
+  type        = string
+  default     = "user1"
+}
+
+variable "cognito_user_email" {
+  description = "Email address for the Cognito user"
+  type        = string
+  default     = "user1@example.com"
 }

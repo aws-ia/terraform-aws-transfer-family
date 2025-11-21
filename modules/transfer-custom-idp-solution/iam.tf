@@ -1,6 +1,6 @@
 # Lambda execution role
 resource "aws_iam_role" "lambda_role" {
-  name = "${var.stack_name}-lambda-role"
+  name = "${var.name_prefix}-lambda-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -31,9 +31,9 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc" {
   role       = aws_iam_role.lambda_role.name
 }
 
-# DynamoDB access policy
+# DynamoDB access policy (read-only for IdP)
 resource "aws_iam_role_policy" "dynamodb_access" {
-  name = "${var.stack_name}-dynamodb-policy"
+  name = "${var.name_prefix}-dynamodb-policy"
   role = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
@@ -43,15 +43,11 @@ resource "aws_iam_role_policy" "dynamodb_access" {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Query"
         ]
         Resource = [
-          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.users_table_name}",
-          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.identity_providers_table_name}"
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${local.users_table}",
+          "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${local.providers_table}"
         ]
       }
     ]
@@ -61,7 +57,7 @@ resource "aws_iam_role_policy" "dynamodb_access" {
 # Secrets Manager access (if enabled)
 resource "aws_iam_role_policy" "secrets_manager" {
   count = var.secrets_manager_permissions ? 1 : 0
-  name  = "${var.stack_name}-secrets-policy"
+  name  = "${var.name_prefix}-secrets-policy"
   role  = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
@@ -80,15 +76,16 @@ resource "aws_iam_role_policy" "secrets_manager" {
 
 # API Gateway Lambda execution policy (when using API Gateway)
 resource "aws_iam_role_policy_attachment" "lambda_api_gateway" {
-  count      = var.use_api_gateway ? 1 : 0
+  count      = var.provision_api ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
   role       = aws_iam_role.lambda_role.name
 }
 
-# Cognito access policy
-resource "aws_iam_role_policy" "cognito_access" {
-  name = "${var.stack_name}-cognito-policy"
-  role = aws_iam_role.lambda_role.id
+# X-Ray tracing permissions (if enabled)
+resource "aws_iam_role_policy" "xray_tracing" {
+  count = var.enable_tracing ? 1 : 0
+  name  = "${var.name_prefix}-xray-policy"
+  role  = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -96,11 +93,10 @@ resource "aws_iam_role_policy" "cognito_access" {
       {
         Effect = "Allow"
         Action = [
-          "cognito-idp:AdminInitiateAuth",
-          "cognito-idp:AdminGetUser",
-          "cognito-idp:AdminListGroupsForUser"
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords"
         ]
-        Resource = aws_cognito_user_pool.sftp_users.arn
+        Resource = "*"
       }
     ]
   })
@@ -108,8 +104,8 @@ resource "aws_iam_role_policy" "cognito_access" {
 
 # Transfer Family invocation role (for direct Lambda)
 resource "aws_iam_role" "transfer_invocation_role" {
-  count = var.use_api_gateway ? 0 : 1
-  name = "${var.stack_name}-transfer-invocation-role"
+  count = var.provision_api ? 0 : 1
+  name = "${var.name_prefix}-transfer-invocation-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -128,8 +124,8 @@ resource "aws_iam_role" "transfer_invocation_role" {
 }
 
 resource "aws_iam_role_policy" "transfer_invoke_lambda" {
-  count = var.use_api_gateway ? 0 : 1
-  name = "${var.stack_name}-transfer-invoke-policy"
+  count = var.provision_api ? 0 : 1
+  name = "${var.name_prefix}-transfer-invoke-policy"
   role = aws_iam_role.transfer_invocation_role[0].id
 
   policy = jsonencode({
@@ -148,8 +144,8 @@ resource "aws_iam_role_policy" "transfer_invoke_lambda" {
 
 # Transfer Family invocation role (for API Gateway)
 resource "aws_iam_role" "transfer_api_gateway_role" {
-  count = var.use_api_gateway ? 1 : 0
-  name  = "${var.stack_name}-transfer-api-gateway-role"
+  count = var.provision_api ? 1 : 0
+  name  = "${var.name_prefix}-transfer-api-gateway-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -166,8 +162,8 @@ resource "aws_iam_role" "transfer_api_gateway_role" {
 }
 
 resource "aws_iam_role_policy" "transfer_api_gateway_policy" {
-  count = var.use_api_gateway ? 1 : 0
-  name  = "${var.stack_name}-transfer-api-gateway-policy"
+  count = var.provision_api ? 1 : 0
+  name  = "${var.name_prefix}-transfer-api-gateway-policy"
   role  = aws_iam_role.transfer_api_gateway_role[0].id
 
   policy = jsonencode({
