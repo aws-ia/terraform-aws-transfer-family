@@ -39,7 +39,9 @@ resource "aws_s3_bucket_public_access_block" "artifacts" {
 # DynamoDB Tables
 #########################################
 
+
 resource "aws_dynamodb_table" "users" {
+  #checkov:skip=CKV_AWS_119:Using AWS managed encryption is acceptable for this use case
   count = var.users_table_name == "" ? 1 : 0
 
   name         = local.users_table
@@ -68,7 +70,9 @@ resource "aws_dynamodb_table" "users" {
   tags = local.common_tags
 }
 
+
 resource "aws_dynamodb_table" "identity_providers" {
+  #checkov:skip=CKV_AWS_119:Using AWS managed encryption is acceptable for this use case
   count = var.identity_providers_table_name == "" ? 1 : 0
 
   name         = local.providers_table
@@ -95,7 +99,9 @@ resource "aws_dynamodb_table" "identity_providers" {
 # CodeBuild project to download code from Tookit Git repo and publish artifacts to S3
 ######################################################################################
 
+
 resource "aws_codebuild_project" "build" {
+  # checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this use case
   name          = local.codebuild_project
   description   = "Build Lambda artifacts for Transfer Family Custom IdP"
   service_role  = aws_iam_role.codebuild_role.arn
@@ -302,7 +308,12 @@ resource "aws_lambda_layer_version" "dependencies" {
 }
 
 # Lambda function for identity provider
+
 resource "aws_lambda_function" "identity_provider" {
+  #checkov:skip=CKV_AWS_116:DLQ not required for synchronous IdP authentication flow
+  #checkov:skip=CKV_AWS_173:Using AWS managed encryption is acceptable for this use case
+  #checkov:skip=CKV_AWS_272:Code signing adds operational complexity without significant security benefit
+  #checkov:skip=CKV_AWS_115:Concurrent execution limit not required, AWS manages throttling
   function_name = local.function_name
   description   = "AWS Transfer Family Custom IdP Handler"
   role          = aws_iam_role.lambda_role.arn

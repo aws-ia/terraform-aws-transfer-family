@@ -20,6 +20,12 @@ locals {
 ###################################################################
 # Custom IDP module
 ###################################################################
+#checkov:skip=CKV_AWS_119:Using AWS managed encryption is acceptable for this example
+#checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this example
+#checkov:skip=CKV_AWS_116:DLQ not required for synchronous IdP authentication flow
+#checkov:skip=CKV_AWS_173:Using AWS managed encryption is acceptable for this example
+#checkov:skip=CKV_AWS_272:Code signing adds operational complexity without significant security benefit
+#checkov:skip=CKV_AWS_115:Concurrent execution limit not required, AWS manages throttling
 module "custom_idp" {
   source = "../../modules/transfer-custom-idp-solution"
 
@@ -47,7 +53,5 @@ module "transfer_server" {
   lambda_function_arn      = module.custom_idp.lambda_function_arn
   security_policy_name     = "TransferSecurityPolicy-2024-01" # https://docs.aws.amazon.com/transfer/latest/userguide/security-policies.html#security-policy-transfer-2024-01
   enable_logging           = true
-  log_retention_days       = 30 # This can be modified based on requirements
-  logging_role             = var.logging_role
-  workflow_details         = var.workflow_details 
+
 }
