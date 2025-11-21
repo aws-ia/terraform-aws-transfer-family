@@ -2,7 +2,10 @@
 # VPC Resources
 #########################################
 
+
 resource "aws_vpc" "main" {
+  #checkov:skip=CKV2_AWS_11:VPC flow logging is optional for this use case
+  #checkov:skip=CKV2_AWS_12:Default security group restrictions managed separately
   count      = var.create_vpc ? 1 : 0
   cidr_block = var.vpc_cidr
 
@@ -109,7 +112,9 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public[0].id
 }
 
+
 resource "aws_security_group" "lambda" {
+  #checkov:skip=CKV2_AWS_5:Security group is attached to Lambda function when VPC is enabled
   count  = var.create_vpc ? 1 : 0
   name   = "${var.name_prefix}-lambda-sg"
   vpc_id = aws_vpc.main[0].id
