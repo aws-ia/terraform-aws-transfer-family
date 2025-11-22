@@ -186,6 +186,7 @@ resource "aws_cognito_user" "transfer_user" {
 # Store Cognito user password securely in Secrets Manager
 resource "aws_secretsmanager_secret" "cognito_user_password" {
   #checkov:skip=CKV_AWS_149:Using AWS managed encryption is acceptable for this example
+  #checkov:skip=CKV2_AWS_57:Automatic rotation not required for Cognito user passwords
   name_prefix             = "${var.name_prefix}-cognito-password-"
   recovery_window_in_days = 0
 
