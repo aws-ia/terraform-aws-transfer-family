@@ -50,10 +50,11 @@ resource "aws_dynamodb_table" "users" {
   #checkov:skip=CKV_AWS_119:Using AWS managed encryption is acceptable for this use case
   count = var.users_table_name == "" ? 1 : 0
 
-  name         = local.users_table
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "user"
-  range_key    = "identity_provider_key"
+  name              = local.users_table
+  billing_mode      = "PAY_PER_REQUEST"
+  hash_key          = "user"
+  range_key         = "identity_provider_key"
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "user"
@@ -84,6 +85,7 @@ resource "aws_dynamodb_table" "identity_providers" {
   name         = local.providers_table
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "provider"
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "provider"
@@ -107,7 +109,7 @@ resource "aws_dynamodb_table" "identity_providers" {
 
 
 resource "aws_codebuild_project" "build" {
-  # checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this use case
+  #checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this use case
   name          = local.codebuild_project
   description   = "Build Lambda artifacts for Transfer Family Custom IdP"
   service_role  = aws_iam_role.codebuild_role.arn
