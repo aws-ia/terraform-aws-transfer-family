@@ -4,11 +4,6 @@
 
 
 resource "aws_s3_bucket" "artifacts" {
-  #checkov:skip=CKV2_AWS_62:Event notifications not required for build artifacts bucket
-  #checkov:skip=CKV2_AWS_61:Lifecycle configuration not required for build artifacts bucket
-  #checkov:skip=CKV_AWS_18:Access logging not required for build artifacts bucket
-  #checkov:skip=CKV_AWS_144:Cross-region replication not required for build artifacts bucket
-  #checkov:skip=CKV_AWS_145:Using AWS managed encryption is acceptable for this use case
   bucket        = local.artifacts_bucket
   force_destroy = var.artifacts_force_destroy
   tags          = local.common_tags
@@ -107,7 +102,7 @@ resource "aws_dynamodb_table" "identity_providers" {
 
 
 resource "aws_codebuild_project" "build" {
-  # checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this use case
+  #checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this use case
   name          = local.codebuild_project
   description   = "Build Lambda artifacts for Transfer Family Custom IdP"
   service_role  = aws_iam_role.codebuild_role.arn
@@ -438,7 +433,6 @@ resource "aws_api_gateway_resource" "config" {
 
 
 resource "aws_api_gateway_method" "get_user_config" {
-  #checkov:skip=CKV2_AWS_53:Request validation not required for Transfer Family IdP integration
   count         = var.provision_api ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
   resource_id   = aws_api_gateway_resource.config[0].id
@@ -481,9 +475,6 @@ resource "aws_api_gateway_deployment" "identity_provider" {
 
 
 resource "aws_api_gateway_stage" "identity_provider" {
-  #checkov:skip=CKV2_AWS_4:CloudWatch logging is optional for this use case
-  #checkov:skip=CKV2_AWS_51:Client certificate authentication not required for AWS IAM authenticated API
-  #checkov:skip=CKV2_AWS_29:WAF not required for internal Transfer Family IdP API
   count         = var.provision_api ? 1 : 0
   deployment_id = aws_api_gateway_deployment.identity_provider[0].id
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
