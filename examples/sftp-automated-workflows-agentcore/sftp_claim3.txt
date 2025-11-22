@@ -1,0 +1,5 @@
+mkdir claim-3
+cd claim-3
+put /Users/sekhrip/Documents/Code/transfer-family-poc-reinvent/data/claim-3/car_damage_claim_report.pdf
+put /Users/sekhrip/Documents/Code/transfer-family-poc-reinvent/data/claim-3/claim-3.png
+bye

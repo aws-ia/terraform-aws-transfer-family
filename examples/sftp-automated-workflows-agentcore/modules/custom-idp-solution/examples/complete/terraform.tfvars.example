@@ -1,0 +1,5 @@
+# Cognito User Pool Client ID (from existing Cognito setup)
+cognito_user_pool_client_id = "your-cognito-client-id"
+
+# S3 Bucket Name (from existing S3 bucket)
+s3_bucket_name = "your-s3-bucket-name"

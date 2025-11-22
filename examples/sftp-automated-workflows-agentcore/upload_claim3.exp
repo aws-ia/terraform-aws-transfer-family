@@ -1,0 +1,21 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+set server "s-a58dd1620ef943f4b.server.transfer.us-east-1.amazonaws.com"
+set user "anycompany-repairs"
+set password "iCr05*yfSRPx!{BY"
+
+spawn sftp $user@$server
+expect "password:"
+send "$password\r"
+expect "sftp>"
+send "mkdir claim-3\r"
+expect "sftp>"
+send "cd claim-3\r"
+expect "sftp>"
+send "put /Users/sekhrip/Documents/Code/transfer-family-poc-reinvent/data/claim-3/car_damage_claim_report.pdf\r"
+expect "sftp>"
+send "put /Users/sekhrip/Documents/Code/transfer-family-poc-reinvent/data/claim-3/claim-3.png\r"
+expect "sftp>"
+send "bye\r"
+expect eof

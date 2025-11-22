@@ -1,0 +1,31 @@
+# Example terraform.tfvars file for Transfer Family Web App
+# Copy this file to terraform.tfvars and update with your actual values
+
+# Required: IAM Identity Center configuration
+# Get this value from your Identity Center instance
+identity_center_instance_arn = "arn:aws:sso:::instance/ssoins-1234567890abcdef"
+
+# Optional: Web App configuration
+# Customize the name of your web app
+web_app_name = "demo-transfer-webapp"
+
+# Required: S3 Bucket configuration
+# Both buckets will be created (must be globally unique)
+# Uploads bucket is created by the transfer_webapp_location module
+uploads_bucket_name = "demo-transfer-uploads-123456"
+
+# Shared bucket is created in main.tf to demonstrate using existing buckets
+# with the webapp-location module
+shared_bucket_name = "demo-transfer-shared-123456"
+
+# Required: User and Group names (must exist in Identity Center)
+# User 1 will get READWRITE access to user/<username>/ folder in uploads bucket
+# and READ access to shared documents
+user1_username = "claims.reviewer"
+
+# User 2 will be assigned to the web app without access grants
+# (demonstrates external access grant management)
+user2_username = "john.doe"
+
+# Group will get READ access to shared documents
+group_name = "Claims Team"
