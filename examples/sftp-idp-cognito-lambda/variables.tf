@@ -31,23 +31,36 @@ variable "cognito_user_email" {
   default     = "user1@example.com"
 }
 
-variable "logging_role" {
-  description = "IAM role ARN that the Transfer Server assumes to write logs to CloudWatch Logs"
+variable "existing_cognito_user_pool_id" {
+  description = "ID of existing Cognito User Pool to use (if not provided, a new pool will be created)"
   type        = string
   default     = null
 }
 
-variable "workflow_details" {
-  description = "Workflow details to attach to the transfer server"
-  type = object({
-    on_upload = optional(object({
-      execution_role = string
-      workflow_id    = string
-    }))
-    on_partial_upload = optional(object({
-      execution_role = string
-      workflow_id    = string
-    }))
-  })
-  default = null
+variable "existing_cognito_user_pool_client_id" {
+  description = "ID of existing Cognito User Pool Client to use (required if existing_cognito_user_pool_id is provided)"
+  type        = string
+  default     = null
 }
+
+variable "existing_cognito_user_pool_region" {
+  description = "Region of existing Cognito User Pool (required if existing_cognito_user_pool_id is provided)"
+  type        = string
+  default     = null
+
+  validation {
+    condition = (
+      var.existing_cognito_user_pool_id == null ||
+      (var.existing_cognito_user_pool_client_id != null &&
+       var.existing_cognito_user_pool_region != null)
+    )
+    error_message = "When using an existing Cognito User Pool, you must provide existing_cognito_user_pool_client_id and existing_cognito_user_pool_region."
+  }
+}
+
+variable "enable_deletion_protection" {
+  description = "Enable deletion protection for DynamoDB tables"
+  type        = bool
+  default     = true
+}
+

@@ -49,24 +49,39 @@ terraform plan
 terraform apply
 ```
 
-### 2. Retrieve the Cognito User Password
+### 2. Retrieve the Cognito User Passwords
 
-After deployment, retrieve the auto-generated password from Secrets Manager:
+After deployment, retrieve the auto-generated passwords from Secrets Manager:
 
 ```bash
 # Get the secret name from Terraform output
 SECRET_NAME=$(terraform output -raw cognito_user_password_secret_name)
 
-# Retrieve the password
+# Retrieve all user credentials
 aws secretsmanager get-secret-value \
   --secret-id $SECRET_NAME \
   --query SecretString \
-  --output text | jq -r '.password'
+  --output text | jq
+
+# Or retrieve specific user passwords
+aws secretsmanager get-secret-value \
+  --secret-id $SECRET_NAME \
+  --query SecretString \
+  --output text | jq -r '.user1.password'
+
+aws secretsmanager get-secret-value \
+  --secret-id $SECRET_NAME \
+  --query SecretString \
+  --output text | jq -r '.user2.password'
 ```
 
 ### 3. Test the SFTP Connection
 
-Connect to the SFTP server using the Cognito credentials:
+The example creates two Cognito users to demonstrate different behaviors:
+
+#### User 1 (Primary User with Explicit Configuration)
+
+This user has an explicit DynamoDB record with custom home directory mapping:
 
 ```bash
 # Get the server endpoint
@@ -77,40 +92,99 @@ USER=$(terraform output -raw cognito_username)
 
 # Connect via SFTP (you'll be prompted for the password)
 sftp $USER@$SERVER_ENDPOINT
+
+# Once connected, you'll see the root of the S3 bucket
+sftp> ls
+# Shows all files in the bucket root
+```
+
+#### User 2 (Default Fallback User)
+
+This user has NO explicit DynamoDB record, so it uses the `$default$` configuration:
+
+```bash
+# Connect as user2
+sftp user2@$SERVER_ENDPOINT
+
+# Once connected, you'll be in an isolated user-specific directory
+sftp> ls
+# Shows only files in /home/users/user2/
+
+# Files uploaded by user2 are isolated from user1
+sftp> put myfile.txt
+# File is stored at: s3://<bucket>/users/user2/myfile.txt
 ```
 
 Or use an SFTP client like FileZilla with:
 - **Host**: Server endpoint from Terraform output
-- **Username**: Cognito username (default: `user1`)
+- **Username**: `user1` (explicit config) or `user2` (default fallback)
 - **Password**: Retrieved from Secrets Manager
 - **Port**: 22
 
-## User Configuration
+**Key Differences:**
+- **user1**: Has full bucket access, sees root directory (`/`)
+- **user2**: Has isolated access, sees only their folder (`/home/users/user2/`)
+- **user2**: Demonstrates the `$default$` fallback behavior for any authenticated Cognito user without explicit configuration
 
-The example creates a Cognito user with the following configuration:
+## Cognito User Details
+
+The example creates two Cognito users to demonstrate different configuration approaches:
+
+### User 1 (Primary User - Explicit Configuration)
 
 - **Username**: Configurable via `cognito_username` variable (default: `user1`)
 - **Email**: Configurable via `cognito_user_email` variable (default: `user1@example.com`)
 - **Password**: Auto-generated 16-character secure password stored in Secrets Manager
-- **Home Directory**: Logical mapping to `s3://<bucket-name>/<username>/`
-- **IP Allowlist**: `0.0.0.0/0` (all IPs allowed - restrict in production)
-- **S3 Permissions**: Full access to user-specific folder
+- **Home Directory**: Logical mapping to root of S3 bucket (`/`)
+- **IP Allowlist**: None (unrestricted access)
+- **S3 Permissions**: Full access to entire bucket
+- **DynamoDB Record**: Explicit transfer_users record with custom configuration
+
+### User 2 (Default Fallback User - Demonstrates `$default$`)
+
+- **Username**: `user2` (hardcoded)
+- **Email**: `user2@example.com` (hardcoded)
+- **Password**: Auto-generated 16-character secure password stored in Secrets Manager
+- **Home Directory**: Isolated user-specific folder (`/home/users/user2/`)
+- **IP Allowlist**: `0.0.0.0/0` (inherited from `$default$` configuration)
+- **S3 Permissions**: Access only to their isolated folder
+- **DynamoDB Record**: None - uses the `$default$` fallback configuration
+
+> [!NOTE]
+> Both users are only created when using a new Cognito pool. When using an existing pool, you manage users separately.
+
+## User Configuration
+
+The example creates two types of users:
+
+1. **Primary Cognito User** (configurable username):
+   - No IP restrictions
+   - Home directory mapped to root of S3 bucket
+   - Full access to entire bucket
+   - Authenticates via Cognito credentials
+
+2. **Default Fallback User** (`$default$`):
+   - IP allowlist: `0.0.0.0/0` (all IPs - restrict in production)
+   - Home directory mapped to user-specific folder: `/home/users/<username>/`
+   - Isolated access per authenticated user
+   - Catches any authenticated Cognito user not explicitly configured
 
 ## DynamoDB Configuration
 
-The example configures two DynamoDB items:
+The example configures DynamoDB items for identity provider and users:
 
-1. **Identity Provider Configuration** (`cognito_pool`):
+1. **Identity Provider Configuration** (Cognito User Pool ID):
+   - Provider key: Cognito User Pool ID (e.g., `us-east-1_ABC123`)
    - Cognito User Pool Client ID
    - AWS Region
    - MFA settings (disabled by default)
    - Module type: `cognito`
 
-2. **User Record** (username):
-   - Home directory mapping
+2. **User Records** (for each user in transfer_users list):
+   - Username and identity provider key (Cognito Pool ID)
+   - Home directory mappings (virtual to physical paths)
    - IAM role for S3 access
-   - IP allowlist
-   - Identity provider key reference
+   - IP allowlist (optional, only for default user)
 
 ## Security Considerations
 
@@ -138,6 +212,22 @@ tags = {
 }
 ```
 
+### Using an Existing Cognito User Pool
+
+To use an existing Cognito User Pool instead of creating a new one:
+
+```hcl
+# terraform.tfvars
+existing_cognito_user_pool_id        = "us-east-1_XXXXXXXXX"
+existing_cognito_user_pool_client_id = "1234567890abcdefghijklmnop"
+existing_cognito_user_pool_region    = "us-east-1"
+```
+
+When using an existing pool:
+- No new Cognito User Pool or user will be created
+- You must manage users in your existing pool
+- The password secret outputs will be null
+
 ## Outputs
 
 The example provides the following outputs:
@@ -145,9 +235,11 @@ The example provides the following outputs:
 - `server_id`: Transfer Family server ID
 - `server_endpoint`: SFTP server endpoint for connections
 - `s3_bucket_name`: S3 bucket name for file storage
-- `cognito_user_pool_id`: Cognito User Pool ID
-- `cognito_username`: Created Cognito username
-- `cognito_user_password_secret_name`: Secrets Manager secret name containing the password
+- `cognito_user_pool_id`: Cognito User Pool ID (created or existing)
+- `cognito_user_pool_name`: Cognito User Pool name (only when created by this module)
+- `cognito_user_pool_client_id`: Cognito User Pool Client ID (created or existing)
+- `cognito_username`: Created Cognito username (null when using existing pool)
+- `cognito_user_password_secret_name`: Secrets Manager secret name containing the password (null when using existing pool)
 - `lambda_function_arn`: Custom IDP Lambda function ARN
 - `users_table_name`: DynamoDB users table name
 - `identity_providers_table_name`: DynamoDB identity providers table name
@@ -160,4 +252,5 @@ To destroy all resources:
 terraform destroy
 ```
 
-Note: The S3 bucket must be empty before destruction. Remove all files first if needed.
+> [!IMPORTANT]
+> The S3 bucket must be empty before destruction. Remove all files first if needed.

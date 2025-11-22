@@ -44,26 +44,31 @@ output "s3_bucket_arn" {
 }
 
 output "cognito_user_pool_id" {
-  description = "ID of the Cognito user pool"
-  value       = aws_cognito_user_pool.transfer_users.id
+  description = "ID of the Cognito user pool (created or existing)"
+  value       = var.existing_cognito_user_pool_id != null ? var.existing_cognito_user_pool_id : aws_cognito_user_pool.transfer_users[0].id
+}
+
+output "cognito_user_pool_name" {
+  description = "Name of the Cognito user pool (only available when created by this module)"
+  value       = var.existing_cognito_user_pool_id != null ? null : aws_cognito_user_pool.transfer_users[0].name
 }
 
 output "cognito_user_pool_client_id" {
-  description = "ID of the Cognito user pool client"
-  value       = aws_cognito_user_pool_client.transfer_client.id
+  description = "ID of the Cognito user pool client (created or existing)"
+  value       = var.existing_cognito_user_pool_id != null ? var.existing_cognito_user_pool_client_id : aws_cognito_user_pool_client.transfer_client[0].id
 }
 
 output "cognito_username" {
-  description = "Username of the created Cognito user"
-  value       = aws_cognito_user.transfer_user.username
+  description = "Username of the created Cognito user (only when pool is created)"
+  value       = var.existing_cognito_user_pool_id != null ? null : aws_cognito_user.transfer_user[0].username
 }
 
 output "cognito_user_password_secret_arn" {
-  description = "ARN of the Secrets Manager secret containing the Cognito user password"
-  value       = aws_secretsmanager_secret.cognito_user_password.arn
+  description = "ARN of the Secrets Manager secret containing the Cognito user password (only when pool is created)"
+  value       = var.existing_cognito_user_pool_id != null ? null : aws_secretsmanager_secret.cognito_user_password[0].arn
 }
 
 output "cognito_user_password_secret_name" {
-  description = "Name of the Secrets Manager secret containing the Cognito user password"
-  value       = aws_secretsmanager_secret.cognito_user_password.name
+  description = "Name of the Secrets Manager secret containing the Cognito user password (only when pool is created)"
+  value       = var.existing_cognito_user_pool_id != null ? null : aws_secretsmanager_secret.cognito_user_password[0].name
 }
