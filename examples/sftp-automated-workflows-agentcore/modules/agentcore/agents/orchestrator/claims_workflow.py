@@ -25,19 +25,43 @@ app = BedrockAgentCoreApp()
 # Initialize AWS clients
 bedrock_agentcore_client = boto3.client('bedrock-agentcore', region_name=os.environ.get('AWS_REGION', 'us-east-2'))
 
+# ============================================================================
+# STRANDS FRAMEWORK CONCEPT: @tool decorator
+# ============================================================================
+# The @tool decorator marks a function as a "tool" that the AI agent can use.
+# Think of tools as actions the AI can perform - like giving the AI hands to
+# interact with the world. When the AI needs to do something (like extract
+# entities or validate fraud), it calls these tools.
+#
+# In STRANDS:
+# - The AI reads the tool's docstring to understand what it does
+# - The AI decides WHEN to call each tool based on the task
+# - The AI passes the right parameters to each tool
+# - The tool executes and returns results back to the AI
+# ============================================================================
+
 @tool
 def invoke_entity_extraction(bucket: str, pdf_key: str):
     """Invoke entity extraction agent to extract claim data from PDF"""
     logger.info(f"Invoking entity extraction for s3://{bucket}/{pdf_key}")
     
     try:
+        # STEP 1: Get the ARN (Amazon Resource Name) for the entity extraction agent
+        # This tells AWS which specialized agent to invoke
         entity_agent_arn = os.environ.get('ENTITY_AGENT_ARN')
         if not entity_agent_arn:
             return "Error: ENTITY_AGENT_ARN not configured"
         
+        # STEP 2: Prepare the input data (payload) for the agent
+        # The entity extraction agent needs to know which S3 bucket and PDF file to process
         payload = {"bucket": bucket, "pdf_key": pdf_key}
+        
+        # STEP 3: Create a unique session ID for tracking this agent invocation
+        # This helps with logging and debugging by giving each invocation a unique identifier
         session_id = f"entity_session_{abs(hash(str(payload))):026d}"
         
+        # STEP 4: Invoke the entity extraction agent via AWS Bedrock
+        # This sends the payload to the specialized agent and waits for a response
         response = bedrock_agentcore_client.invoke_agent_runtime(
             agentRuntimeArn=entity_agent_arn,
             runtimeSessionId=session_id,
@@ -45,6 +69,8 @@ def invoke_entity_extraction(bucket: str, pdf_key: str):
             qualifier="DEFAULT"
         )
         
+        # STEP 5: Read and parse the agent's response
+        # The response contains the extracted entities (claim data) from the PDF
         response_body = response['response'].read()
         result = json.loads(response_body)
         logger.info(f"Entity extraction completed: {result}")
@@ -60,15 +86,22 @@ def invoke_fraud_validation(entities: str, bucket: str, image_key: str):
     logger.info("Invoking damage validation")
     
     try:
+        # STEP 1: Get the ARN for the fraud validation agent
         fraud_agent_arn = os.environ.get('FRAUD_AGENT_ARN')
         if not fraud_agent_arn:
             return json.dumps({"error": "FRAUD_AGENT_ARN not configured"})
         
+        # STEP 2: Parse the entities data if it's a JSON string
+        # The entities might come as a string from the previous tool
         entities_data = json.loads(entities) if isinstance(entities, str) else entities
         
+        # STEP 3: Prepare payload with entities and image location
+        # The fraud agent needs both the claim description and the damage photo
         payload = {"entities": entities_data, "bucket": bucket, "image_key": image_key}
         session_id = f"validation_session_{abs(hash(str(payload))):026d}"
         
+        # STEP 4: Invoke the fraud validation agent
+        # This agent will use AI vision to compare the description with the image
         response = bedrock_agentcore_client.invoke_agent_runtime(
             agentRuntimeArn=fraud_agent_arn,
             runtimeSessionId=session_id,
@@ -76,15 +109,17 @@ def invoke_fraud_validation(entities: str, bucket: str, image_key: str):
             qualifier="DEFAULT"
         )
         
+        # STEP 5: Parse the validation results
         response_body = response['response'].read()
         validation_result = json.loads(response_body)
         logger.info(f"Damage validation completed: {validation_result}")
         
-        # Handle double JSON encoding if validation agent returns string
+        # STEP 6: Handle double JSON encoding if validation agent returns string
         if isinstance(validation_result, str):
             validation_result = json.loads(validation_result)
         
-        # Enrich entities with validation data
+        # STEP 7: Enrich the original entities with validation data
+        # This adds fraud detection results to the claim data
         entities_data['damage_consistent'] = validation_result.get('consistent', True)
         entities_data['validation_confidence'] = validation_result.get('confidence', 0.0)
         entities_data['validation_reasoning'] = validation_result.get('reasoning', 'N/A')
@@ -102,16 +137,19 @@ def invoke_database_insertion(entities: str, bucket: str, pdf_key: str, image_ke
     logger.info("Invoking database insertion")
     
     try:
+        # STEP 1: Get the ARN for the database insertion agent
         database_agent_arn = os.environ.get('DATABASE_AGENT_ARN')
         if not database_agent_arn:
             return "Error: DATABASE_AGENT_ARN not configured"
         
-        # Parse entities if it's a string
+        # STEP 2: Parse entities if it's a string
         if isinstance(entities, str):
             entities_data = json.loads(entities)
         else:
             entities_data = entities
         
+        # STEP 3: Prepare payload with all claim data and metadata
+        # The database agent needs the entities plus source file information
         payload = {
             "entities": entities_data,
             "bucket": bucket,
@@ -120,6 +158,8 @@ def invoke_database_insertion(entities: str, bucket: str, pdf_key: str, image_ke
         }
         session_id = f"db_session_{abs(hash(str(payload))):026d}"
         
+        # STEP 4: Invoke the database insertion agent
+        # This agent will format and store the data in DynamoDB
         response = bedrock_agentcore_client.invoke_agent_runtime(
             agentRuntimeArn=database_agent_arn,
             runtimeSessionId=session_id,
@@ -127,6 +167,7 @@ def invoke_database_insertion(entities: str, bucket: str, pdf_key: str, image_ke
             qualifier="DEFAULT"
         )
         
+        # STEP 5: Parse and return the insertion results
         response_body = response['response'].read()
         result = json.loads(response_body)
         logger.info(f"Database insertion completed: {result}")
@@ -142,19 +183,23 @@ def invoke_summary_generation(entities: str, bucket: str):
     logger.info(f"Invoking summary generation for bucket: {bucket}")
     
     try:
+        # STEP 1: Get the ARN for the summary generation agent
         summary_agent_arn = os.environ.get('SUMMARY_AGENT_ARN')
         if not summary_agent_arn:
             return "Error: SUMMARY_AGENT_ARN not configured"
         
-        # Parse entities if it's a string
+        # STEP 2: Parse entities if it's a string
         if isinstance(entities, str):
             entities_data = json.loads(entities)
         else:
             entities_data = entities
         
+        # STEP 3: Prepare payload with entities and bucket for report storage
         payload = {"entities": entities_data, "bucket": bucket}
         session_id = f"summary_session_{abs(hash(str(payload))):026d}"
         
+        # STEP 4: Invoke the summary generation agent
+        # This agent will create a formatted report and upload it to S3
         response = bedrock_agentcore_client.invoke_agent_runtime(
             agentRuntimeArn=summary_agent_arn,
             runtimeSessionId=session_id,
@@ -162,6 +207,7 @@ def invoke_summary_generation(entities: str, bucket: str):
             qualifier="DEFAULT"
         )
         
+        # STEP 5: Parse and return the summary generation results
         response_body = response['response'].read()
         result = json.loads(response_body)
         logger.info(f"Summary generation completed: {result}")

@@ -26,32 +26,48 @@ app = BedrockAgentCoreApp()
 # Initialize AWS clients
 dynamodb = boto3.client('dynamodb', region_name=os.environ.get('AWS_REGION', 'us-east-2'))
 
+# ============================================================================
+# STRANDS FRAMEWORK CONCEPT: @tool decorator
+# ============================================================================
+# These tools give the AI agent the ability to interact with DynamoDB.
+# The AI can format data and insert it into the database. By providing
+# these as tools, the AI can intelligently decide how to structure and
+# store the claim data.
+# ============================================================================
+
 @tool
 def insert_claim_data(claim_data: dict, table_name: str = 'claims-table'):
     """Insert claim data into DynamoDB table"""
     logger.info(f"Inserting claim data into {table_name}")
     
     try:
-        # Convert entities to DynamoDB format
+        # STEP 1: Initialize the DynamoDB item structure
         item = {}
         
-        # Add claim_id as the hash key (required by DynamoDB table)
+        # STEP 2: Create the primary key (claim_id) required by DynamoDB
+        # If no claim number exists, generate one using timestamp
         claim_id = claim_data.get('claim_number', f"claim_{int(time.time())}")
         item['claim_id'] = {'S': claim_id}
         
+        # STEP 3: Convert each field to DynamoDB format
+        # DynamoDB requires specific type indicators:
+        # - S = String type
+        # - N = Number type (stored as string)
+        # - BOOL = Boolean type
         for key, value in claim_data.items():
             if isinstance(value, str):
-                item[key] = {'S': value}
-            elif isinstance(value, bool):  # Handle booleans BEFORE numbers
-                item[key] = {'BOOL': value}
+                item[key] = {'S': value}  # String type
+            elif isinstance(value, bool):  # Check booleans BEFORE numbers
+                item[key] = {'BOOL': value}  # Boolean type
             elif isinstance(value, (int, float)):
-                item[key] = {'N': str(value)}
+                item[key] = {'N': str(value)}  # Number type (stored as string)
             else:
-                item[key] = {'S': str(value)}
+                item[key] = {'S': str(value)}  # Convert everything else to string
         
         logger.info(f"Formatted DynamoDB item: {item}")
         
-        # Insert into DynamoDB
+        # STEP 4: Insert the formatted data into DynamoDB
+        # This permanently stores the claim in the database for future reference
         response = dynamodb.put_item(
             TableName=table_name,
             Item=item
@@ -69,11 +85,14 @@ def format_claim_metadata(bucket: str, pdf_key: str, image_key: str = None):
     """Format claim metadata for database insertion"""
     logger.info("Formatting claim metadata")
     
+    # STEP 1: Create metadata dictionary with source file locations
+    # This tracks where the original claim documents are stored in S3
     metadata = {
         'source_bucket': bucket or 'unknown',
         'source_pdf': pdf_key or 'unknown'
     }
     
+    # STEP 2: Add image location if provided
     if image_key:
         metadata['source_image'] = image_key
     

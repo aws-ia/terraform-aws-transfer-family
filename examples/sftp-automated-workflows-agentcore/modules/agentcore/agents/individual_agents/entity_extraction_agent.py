@@ -27,20 +27,35 @@ app = BedrockAgentCoreApp()
 # Initialize AWS clients
 s3_client = boto3.client('s3', region_name=os.environ.get('AWS_REGION', 'us-east-2'))
 
+# ============================================================================
+# STRANDS FRAMEWORK CONCEPT: @tool decorator
+# ============================================================================
+# The @tool decorator gives the AI agent specific capabilities. In this agent,
+# we define a tool that can read PDF files from S3. When the AI needs to
+# extract text from a PDF, it will automatically call this tool with the
+# appropriate bucket and key parameters.
+# ============================================================================
+
 @tool
 def get_pdf_text(bucket: str, pdf_key: str):
     """Extract text content from PDF document in S3"""
     logger.info(f"Extracting text from PDF: s3://{bucket}/{pdf_key}")
     
     try:
+        # STEP 1: Download the PDF file from S3
+        # This retrieves the claim document that needs to be processed
         response = s3_client.get_object(Bucket=bucket, Key=pdf_key)
         pdf_content = response['Body'].read()
         
+        # STEP 2: Parse the PDF and extract all text content
+        # PyPDF2 reads the PDF structure and pulls out readable text from each page
         reader = PdfReader(BytesIO(pdf_content))
         text = ""
         for page in reader.pages:
             text += page.extract_text() + "\n"
         
+        # STEP 3: Return the extracted text for the AI to analyze
+        # The AI will read this text and extract structured claim information
         logger.info(f"Extracted {len(text)} characters from PDF")
         return text
         

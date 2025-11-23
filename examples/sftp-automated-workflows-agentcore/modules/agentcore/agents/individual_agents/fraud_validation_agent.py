@@ -26,14 +26,29 @@ app = BedrockAgentCoreApp()
 # Initialize AWS clients
 s3_client = boto3.client('s3', region_name=os.environ.get('AWS_REGION', 'us-east-2'))
 
+# ============================================================================
+# STRANDS FRAMEWORK CONCEPT: @tool decorator
+# ============================================================================
+# This tool gives the AI agent "vision" capabilities by allowing it to
+# retrieve and analyze images. The AI can call this tool to get damage photos,
+# then use its vision model (Claude 3.5 Sonnet) to compare the image with
+# the written damage description.
+# ============================================================================
+
 @tool
 def get_damage_image(bucket: str, image_key: str) -> str:
     """Retrieve damage image from S3 bucket"""
     logger.info(f"Retrieving image from s3://{bucket}/{image_key}")
     
     try:
+        # STEP 1: Download the damage photo from S3
+        # This is the actual image of the damaged vehicle submitted with the claim
         response = s3_client.get_object(Bucket=bucket, Key=image_key)
         image_data = response['Body'].read()
+        
+        # STEP 2: Convert image to base64 format
+        # This encoding allows the AI vision model to "see" and analyze the image
+        # Base64 is a text representation of binary image data that AI models can process
         return base64.b64encode(image_data).decode('utf-8')
     except Exception as e:
         logger.error(f"Error retrieving image: {str(e)}")

@@ -26,14 +26,25 @@ app = BedrockAgentCoreApp()
 # Initialize AWS clients
 s3_client = boto3.client('s3', region_name=os.environ.get('AWS_REGION', 'us-east-2'))
 
+# ============================================================================
+# STRANDS FRAMEWORK CONCEPT: @tool decorator
+# ============================================================================
+# These tools give the AI agent the ability to generate reports and save them.
+# The AI can create summaries, format them nicely, and upload them to S3.
+# By breaking this into separate tools, the AI can handle each step
+# intelligently and adapt to different situations.
+# ============================================================================
+
 @tool
 def generate_claim_summary(claim_data: dict):
     """Generate a comprehensive claim processing summary"""
     logger.info("Generating claim summary")
     
+    # STEP 1: Get current timestamp for the report
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
     
-    # Extract key information
+    # STEP 2: Extract all key claim information from the processed data
+    # Pull out the important fields that should appear in the summary
     claim_number = claim_data.get('claim_number', 'N/A')
     policy_id = claim_data.get('policy_id', 'N/A')
     vehicle = f"{claim_data.get('vehicle_year', '')} {claim_data.get('vehicle_make', '')} {claim_data.get('vehicle_model', '')}".strip()
@@ -41,11 +52,14 @@ def generate_claim_summary(claim_data: dict):
     estimated_cost = claim_data.get('estimated_cost', 0)
     incident_date = claim_data.get('incident_date', 'N/A')
     
-    # Damage validation results
+    # STEP 3: Extract fraud validation results
+    # These fields were added by the fraud_validation_agent earlier in the workflow
     damage_consistent = claim_data.get('damage_consistent', True)
     validation_confidence = claim_data.get('validation_confidence', 0.0)
     validation_reasoning = claim_data.get('validation_reasoning', 'N/A')
     
+    # STEP 4: Build the summary dictionary with all information
+    # This creates a structured summary of the entire claim processing workflow
     summary = {
         'timestamp': timestamp,
         'claim_number': claim_number,
@@ -57,6 +71,8 @@ def generate_claim_summary(claim_data: dict):
         'damage_consistent': damage_consistent,
         'validation_confidence': validation_confidence,
         'validation_reasoning': validation_reasoning,
+        # STEP 5: Generate recommendation based on validation results
+        # If damage is consistent, approve; otherwise flag for review
         'recommendation': 'APPROVE CLAIM - Damage description matches image' if damage_consistent else 'REVIEW REQUIRED - Damage description inconsistent with image'
     }
     
@@ -75,7 +91,9 @@ def upload_report_to_s3(report_content: str, claim_number: str, bucket_name: str
     logger.info(f"Uploading report to S3: {bucket_name}")
     
     try:
-        # Extract claim folder from pdf_key if available (e.g., "submitted-claims/claim-1/file.pdf" -> "claim-1")
+        # STEP 1: Extract claim folder from the original PDF path
+        # Example: "submitted-claims/claim-1/file.pdf" -> "claim-1"
+        # This maintains consistent folder organization
         claim_folder = None
         if pdf_key:
             import re
@@ -83,15 +101,18 @@ def upload_report_to_s3(report_content: str, claim_number: str, bucket_name: str
             if match:
                 claim_folder = match.group(1)
         
-        # Fallback to claim_number if pdf_key extraction failed
+        # STEP 2: Fallback to claim_number if extraction failed
         if not claim_folder:
             claim_folder = f"claim-{claim_number}" if claim_number and claim_number != 'unknown' else 'claim-unknown'
         
-        # Generate S3 key with claim-based folder structure
+        # STEP 3: Generate S3 key with organized folder structure
+        # This creates a path like: processed-claims/claim-1/summary_20241122_143022.txt
+        # The timestamp ensures each report has a unique name
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         s3_key = f"processed-claims/{claim_folder}/summary_{timestamp}.txt"
         
-        # Upload to S3
+        # STEP 4: Upload the report to S3
+        # This saves the summary report for future reference and auditing
         s3_client.put_object(
             Bucket=bucket_name,
             Key=s3_key,
@@ -111,6 +132,8 @@ def format_summary_report(summary_data: dict):
     """Format summary data into a readable report"""
     logger.info("Formatting summary report")
     
+    # STEP 1: Create a formatted text report with clear sections
+    # This transforms the structured data into a readable document
     report = f"""
 CLAIMS PROCESSING SUMMARY REPORT
 ================================
