@@ -77,11 +77,7 @@ resource "aws_iam_role" "transfer_session" {
     ]
   })
 
-  tags = {
-    Environment = "Dev"
-    Project     = "File Transfer"
-    ManagedBy   = "Terraform"
-  }
+
 }
 
 # IAM Policy for S3 Access
@@ -123,7 +119,7 @@ resource "aws_iam_role_policy" "transfer_session_s3" {
 # Custom IDP Solution Module
 module "transfer_custom_idp" {
   count  = var.enable_custom_idp ? 1 : 0
-  source = "./modules/custom-idp-solution"
+  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution?ref=v0.4.1"
 
   name_prefix = "transferidp"
   force_build = false
@@ -131,13 +127,8 @@ module "transfer_custom_idp" {
   use_vpc       = false
   provision_api = false
 
-  secrets_manager_permissions = true
+  codebuild_compute_type = "BUILD_GENERAL1_LARGE"
 
-  tags = {
-    Environment = "Dev"
-    Project     = "File Transfer"
-    ManagedBy   = "Terraform"
-  }
 }
 
 # Populate identity providers table with Cognito user pool details
