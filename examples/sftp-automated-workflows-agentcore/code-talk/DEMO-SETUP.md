@@ -29,7 +29,7 @@ Stage 0 deploys the identity and authentication infrastructure:
 ### Step 1: Deploy Infrastructure
 
 ```bash
-cd examples/sftp-automated-workflows-agentcore
+cd examples/sftp-automated-workflows-agentcore/code-talk
 ./stage0-deploy.sh
 ```
 
@@ -42,7 +42,7 @@ The script will:
 
 ### Step 2: Verify Deployment
 
-Run the verification script to check your environment:
+Run the verification script to check your environment (from the code-talk folder):
 
 ```bash
 ./stage0-verify.sh
@@ -213,7 +213,9 @@ After completing Stage 0 and Stage 1:
 
 ## Cleanup
 
-When finished with the demo, clean up all resources:
+When finished with the demo, you have two cleanup options (from the code-talk folder):
+
+### Option 1: Full Cleanup (Destroy Everything)
 
 ```bash
 ./cleanup.sh
@@ -221,8 +223,25 @@ When finished with the demo, clean up all resources:
 
 This will:
 1. Empty all S3 buckets
-2. Destroy all infrastructure
+2. Destroy all infrastructure (Stages 0-4)
 3. Remove local Terraform state files
+
+### Option 2: Reset to Stage 0 (Keep Identity Foundation)
+
+```bash
+./cleanup.sh --reset-to-stage0
+```
+
+This will:
+1. Empty all S3 buckets
+2. Destroy Stages 1-4 only
+3. Preserve Stage 0 (Identity Center, Cognito, S3 Access Grants)
+4. Keep Terraform state for Stage 0
+
+**Use this option when**:
+- You want to re-run the demo from Stage 1
+- You want to avoid reconfiguring Identity Center and Bedrock
+- You're iterating on Stages 1-4 configurations
 
 ---
 

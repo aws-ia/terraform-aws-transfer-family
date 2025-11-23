@@ -16,8 +16,8 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Script directory (parent of code-talk folder)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
 echo -e "${BLUE}Stage 3: AI Claims Processing Test${NC}"

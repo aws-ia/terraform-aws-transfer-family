@@ -14,8 +14,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Script directory (parent of code-talk folder)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
 echo -e "${BLUE}Stage 0: Identity Foundation Deployment${NC}"
@@ -123,7 +123,7 @@ if [ $? -eq 0 ]; then
     echo -e "${YELLOW}⚠️  IMPORTANT: Manual configuration required!${NC}"
     echo ""
     echo -e "Run the verification script to check your setup:"
-    echo "  ${GREEN}./stage0-verify.sh${NC}"
+    echo -e "  ${GREEN}./stage0-verify.sh${NC}"
     echo ""
     echo -e "See ${BLUE}DEMO-SETUP.md${NC} for manual configuration steps."
     echo ""

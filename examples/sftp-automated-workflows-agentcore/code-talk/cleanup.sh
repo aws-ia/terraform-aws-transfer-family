@@ -3,9 +3,13 @@
 ################################################################################
 # Cleanup Script
 # Removes all objects from S3 buckets and destroys infrastructure
+# Usage: ./cleanup.sh [--reset-to-stage0]
 ################################################################################
 
 set -e  # Exit on error
+
+# Disable AWS CLI pager
+export AWS_PAGER=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -14,15 +18,31 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Script directory (parent of code-talk folder)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Check for reset flag
+RESET_TO_STAGE0=false
+if [ "$1" = "--reset-to-stage0" ]; then
+    RESET_TO_STAGE0=true
+fi
 
 echo -e "${RED}=================================${NC}"
 echo -e "${RED}Infrastructure Cleanup${NC}"
 echo -e "${RED}=================================${NC}"
 echo ""
 
-echo -e "${YELLOW}⚠️  WARNING: This will destroy all infrastructure and delete all data!${NC}"
+if [ "$RESET_TO_STAGE0" = true ]; then
+    echo -e "${YELLOW}Mode: Reset to Stage 0 (keep identity foundation)${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  WARNING: This will destroy Stages 1-4 and delete all data!${NC}"
+    echo -e "${YELLOW}Stage 0 (Identity Center, Cognito, S3 Access Grants) will be preserved.${NC}"
+else
+    echo -e "${YELLOW}Mode: Full cleanup (destroy all infrastructure)${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  WARNING: This will destroy all infrastructure and delete all data!${NC}"
+fi
+
 echo ""
 echo -e "${YELLOW}Press Enter to continue or Ctrl+C to cancel...${NC}"
 read -r
@@ -58,14 +78,24 @@ empty_bucket() {
             aws s3 rm "s3://$bucket" --recursive 2>/dev/null || true
             
             # Delete all object versions (for versioned buckets)
-            aws s3api list-object-versions --bucket "$bucket" --query 'Versions[].{Key:Key,VersionId:VersionId}' --output json 2>/dev/null | \
-                jq -r '.[] | "--key \"\(.Key)\" --version-id \"\(.VersionId)\""' | \
-                xargs -I {} aws s3api delete-object --bucket "$bucket" {} 2>/dev/null || true
+            echo "  Deleting object versions..."
+            aws s3api list-object-versions --bucket "$bucket" --output json --no-cli-pager 2>/dev/null | \
+                jq -r '.Versions[]? | "--key \(.Key) --version-id \(.VersionId)"' 2>/dev/null | \
+                while IFS= read -r args; do
+                    if [ -n "$args" ]; then
+                        eval "aws s3api delete-object --bucket \"$bucket\" $args --no-cli-pager" 2>/dev/null || true
+                    fi
+                done
             
             # Delete all delete markers
-            aws s3api list-object-versions --bucket "$bucket" --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output json 2>/dev/null | \
-                jq -r '.[] | "--key \"\(.Key)\" --version-id \"\(.VersionId)\""' | \
-                xargs -I {} aws s3api delete-object --bucket "$bucket" {} 2>/dev/null || true
+            echo "  Deleting delete markers..."
+            aws s3api list-object-versions --bucket "$bucket" --output json --no-cli-pager 2>/dev/null | \
+                jq -r '.DeleteMarkers[]? | "--key \(.Key) --version-id \(.VersionId)"' 2>/dev/null | \
+                while IFS= read -r args; do
+                    if [ -n "$args" ]; then
+                        eval "aws s3api delete-object --bucket \"$bucket\" $args --no-cli-pager" 2>/dev/null || true
+                    fi
+                done
             
             echo -e "${GREEN}✓ $bucket_name emptied${NC}"
         else
@@ -95,43 +125,78 @@ echo -e "${BLUE}Destroying Infrastructure${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-echo -e "${YELLOW}Running terraform destroy...${NC}"
-echo ""
-echo -e "${BLUE}Command:${NC} terraform destroy -auto-approve -compact-warnings"
-echo ""
-echo -e "${YELLOW}Press Enter to destroy infrastructure...${NC}"
-read -r
-
-terraform -chdir="$SCRIPT_DIR" destroy -auto-approve -compact-warnings
-
-if [ $? -eq 0 ]; then
+if [ "$RESET_TO_STAGE0" = true ]; then
+    echo -e "${YELLOW}Resetting to Stage 0...${NC}"
     echo ""
-    echo -e "${GREEN}=================================${NC}"
-    echo -e "${GREEN}Cleanup Successful!${NC}"
-    echo -e "${GREEN}=================================${NC}"
+    echo -e "${BLUE}Command:${NC} terraform apply -var-file=stage0.tfvars -auto-approve -compact-warnings"
     echo ""
-    echo -e "${GREEN}All resources have been destroyed.${NC}"
-    echo ""
+    echo -e "${YELLOW}Press Enter to reset to Stage 0...${NC}"
+    read -r
     
-    # Clean up local state files
-    echo -e "${YELLOW}Cleaning up local Terraform files...${NC}"
-    rm -f "$SCRIPT_DIR/terraform.tfstate"
-    rm -f "$SCRIPT_DIR/terraform.tfstate.backup"
-    rm -rf "$SCRIPT_DIR/.terraform"
-    rm -f "$SCRIPT_DIR/.terraform.lock.hcl"
+    terraform -chdir="$SCRIPT_DIR" apply -var-file="stage0.tfvars" -auto-approve -compact-warnings
     
-    echo -e "${GREEN}✓ Local files cleaned${NC}"
-    echo ""
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}=================================${NC}"
+        echo -e "${GREEN}Reset to Stage 0 Successful!${NC}"
+        echo -e "${GREEN}=================================${NC}"
+        echo ""
+        echo -e "${GREEN}Stages 1-4 have been destroyed.${NC}"
+        echo -e "${GREEN}Stage 0 (Identity foundation) is preserved.${NC}"
+        echo ""
+        echo -e "${BLUE}You can now deploy Stage 1 again:${NC}"
+        echo -e "  ${GREEN}./stage1-deploy.sh${NC}"
+        echo ""
+    else
+        echo ""
+        echo -e "${RED}=================================${NC}"
+        echo -e "${RED}Reset Failed!${NC}"
+        echo -e "${RED}=================================${NC}"
+        echo ""
+        echo -e "${RED}Some resources may not have been reset properly.${NC}"
+        echo -e "${YELLOW}Please check the AWS Console and manually verify resources.${NC}"
+        echo ""
+        exit 1
+    fi
 else
+    echo -e "${YELLOW}Running terraform destroy...${NC}"
     echo ""
-    echo -e "${RED}=================================${NC}"
-    echo -e "${RED}Cleanup Failed!${NC}"
-    echo -e "${RED}=================================${NC}"
+    echo -e "${BLUE}Command:${NC} terraform destroy -auto-approve -compact-warnings"
     echo ""
-    echo -e "${RED}Some resources may not have been destroyed.${NC}"
-    echo -e "${YELLOW}Please check the AWS Console and manually delete any remaining resources.${NC}"
-    echo ""
-    exit 1
+    echo -e "${YELLOW}Press Enter to destroy all infrastructure...${NC}"
+    read -r
+    
+    terraform -chdir="$SCRIPT_DIR" destroy -auto-approve -compact-warnings
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo -e "${GREEN}=================================${NC}"
+        echo -e "${GREEN}Cleanup Successful!${NC}"
+        echo -e "${GREEN}=================================${NC}"
+        echo ""
+        echo -e "${GREEN}All resources have been destroyed.${NC}"
+        echo ""
+        
+        # Clean up local state files
+        echo -e "${YELLOW}Cleaning up local Terraform files...${NC}"
+        rm -f "$SCRIPT_DIR/terraform.tfstate"
+        rm -f "$SCRIPT_DIR/terraform.tfstate.backup"
+        rm -rf "$SCRIPT_DIR/.terraform"
+        rm -f "$SCRIPT_DIR/.terraform.lock.hcl"
+        
+        echo -e "${GREEN}✓ Local files cleaned${NC}"
+        echo ""
+        
+        echo -e "${BLUE}Cleanup complete. You can now run the demo setup again if needed.${NC}"
+    else
+        echo ""
+        echo -e "${RED}=================================${NC}"
+        echo -e "${RED}Cleanup Failed!${NC}"
+        echo -e "${RED}=================================${NC}"
+        echo ""
+        echo -e "${RED}Some resources may not have been destroyed.${NC}"
+        echo -e "${YELLOW}Please check the AWS Console and manually delete any remaining resources.${NC}"
+        echo ""
+        exit 1
+    fi
 fi
-
-echo -e "${BLUE}Cleanup complete. You can now run the demo setup again if needed.${NC}"
