@@ -35,3 +35,13 @@ cognito_domain_prefix = "anycompany-insurance"            # Cognito hosted UI do
 ################################################################################
 
 uploads_bucket_name = "transfer-uploads"  # S3 bucket name for file uploads
+
+################################################################################
+# Resource Tags
+################################################################################
+
+tags = {
+  Environment = "Dev"
+  DeployedFrom   = "terraform-aws-transfer-family"
+  ExampleName = "sftp-automated-workflows-agentcore"
+}

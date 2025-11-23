@@ -20,7 +20,7 @@ enable_cognito          = true  # Cognito User Pool for external authentication
 # Future Stages (Disabled)
 ################################################################################
 
-enable_custom_idp         = false  # Stage 1: Custom IDP for Transfer Family
+enable_custom_idp         = true  # Stage 1: Custom IDP for Transfer Family
 enable_transfer_server    = false  # Stage 1: SFTP server for file uploads
 enable_malware_protection = false  # Stage 2: GuardDuty malware scanning
 enable_agentcore          = false  # Stage 3: AI claims processing
@@ -33,3 +33,13 @@ enable_webapp             = false  # Stage 4: Web app for internal users
 cognito_username      = "anycompany-repairs"              # External user username
 cognito_user_email    = "repairs@anycompany.example.com"  # External user email
 cognito_domain_prefix = "anycompany-insurance"            # Cognito hosted UI domain prefix
+
+################################################################################
+# Resource Tags
+################################################################################
+
+tags = {
+  Environment = "Dev"
+  DeployedFrom   = "terraform-aws-transfer-family"
+  ExampleName = "sftp-automated-workflows-agentcore"
+}

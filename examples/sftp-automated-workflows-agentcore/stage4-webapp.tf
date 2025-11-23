@@ -46,11 +46,7 @@ module "transfer_webapp" {
   identity_center_instance_arn = local.sso_instance_arn
   access_grants_instance_arn   = aws_s3control_access_grants_instance.main[0].access_grants_instance_arn
 
-  tags = {
-    Environment = "Dev"
-    ManagedBy   = "Terraform"
-    Project     = "File Transfer"
-  }
+  tags = var.tags
 }
 
 ################################################################################
@@ -68,11 +64,7 @@ module "clean_location" {
   access_grants_instance_arn = module.transfer_webapp[0].access_grants_instance_arn
   cors_allowed_origins       = [module.transfer_webapp[0].web_app_endpoint]
 
-  tags = {
-    Environment = "Dev"
-    ManagedBy   = "Terraform"
-    Purpose     = "clean-files-access"
-  }
+  tags = var.tags
 
   depends_on = [module.s3_bucket_clean]
 }
@@ -92,7 +84,6 @@ module "webapp_users_and_groups" {
   depends_on = [
     aws_identitystore_user.claims_reviewer,
     aws_identitystore_user.claims_administrator,
-    aws_identitystore_group.claims_team,
     aws_identitystore_group.claims_admins,
     aws_identitystore_group.claims_reviewers
   ]
@@ -128,8 +119,5 @@ module "webapp_users_and_groups" {
     }
   ]
 
-  tags = {
-    Environment = "Dev"
-    ManagedBy   = "Terraform"
-  }
+  tags = var.tags
 }

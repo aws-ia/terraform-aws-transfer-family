@@ -33,3 +33,13 @@ enable_webapp             = false  # Stage 4: Web app for internal users
 cognito_username      = "anycompany-repairs"                  # External user username
 cognito_user_email    = "repairs@anycompany-repairs.com"      # External user email
 cognito_domain_prefix = "anycompany-insurance"                # Cognito hosted UI domain prefix
+
+################################################################################
+# Resource Tags
+################################################################################
+
+tags = {
+  Environment = "Dev"
+  DeployedFrom   = "terraform-aws-transfer-family"
+  ExampleName = "sftp-automated-workflows-agentcore"
+}

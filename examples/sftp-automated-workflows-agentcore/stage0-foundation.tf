@@ -35,9 +35,9 @@ resource "awscc_sso_instance" "main" {
 
   name = "default"
   tags = [
-    {
-      key   = "ManagedBy"
-      value = "Terraform"
+    for key, value in var.tags : {
+      key   = key
+      value = value
     }
   ]
 }
@@ -52,14 +52,6 @@ locals {
 # Identity Center Groups
 ################################################################################
 
-# Create Claims Team group for all claims processing members
-resource "aws_identitystore_group" "claims_team" {
-  count = var.enable_identity_center ? 1 : 0
-
-  identity_store_id = local.identity_store_id
-  display_name      = "Claims Team"
-  description       = "Group for claims processing team members"
-}
 
 # Create Claims Reviewers group for users with review permissions
 resource "aws_identitystore_group" "claims_reviewers" {
@@ -125,24 +117,6 @@ resource "aws_identitystore_user" "claims_administrator" {
 # Group Memberships
 ################################################################################
 
-# Add Claims Reviewer to Claims Team group
-resource "aws_identitystore_group_membership" "claims_reviewer_membership" {
-  count = var.enable_identity_center ? 1 : 0
-
-  identity_store_id = local.identity_store_id
-  group_id          = aws_identitystore_group.claims_team[0].group_id
-  member_id         = aws_identitystore_user.claims_reviewer[0].user_id
-}
-
-# Add Claims Administrator to Claims Team group
-resource "aws_identitystore_group_membership" "claims_administrator_membership" {
-  count = var.enable_identity_center ? 1 : 0
-
-  identity_store_id = local.identity_store_id
-  group_id          = aws_identitystore_group.claims_team[0].group_id
-  member_id         = aws_identitystore_user.claims_administrator[0].user_id
-}
-
 # Add Claims Reviewer to Claims Reviewers group
 resource "aws_identitystore_group_membership" "claims_reviewer_to_reviewers" {
   count = var.enable_identity_center ? 1 : 0
@@ -171,11 +145,7 @@ resource "aws_s3control_access_grants_instance" "main" {
 
   identity_center_arn = local.sso_instance_arn
 
-  tags = {
-    Environment = "Dev"
-    ManagedBy   = "Terraform"
-    Project     = "File Transfer"
-  }
+  tags = var.tags
 }
 
 ################################################################################
@@ -200,10 +170,7 @@ module "cognito" {
   landing_page_template = "${path.root}/landing.html"
   create_landing_page   = true
 
-  tags = {
-    Name      = "AnyCompany Insurance"
-    ManagedBy = "Terraform"
-  }
+  tags = var.tags
 }
 
 # Create external user account in Cognito for AnyCompany Auto Repair
