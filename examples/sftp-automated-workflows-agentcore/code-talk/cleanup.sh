@@ -119,6 +119,36 @@ echo ""
 echo -e "${GREEN}✓ All S3 buckets cleaned${NC}"
 echo ""
 
+# Clean up CloudWatch Log Groups
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}Cleaning CloudWatch Log Groups${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+echo -e "${YELLOW}Deleting agent log groups...${NC}"
+
+# Find and delete all agentcore runtime log groups
+LOG_GROUPS=$(aws logs describe-log-groups \
+    --log-group-name-prefix "/aws/bedrock-agentcore/runtimes/" \
+    --query 'logGroups[].logGroupName' \
+    --output text 2>/dev/null || echo "")
+
+if [ -n "$LOG_GROUPS" ]; then
+    LOG_GROUP_COUNT=$(echo "$LOG_GROUPS" | wc -w)
+    echo "  Found $LOG_GROUP_COUNT agent log groups"
+    
+    for LOG_GROUP in $LOG_GROUPS; do
+        echo "  Deleting $LOG_GROUP..."
+        aws logs delete-log-group --log-group-name "$LOG_GROUP" 2>/dev/null || true
+    done
+    
+    echo -e "${GREEN}✓ Agent log groups deleted${NC}"
+else
+    echo -e "${YELLOW}⚠ No agent log groups found${NC}"
+fi
+
+echo ""
+
 # Destroy infrastructure
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}Destroying Infrastructure${NC}"

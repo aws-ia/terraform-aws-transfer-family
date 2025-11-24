@@ -221,47 +221,37 @@ echo -e "${BLUE}Workflow Agent:${NC} $WORKFLOW_AGENT_ID"
 echo -e "${BLUE}Claims Table:${NC} $CLAIMS_TABLE"
 echo ""
 
-# Find all log groups for agentcore runtimes
-echo -e "${YELLOW}Finding agent log groups...${NC}"
-LOG_GROUPS=$(aws logs describe-log-groups \
-    --log-group-name-prefix "/aws/bedrock-agentcore/runtimes/" \
-    --query 'logGroups[].logGroupName' \
-    --output text 2>/dev/null || echo "")
-
-if [ -z "$LOG_GROUPS" ]; then
-    echo -e "${RED}No agent log groups found${NC}"
-else
-    LOG_GROUP_COUNT=$(echo "$LOG_GROUPS" | wc -w)
-    echo -e "${GREEN}✓ Found $LOG_GROUP_COUNT agent log groups${NC}"
-    echo ""
-fi
-
 echo -e "${YELLOW}Monitoring agent logs for claims processing...${NC}"
 echo ""
 
 # Monitor logs for a period
 START_TIME=$(($(date +%s) * 1000))
-MAX_MONITOR_TIME=60  # Monitor for 60 seconds
+MAX_MONITOR_TIME=90  # Monitor for 90 seconds
 MONITOR_START=$(date +%s)
 
-echo -e "${CYAN}[Watching all agent activity for up to 60 seconds]${NC}"
+echo -e "${CYAN}[Watching all agent activity for up to 90 seconds]${NC}"
 echo ""
 
 while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ]; do
+    # Find all log groups for agentcore runtimes (refresh each loop)
+    LOG_GROUPS=$(aws logs describe-log-groups \
+        --log-group-name-prefix "/aws/bedrock-agentcore/runtimes/" \
+        --query 'logGroups[].logGroupName' \
+        --output text 2>/dev/null || echo "")
+    
     # Fetch recent log events from all log groups
     for LOG_GROUP in $LOG_GROUPS; do
         # Extract agent name from log group path
         AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||' | cut -d'-' -f1)
         
-        LOGS=$(aws logs filter-log-events \
+        # Use JSON output and parse with jq to properly handle newlines
+        aws logs filter-log-events \
             --log-group-name "$LOG_GROUP" \
             --start-time $START_TIME \
-            --query 'events[*].message' \
-            --output text 2>/dev/null || echo "")
-        
-        if [ -n "$LOGS" ] && [ "$LOGS" != "None" ]; then
-            echo "$LOGS" | while read -r line; do
-                if [ ! -z "$line" ]; then
+            --output json 2>/dev/null | \
+            jq -r '.events[]?.message // empty' 2>/dev/null | \
+            while IFS= read -r line; do
+                if [ -n "$line" ]; then
                     # Color code by agent type
                     case "$AGENT_NAME" in
                         *workflow*)
@@ -285,7 +275,6 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ]; do
                     esac
                 fi
             done
-        fi
     done
     
     START_TIME=$(($(date +%s) * 1000))
