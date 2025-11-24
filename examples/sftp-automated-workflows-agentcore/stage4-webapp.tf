@@ -73,7 +73,7 @@ module "webapp_users_and_groups" {
   groups = [
     {
       # Claims Admins: Full read/write access to all files in the clean-files bucket
-      group_name = aws_identitystore_group.claims_admins[0].display_name
+      group_name = "Claims Admins" # The display name of the Identity Center group to assign grants to
       
       access_grants = [
         {
@@ -85,7 +85,7 @@ module "webapp_users_and_groups" {
     },
     {
       # Claims Reviewers: Read-only access to submitted and processed claims
-      group_name = aws_identitystore_group.claims_reviewers[0].display_name
+      group_name = "Claims Reviewers" # The display name of the Identity Center group to assign grants to
       access_grants = [
         {
           location_id = module.clean_location[0].location_id

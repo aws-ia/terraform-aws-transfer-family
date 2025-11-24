@@ -33,7 +33,7 @@ module "transfer_custom_idp" {
   # All provisioned resources will use this prefix
   name_prefix = "transferidp" 
 
-  # The Custom IdP Lambda can be attached to a VPC to connect with private 
+  # The Custom IdP Lambda can be attached to a VPC to connect with private ***
   # identity providers such as Active Directory
   use_vpc       = false
 
@@ -61,10 +61,10 @@ module "transfer_server" {
   # Server Configuration
   server_name   = "anycompany-insurance-sftp"
 
-  # Transfer Family supports "S3" and "EFS" storage domains
+  # Transfer Family supports "S3" and "EFS" storage domains 
   domain        = "S3"
 
-  # The Transfer Family server endpoint can be public or VPC-attached
+  # The Transfer Family server endpoint can be public or VPC-attached ***
   endpoint_type = "PUBLIC"
   protocols     = ["SFTP"]
 
@@ -91,7 +91,7 @@ resource "aws_dynamodb_table_item" "cognito_provider" {
 
   item = jsonencode({
     provider = {
-      # The provider name is referenced in the users table, to assign users.
+      # The provider name is referenced in the users table, to assign users. ***
       S = "cognito_pool"
     }
     public_key_support = {
@@ -143,7 +143,7 @@ resource "aws_dynamodb_table_item" "anycompany_repair_record" {
     # 
     config = {
       M = {
-        # In Transfer Family servers, directories can be logically mapped to S3 buckets and paths
+        # In Transfer Family servers, directories can be logically mapped to S3 buckets and paths ***
         HomeDirectoryDetails = {
           L = [
             {
