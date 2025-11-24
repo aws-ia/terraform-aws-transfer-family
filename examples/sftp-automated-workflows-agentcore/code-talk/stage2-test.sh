@@ -95,6 +95,17 @@ CLAIM_DIR="$SCRIPT_DIR/data/claim-1"
 # Get all files in claim-1 folder
 CLAIMS_FILES=($(find "$CLAIM_DIR" -type f \( -name "*.pdf" -o -name "*.png" -o -name "*.jpg" -o -name "*.json" \) 2>/dev/null))
 
+# Create EICAR test file (obfuscated to avoid false positives in git)
+# EICAR is a standard test file that antivirus software recognizes as malware
+EICAR_FILE="/tmp/eicar-test-file.txt"
+echo -e "${YELLOW}Creating EICAR test file for malware detection...${NC}"
+
+# Construct EICAR string from parts to avoid triggering scanners
+EICAR_PART1="X5O!P%@AP[4\\PZX54(P^)7CC)7}"
+EICAR_PART2='$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'
+echo "$EICAR_PART1$EICAR_PART2" > "$EICAR_FILE"
+
+echo -e "${GREEN}✓ EICAR test file created${NC}"
 echo ""
 
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -104,17 +115,18 @@ echo ""
 echo -e "${BLUE}Username:${NC} $COGNITO_USERNAME"
 echo -e "${BLUE}Server:${NC} $TRANSFER_SERVER_ENDPOINT"
 echo -e "${BLUE}Password:${NC} (copied to clipboard)"
-echo -e "${BLUE}Files to upload:${NC} ${#CLAIMS_FILES[@]}"
+echo -e "${BLUE}Claim files to upload:${NC} ${#CLAIMS_FILES[@]}"
+echo -e "${BLUE}Test malware file:${NC} eicar-test-file.txt"
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
 # Upload files via SFTP
-echo -e "${YELLOW}Uploading claims files via SFTP...${NC}"
+echo -e "${YELLOW}Uploading claims files and EICAR test file via SFTP...${NC}"
 echo ""
 
-# Build SFTP commands - recursively copy the entire claim-1 folder
-SFTP_COMMANDS="put -r \"$CLAIM_DIR\"\nls -l\nbye\n"
+# Build SFTP commands - upload claim-1 folder and EICAR test file
+SFTP_COMMANDS="put -r \"$CLAIM_DIR\"\nput \"$EICAR_FILE\"\nls -l\nbye\n"
 
 # Execute SFTP with commands piped via stdin
 echo -e "${BLUE}Connecting to SFTP server...${NC}"
@@ -138,54 +150,85 @@ fi
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}Monitoring Malware Scan${NC}"
+echo -e "${GREEN}Monitoring Malware Scan Status Tags${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Get first file to monitor (with claim-1 folder path)
-TEST_FILE="claim-1/$(basename "${CLAIMS_FILES[0]}")"
-echo -e "${BLUE}Monitoring file:${NC} $TEST_FILE"
+# Files to monitor
+CLAIM_FILE="claim-1/$(basename "${CLAIMS_FILES[0]}")"
+EICAR_FILE_KEY="eicar-test-file.txt"
+
+echo -e "${BLUE}Monitoring files:${NC}"
+echo -e "  1. $CLAIM_FILE (should be clean)"
+echo -e "  2. $EICAR_FILE_KEY (should detect threat)"
 echo -e "${BLUE}Upload bucket:${NC} $UPLOAD_BUCKET"
 echo ""
-
-# Monitor for scan result
-echo -e "${YELLOW}Waiting for malware scan to complete...${NC}"
+echo -e "${YELLOW}Checking GuardDutyMalwareScanStatus tags on uploaded files...${NC}"
 echo ""
 
 MAX_ATTEMPTS=30
 ATTEMPT=0
-SCAN_COMPLETE=false
+CLAIM_SCAN_COMPLETE=false
+EICAR_SCAN_COMPLETE=false
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    # Check if file has GuardDuty scan result tag
-    SCAN_STATUS=$(aws s3api get-object-tagging --bucket "$UPLOAD_BUCKET" --key "$TEST_FILE" --query 'TagSet[?Key==`GuardDutyMalwareScanStatus`].Value' --output text 2>/dev/null || echo "")
+    # Check claim file scan status tag
+    CLAIM_SCAN_STATUS=$(aws s3api get-object-tagging --bucket "$UPLOAD_BUCKET" --key "$CLAIM_FILE" --query 'TagSet[?Key==`GuardDutyMalwareScanStatus`].Value' --output text 2>/dev/null || echo "")
+    
+    # Check EICAR file scan status tag
+    EICAR_SCAN_STATUS=$(aws s3api get-object-tagging --bucket "$UPLOAD_BUCKET" --key "$EICAR_FILE_KEY" --query 'TagSet[?Key==`GuardDutyMalwareScanStatus`].Value' --output text 2>/dev/null || echo "")
     
     # Show current status
-    if [ -z "$SCAN_STATUS" ]; then
-        echo -e "${YELLOW}Check $((ATTEMPT + 1))/$MAX_ATTEMPTS:${NC} No scan tag yet..."
+    echo -e "${BLUE}Check $((ATTEMPT + 1))/$MAX_ATTEMPTS:${NC}"
+    
+    # Claim file status
+    if [ -z "$CLAIM_SCAN_STATUS" ]; then
+        echo -e "  ${YELLOW}Claim file:${NC} No scan tag yet..."
     else
-        echo -e "${BLUE}Check $((ATTEMPT + 1))/$MAX_ATTEMPTS:${NC} GuardDutyMalwareScanStatus = ${GREEN}$SCAN_STATUS${NC}"
-        
-        # Check if scan is complete (any status other than empty means scan finished)
-        if [ "$SCAN_STATUS" != "PENDING" ]; then
-            SCAN_COMPLETE=true
-            break
+        if [ "$CLAIM_SCAN_STATUS" = "NO_THREATS_FOUND" ]; then
+            echo -e "  ${GREEN}Claim file:${NC} GuardDutyMalwareScanStatus = ${GREEN}$CLAIM_SCAN_STATUS${NC}"
+        else
+            echo -e "  ${BLUE}Claim file:${NC} GuardDutyMalwareScanStatus = ${BLUE}$CLAIM_SCAN_STATUS${NC}"
         fi
+        if [ "$CLAIM_SCAN_STATUS" != "PENDING" ]; then
+            CLAIM_SCAN_COMPLETE=true
+        fi
+    fi
+    
+    # EICAR file status
+    if [ -z "$EICAR_SCAN_STATUS" ]; then
+        echo -e "  ${YELLOW}EICAR file:${NC} No scan tag yet..."
+    else
+        if [ "$EICAR_SCAN_STATUS" = "THREATS_FOUND" ]; then
+            echo -e "  ${RED}EICAR file:${NC} GuardDutyMalwareScanStatus = ${RED}$EICAR_SCAN_STATUS${NC}"
+        else
+            echo -e "  ${BLUE}EICAR file:${NC} GuardDutyMalwareScanStatus = ${BLUE}$EICAR_SCAN_STATUS${NC}"
+        fi
+        if [ "$EICAR_SCAN_STATUS" != "PENDING" ]; then
+            EICAR_SCAN_COMPLETE=true
+        fi
+    fi
+    
+    echo ""
+    
+    # Check if both scans are complete
+    if [ "$CLAIM_SCAN_COMPLETE" = true ] && [ "$EICAR_SCAN_COMPLETE" = true ]; then
+        break
     fi
     
     sleep 2
     ATTEMPT=$((ATTEMPT + 1))
 done
 
-echo ""
-
-if [ "$SCAN_COMPLETE" = true ]; then
-    echo -e "${GREEN}✓ Malware scan completed!${NC}"
+if [ "$CLAIM_SCAN_COMPLETE" = true ] && [ "$EICAR_SCAN_COMPLETE" = true ]; then
+    echo -e "${GREEN}✓ Both malware scans completed!${NC}"
     echo ""
-    echo -e "${BLUE}Final Scan Result:${NC} $SCAN_STATUS"
+    echo -e "${BLUE}Final Scan Results:${NC}"
+    echo -e "  Claim file: ${GREEN}$CLAIM_SCAN_STATUS${NC}"
+    echo -e "  EICAR file: ${RED}$EICAR_SCAN_STATUS${NC}"
     echo ""
 else
-    echo -e "${YELLOW}⚠ Scan still in progress after $MAX_ATTEMPTS attempts. Continuing...${NC}"
+    echo -e "${YELLOW}⚠ Scans still in progress after $MAX_ATTEMPTS attempts. Continuing...${NC}"
     echo ""
 fi
 
@@ -204,6 +247,23 @@ read -r
 echo ""
 echo -e "${YELLOW}Clean files (passed malware scan):${NC}"
 aws s3 ls "s3://$CLEAN_BUCKET/" --recursive --human-readable --summarize
+
+echo ""
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}Quarantine Bucket (Threats Detected)${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+# List files in quarantine bucket
+echo -e "${BLUE}Quarantine Bucket:${NC} $QUARANTINE_BUCKET"
+echo ""
+echo -e "${BLUE}Command:${NC} aws s3 ls s3://$QUARANTINE_BUCKET/ --recursive --human-readable --summarize"
+echo ""
+echo -e "${YELLOW}Press Enter to list quarantine bucket...${NC}"
+read -r
+echo ""
+echo -e "${YELLOW}Quarantined files (threats detected):${NC}"
+aws s3 ls "s3://$QUARANTINE_BUCKET/" --recursive --human-readable --summarize
 
 echo ""
 echo -e "${GREEN}✓ Test completed!${NC}"
@@ -227,6 +287,17 @@ for file in "${CLAIMS_FILES[@]}"; do
     aws s3 rm "s3://$QUARANTINE_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
 done
 
+# Delete EICAR test file from all buckets
+echo "  Deleting eicar-test-file.txt from upload bucket..."
+aws s3 rm "s3://$UPLOAD_BUCKET/eicar-test-file.txt" 2>/dev/null || true
+echo "  Deleting eicar-test-file.txt from clean bucket..."
+aws s3 rm "s3://$CLEAN_BUCKET/eicar-test-file.txt" 2>/dev/null || true
+echo "  Deleting eicar-test-file.txt from quarantine bucket..."
+aws s3 rm "s3://$QUARANTINE_BUCKET/eicar-test-file.txt" 2>/dev/null || true
+
+# Clean up local EICAR file
+rm -f "$EICAR_FILE"
+
 echo ""
 echo -e "${GREEN}✓ Cleanup completed!${NC}"
 echo ""
@@ -239,3 +310,6 @@ aws s3 ls "s3://$UPLOAD_BUCKET/" --recursive --human-readable --summarize
 echo ""
 echo -e "${YELLOW}Clean bucket:${NC}"
 aws s3 ls "s3://$CLEAN_BUCKET/" --recursive --human-readable --summarize
+echo ""
+echo -e "${YELLOW}Quarantine bucket:${NC}"
+aws s3 ls "s3://$QUARANTINE_BUCKET/" --recursive --human-readable --summarize
