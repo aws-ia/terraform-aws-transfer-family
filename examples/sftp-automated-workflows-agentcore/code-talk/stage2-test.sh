@@ -89,15 +89,18 @@ fi
 
 echo ""
 
-# Set claim-1 folder path
-CLAIM_DIR="$SCRIPT_DIR/data/claim-1"
+# Always re-zip claims to ensure latest files
+echo -e "${YELLOW}Creating ZIP files for claims...${NC}"
+"$SCRIPT_DIR/code-talk/zip-claims.sh"
+echo ""
 
-# Get all files in claim-1 folder
-CLAIMS_FILES=($(find "$CLAIM_DIR" -type f \( -name "*.pdf" -o -name "*.png" -o -name "*.jpg" -o -name "*.json" \) 2>/dev/null))
+ZIPPED_DIR="$SCRIPT_DIR/data/zipped"
+CLAIM1_ZIP="$ZIPPED_DIR/claim-1.zip"
 
 # Create EICAR test file (obfuscated to avoid false positives in git)
 # EICAR is a standard test file that antivirus software recognizes as malware
 EICAR_FILE="/tmp/eicar-test-file.txt"
+EICAR_ZIP="/tmp/eicar-malware.zip"
 echo -e "${YELLOW}Creating EICAR test file for malware detection...${NC}"
 
 # Construct EICAR string from parts to avoid triggering scanners
@@ -105,7 +108,10 @@ EICAR_PART1="X5O!P%@AP[4\\PZX54(P^)7CC)7}"
 EICAR_PART2='$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'
 echo "$EICAR_PART1$EICAR_PART2" > "$EICAR_FILE"
 
-echo -e "${GREEN}✓ EICAR test file created${NC}"
+# Zip the EICAR file
+(cd /tmp && zip -q "$EICAR_ZIP" eicar-test-file.txt)
+
+echo -e "${GREEN}✓ EICAR test file created and zipped${NC}"
 echo ""
 
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -115,18 +121,18 @@ echo ""
 echo -e "${BLUE}Username:${NC} $COGNITO_USERNAME"
 echo -e "${BLUE}Server:${NC} $TRANSFER_SERVER_ENDPOINT"
 echo -e "${BLUE}Password:${NC} (copied to clipboard)"
-echo -e "${BLUE}Claim files to upload:${NC} ${#CLAIMS_FILES[@]}"
-echo -e "${BLUE}Test malware file:${NC} eicar-test-file.txt"
+echo -e "${BLUE}Claim ZIP file:${NC} claim-1.zip"
+echo -e "${BLUE}Test malware ZIP:${NC} eicar-malware.zip"
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
 # Upload files via SFTP
-echo -e "${YELLOW}Uploading claims files and EICAR test file via SFTP...${NC}"
+echo -e "${YELLOW}Uploading claim-1.zip and EICAR malware ZIP via SFTP...${NC}"
 echo ""
 
-# Build SFTP commands - upload claim-1 folder and EICAR test file
-SFTP_COMMANDS="put -r \"$CLAIM_DIR\"\nput \"$EICAR_FILE\"\nls -l\nbye\n"
+# Build SFTP commands - upload claim-1.zip and EICAR ZIP
+SFTP_COMMANDS="put \"$CLAIM1_ZIP\"\nput \"$EICAR_ZIP\"\nls -l\nbye\n"
 
 # Execute SFTP with commands piped via stdin
 echo -e "${BLUE}Connecting to SFTP server...${NC}"
@@ -155,15 +161,15 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo ""
 
 # Files to monitor
-CLAIM_FILE="claim-1/$(basename "${CLAIMS_FILES[0]}")"
-EICAR_FILE_KEY="eicar-test-file.txt"
+CLAIM_FILE="claim-1.zip"
+EICAR_FILE_KEY="eicar-malware.zip"
 
 echo -e "${BLUE}Monitoring files:${NC}"
 echo -e "  1. $CLAIM_FILE (should be clean)"
 echo -e "  2. $EICAR_FILE_KEY (should detect threat)"
 echo -e "${BLUE}Upload bucket:${NC} $UPLOAD_BUCKET"
 echo ""
-echo -e "${YELLOW}Checking GuardDutyMalwareScanStatus tags on uploaded files...${NC}"
+echo -e "${YELLOW}Checking GuardDutyMalwareScanStatus tags on uploaded ZIP files...${NC}"
 echo ""
 
 MAX_ATTEMPTS=30
@@ -276,24 +282,24 @@ read -r
 echo ""
 echo -e "${YELLOW}Cleaning up test files...${NC}"
 
-# Delete the entire claim-1 folder from all buckets
-echo "  Deleting claim-1/ folder from upload bucket..."
-aws s3 rm "s3://$UPLOAD_BUCKET/claim-1/" --recursive 2>/dev/null || true
-echo "  Deleting claim-1/ folder from clean bucket..."
-aws s3 rm "s3://$CLEAN_BUCKET/claim-1/" --recursive 2>/dev/null || true
-echo "  Deleting claim-1/ folder from quarantine bucket..."
-aws s3 rm "s3://$QUARANTINE_BUCKET/claim-1/" --recursive 2>/dev/null || true
+# Delete claim-1 ZIP and extracted files from all buckets
+echo "  Deleting claim-1.zip from upload bucket..."
+aws s3 rm "s3://$UPLOAD_BUCKET/claim-1.zip" 2>/dev/null || true
+echo "  Deleting submitted-claims/claim-1/ from clean bucket..."
+aws s3 rm "s3://$CLEAN_BUCKET/submitted-claims/claim-1/" --recursive 2>/dev/null || true
+echo "  Deleting submitted-claims/claim-1/ from quarantine bucket..."
+aws s3 rm "s3://$QUARANTINE_BUCKET/submitted-claims/claim-1/" --recursive 2>/dev/null || true
 
-# Delete EICAR test file from all buckets
-echo "  Deleting eicar-test-file.txt from upload bucket..."
-aws s3 rm "s3://$UPLOAD_BUCKET/eicar-test-file.txt" 2>/dev/null || true
-echo "  Deleting eicar-test-file.txt from clean bucket..."
-aws s3 rm "s3://$CLEAN_BUCKET/eicar-test-file.txt" 2>/dev/null || true
-echo "  Deleting eicar-test-file.txt from quarantine bucket..."
-aws s3 rm "s3://$QUARANTINE_BUCKET/eicar-test-file.txt" 2>/dev/null || true
+# Delete EICAR ZIP from all buckets
+echo "  Deleting eicar-malware.zip from upload bucket..."
+aws s3 rm "s3://$UPLOAD_BUCKET/eicar-malware.zip" 2>/dev/null || true
+echo "  Deleting eicar-malware.zip from clean bucket..."
+aws s3 rm "s3://$CLEAN_BUCKET/eicar-malware.zip" 2>/dev/null || true
+echo "  Deleting eicar-malware.zip from quarantine bucket..."
+aws s3 rm "s3://$QUARANTINE_BUCKET/eicar-malware.zip" 2>/dev/null || true
 
-# Clean up local EICAR file
-rm -f "$EICAR_FILE"
+# Clean up local EICAR files
+rm -f "$EICAR_FILE" "$EICAR_ZIP"
 
 echo ""
 echo -e "${GREEN}✓ Cleanup completed!${NC}"

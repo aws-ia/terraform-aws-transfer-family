@@ -349,7 +349,7 @@ resource "aws_lambda_function" "claims_processor" {
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.11"
   timeout       = 300
-  memory_size   = 256
+  memory_size   = 1024
 
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 

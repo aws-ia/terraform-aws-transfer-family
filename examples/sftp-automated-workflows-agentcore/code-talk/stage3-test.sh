@@ -98,11 +98,13 @@ fi
 
 echo ""
 
-# Set claim-1 folder path
-CLAIM_DIR="$SCRIPT_DIR/data/claim-1"
+# Always re-zip claims to ensure latest files
+echo -e "${YELLOW}Creating ZIP files for claims...${NC}"
+"$SCRIPT_DIR/code-talk/zip-claims.sh"
+echo ""
 
-# Get all files in claim-1 folder
-CLAIMS_FILES=($(find "$CLAIM_DIR" -type f \( -name "*.pdf" -o -name "*.png" -o -name "*.jpg" -o -name "*.json" \) 2>/dev/null))
+ZIPPED_DIR="$SCRIPT_DIR/data/zipped"
+CLAIM1_ZIP="$ZIPPED_DIR/claim-1.zip"
 
 echo ""
 
@@ -113,17 +115,17 @@ echo ""
 echo -e "${BLUE}Username:${NC} $COGNITO_USERNAME"
 echo -e "${BLUE}Server:${NC} $TRANSFER_SERVER_ENDPOINT"
 echo -e "${BLUE}Password:${NC} (copied to clipboard)"
-echo -e "${BLUE}Files to upload:${NC} ${#CLAIMS_FILES[@]}"
+echo -e "${BLUE}Claim ZIP file:${NC} claim-1.zip"
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
 # Upload files via SFTP
-echo -e "${YELLOW}Uploading claims files via SFTP...${NC}"
+echo -e "${YELLOW}Uploading claim-1.zip via SFTP...${NC}"
 echo ""
 
-# Build SFTP commands - recursively copy the entire claim-1 folder
-SFTP_COMMANDS="put -r \"$CLAIM_DIR\"\nls -l\nbye\n"
+# Build SFTP commands - upload claim-1.zip
+SFTP_COMMANDS="put \"$CLAIM1_ZIP\"\nls -l\nbye\n"
 
 # Execute SFTP with commands piped via stdin
 echo -e "${BLUE}Connecting to SFTP server...${NC}"
@@ -329,18 +331,15 @@ echo -e "${YELLOW}Ready to test claim-2 submission?${NC}"
 echo -e "${YELLOW}Press Enter to upload claim-2 files...${NC}"
 read -r
 
-# Set claim-2 folder path
-CLAIM2_DIR="$SCRIPT_DIR/data/claim-2"
-
-# Get all files in claim-2 folder
-CLAIMS2_FILES=($(find "$CLAIM2_DIR" -type f \( -name "*.pdf" -o -name "*.png" -o -name "*.jpg" -o -name "*.json" \) 2>/dev/null))
+# Set claim-2 ZIP path
+CLAIM2_ZIP="$ZIPPED_DIR/claim-2.zip"
 
 echo ""
-echo -e "${BLUE}Claim-2 files to upload:${NC} ${#CLAIMS2_FILES[@]}"
+echo -e "${BLUE}Claim ZIP file:${NC} claim-2.zip"
 echo ""
 
 # Build SFTP commands for claim-2
-SFTP_COMMANDS2="put -r \"$CLAIM2_DIR\"\nls -l\nbye\n"
+SFTP_COMMANDS2="put \"$CLAIM2_ZIP\"\nls -l\nbye\n"
 
 echo -e "${BLUE}Uploading claim-2 files via SFTP...${NC}"
 echo -e "${YELLOW}You will be prompted for the password (it's in your clipboard)${NC}"
@@ -459,27 +458,21 @@ read -r
 echo ""
 echo -e "${YELLOW}Cleaning up test files...${NC}"
 
-# Delete claim-1 files from all buckets
-for file in "${CLAIMS_FILES[@]}"; do
-    FILENAME=$(basename "$file")
-    echo "  Deleting claim-1/$FILENAME from upload bucket..."
-    aws s3 rm "s3://$UPLOAD_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
-    echo "  Deleting claim-1/$FILENAME from clean bucket..."
-    aws s3 rm "s3://$CLEAN_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
-    echo "  Deleting claim-1/$FILENAME from quarantine bucket..."
-    aws s3 rm "s3://$QUARANTINE_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
-done
+# Delete claim-1 ZIP and extracted files from all buckets
+echo "  Deleting claim-1.zip from upload bucket..."
+aws s3 rm "s3://$UPLOAD_BUCKET/claim-1.zip" 2>/dev/null || true
+echo "  Deleting submitted-claims/claim-1/ from clean bucket..."
+aws s3 rm "s3://$CLEAN_BUCKET/submitted-claims/claim-1/" --recursive 2>/dev/null || true
+echo "  Deleting submitted-claims/claim-1/ from quarantine bucket..."
+aws s3 rm "s3://$QUARANTINE_BUCKET/submitted-claims/claim-1/" --recursive 2>/dev/null || true
 
-# Delete claim-2 files from all buckets
-for file in "${CLAIMS2_FILES[@]}"; do
-    FILENAME=$(basename "$file")
-    echo "  Deleting claim-2/$FILENAME from upload bucket..."
-    aws s3 rm "s3://$UPLOAD_BUCKET/claim-2/$FILENAME" 2>/dev/null || true
-    echo "  Deleting claim-2/$FILENAME from clean bucket..."
-    aws s3 rm "s3://$CLEAN_BUCKET/claim-2/$FILENAME" 2>/dev/null || true
-    echo "  Deleting claim-2/$FILENAME from quarantine bucket..."
-    aws s3 rm "s3://$QUARANTINE_BUCKET/claim-2/$FILENAME" 2>/dev/null || true
-done
+# Delete claim-2 ZIP and extracted files from all buckets
+echo "  Deleting claim-2.zip from upload bucket..."
+aws s3 rm "s3://$UPLOAD_BUCKET/claim-2.zip" 2>/dev/null || true
+echo "  Deleting submitted-claims/claim-2/ from clean bucket..."
+aws s3 rm "s3://$CLEAN_BUCKET/submitted-claims/claim-2/" --recursive 2>/dev/null || true
+echo "  Deleting submitted-claims/claim-2/ from quarantine bucket..."
+aws s3 rm "s3://$QUARANTINE_BUCKET/submitted-claims/claim-2/" --recursive 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}✓ Cleanup completed!${NC}"

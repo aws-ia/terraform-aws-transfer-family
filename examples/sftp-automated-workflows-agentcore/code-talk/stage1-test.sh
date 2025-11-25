@@ -87,11 +87,13 @@ fi
 
 echo ""
 
-# Set claim-1 folder path
-CLAIM_DIR="$SCRIPT_DIR/data/claim-1"
+# Always re-zip claims to ensure latest files
+echo -e "${YELLOW}Creating ZIP files for claims...${NC}"
+"$SCRIPT_DIR/code-talk/zip-claims.sh"
+echo ""
 
-# Get all files in claim-1 folder
-CLAIMS_FILES=($(find "$CLAIM_DIR" -type f \( -name "*.pdf" -o -name "*.png" -o -name "*.jpg" -o -name "*.json" \) 2>/dev/null))
+ZIPPED_DIR="$SCRIPT_DIR/data/zipped"
+CLAIM1_ZIP="$ZIPPED_DIR/claim-1.zip"
 
 echo ""
 
@@ -102,17 +104,17 @@ echo ""
 echo -e "${BLUE}Username:${NC} $COGNITO_USERNAME"
 echo -e "${BLUE}Server:${NC} $TRANSFER_SERVER_ENDPOINT"
 echo -e "${BLUE}Password:${NC} (copied to clipboard)"
-echo -e "${BLUE}Files to upload:${NC} ${#CLAIMS_FILES[@]}"
+echo -e "${BLUE}Claim ZIP file:${NC} claim-1.zip"
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
 # Upload files via SFTP
-echo -e "${YELLOW}Uploading claims files via SFTP...${NC}"
+echo -e "${YELLOW}Uploading claim-1.zip via SFTP...${NC}"
 echo ""
 
-# Build SFTP commands - recursively copy the entire claim-1 folder
-SFTP_COMMANDS="put -r \"$CLAIM_DIR\"\nls -l\nbye\n"
+# Build SFTP commands - upload claim-1.zip
+SFTP_COMMANDS="put \"$CLAIM1_ZIP\"\nls -l\nbye\n"
 
 # Execute SFTP with commands piped via stdin
 echo -e "${BLUE}Connecting to SFTP server...${NC}"
@@ -162,9 +164,9 @@ read -r
 echo ""
 echo -e "${YELLOW}Cleaning up test files...${NC}"
 
-# Delete the entire claim-1 folder from S3
-echo "  Deleting claim-1/ folder and all contents..."
-aws s3 rm "s3://$TRANSFER_S3_BUCKET/claim-1/" --recursive 2>/dev/null
+# Delete claim-1 ZIP file from S3
+echo "  Deleting claim-1.zip..."
+aws s3 rm "s3://$TRANSFER_S3_BUCKET/claim-1.zip" 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}✓ Cleanup completed!${NC}"

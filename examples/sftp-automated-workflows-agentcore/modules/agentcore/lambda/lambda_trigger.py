@@ -24,7 +24,10 @@ def lambda_handler(event, context):
         bucket = detail.get('bucket', {}).get('name')
         key = unquote_plus(detail.get('object', {}).get('key', ''))
         
-        print(f"S3 Event - Bucket: {bucket}, Key: {key}, Region: {REGION}")
+        # Use event ID for idempotency (allows re-processing same file on re-upload)
+        event_id = event.get('id', '')
+        
+        print(f"S3 Event - Bucket: {bucket}, Key: {key}, Event ID: {event_id}, Region: {REGION}")
         
         # Only process ZIP files
         if not key.endswith('.zip'):
@@ -41,16 +44,17 @@ def lambda_handler(event, context):
         claim_folder = claim_match.group(1)
         print(f"Processing claim: {claim_folder}")
         
-        # Check idempotency - has this claim already been processed?
+        # Check idempotency - has this specific event been processed?
         s3_client = boto3.client('s3', region_name=REGION)
         
-        if is_already_processed(s3_client, bucket, claim_folder):
-            print(f"Claim {claim_folder} already processed. Skipping.")
+        if is_already_processed(s3_client, bucket, claim_folder, event_id):
+            print(f"Event {event_id} for claim {claim_folder} already processed. Skipping.")
             return {
                 'statusCode': 200,
                 'body': json.dumps({
-                    'message': 'Claim already processed',
-                    'claim_folder': claim_folder
+                    'message': 'Event already processed',
+                    'claim_folder': claim_folder,
+                    'event_id': event_id
                 })
             }
         
@@ -63,7 +67,7 @@ def lambda_handler(event, context):
         print(f"✓ Files extracted - PDF: {pdf_key}, Image: {image_key}")
         
         # Mark as processed before triggering workflow (idempotency)
-        mark_as_processed(s3_client, bucket, claim_folder)
+        mark_as_processed(s3_client, bucket, claim_folder, event_id)
         
         # Call AgentCore workflow
         result = trigger_workflow(bucket, pdf_key, image_key)
@@ -92,33 +96,41 @@ def lambda_handler(event, context):
             'body': json.dumps({'error': str(e)})
         }
 
-def is_already_processed(s3_client, bucket, claim_folder):
+def is_already_processed(s3_client, bucket, claim_folder, event_id):
     """
-    Check if claim has already been processed using S3 object metadata
-    Looks for a marker file: submitted-claims/{claim_folder}/.processed
+    Check if this specific event has been processed
+    Uses EventBridge event ID to track which upload event was processed
+    This allows re-processing the same file if uploaded again (new event ID)
+    Looks for a marker file: submitted-claims/{claim_folder}/.processed-{event_id}
     """
-    marker_key = f"submitted-claims/{claim_folder}/.processed"
+    marker_key = f"submitted-claims/{claim_folder}/.processed-{event_id}"
     
     try:
         s3_client.head_object(Bucket=bucket, Key=marker_key)
+        print(f"Event {event_id} already processed")
         return True
     except ClientError as e:
         if e.response['Error']['Code'] == '404':
             return False
         raise
 
-def mark_as_processed(s3_client, bucket, claim_folder):
+def mark_as_processed(s3_client, bucket, claim_folder, event_id):
     """
-    Mark claim as processed by creating a marker file
+    Mark event as processed by creating a marker file with event ID
+    This allows re-processing if the same file is uploaded again (different event)
+    Perfect for demos where you want to show the workflow multiple times
     """
-    marker_key = f"submitted-claims/{claim_folder}/.processed"
+    marker_key = f"submitted-claims/{claim_folder}/.processed-{event_id}"
+    
+    import datetime
     
     s3_client.put_object(
         Bucket=bucket,
         Key=marker_key,
         Body=json.dumps({
-            'processed_at': context.aws_request_id if 'context' in globals() else 'unknown',
-            'timestamp': str(os.environ.get('AWS_EXECUTION_ENV', 'local'))
+            'event_id': event_id,
+            'processed_at': datetime.datetime.utcnow().isoformat(),
+            'claim_folder': claim_folder
         }),
         ContentType='application/json'
     )
@@ -207,10 +219,12 @@ def trigger_workflow(bucket, pdf_key, image_key):
         "image_key": image_key
     }
     
-    # Generate unique session ID based on claim folder
+    # Generate unique session ID based on claim folder (min 33 chars required)
     import hashlib
+    import uuid
     claim_id = pdf_key.split('/')[1]  # Extract claim-N from path
-    session_id = f"claim-{claim_id}-{hashlib.md5(pdf_key.encode()).hexdigest()[:8]}"
+    # Use UUID to ensure minimum length requirement
+    session_id = f"{claim_id}-{uuid.uuid4()}"
     
     print(f"Calling workflow with payload: {payload}")
     print(f"Session ID: {session_id}")
