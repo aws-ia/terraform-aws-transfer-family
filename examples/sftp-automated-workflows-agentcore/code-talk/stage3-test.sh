@@ -222,6 +222,7 @@ echo -e "${BLUE}Claims Table:${NC} $CLAIMS_TABLE"
 echo ""
 
 echo -e "${YELLOW}Monitoring agent logs for claims processing...${NC}"
+echo -e "${YELLOW}Press Ctrl+C to stop monitoring early${NC}"
 echo ""
 
 # Monitor logs for a period
@@ -232,7 +233,14 @@ MONITOR_START=$(date +%s)
 echo -e "${CYAN}[Watching all agent activity for up to 90 seconds]${NC}"
 echo ""
 
-while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ]; do
+# Temporarily disable exit on error for monitoring loop
+set +e
+
+# Set up trap to catch Ctrl+C
+STOP_MONITORING=false
+trap 'STOP_MONITORING=true; echo' INT
+
+while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MONITORING" = false ]; do
     # Find all log groups for agentcore runtimes (refresh each loop)
     LOG_GROUPS=$(aws logs describe-log-groups \
         --log-group-name-prefix "/aws/bedrock-agentcore/runtimes/" \
@@ -281,8 +289,16 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ]; do
     sleep 3
 done
 
+# Reset trap and re-enable exit on error
+trap - INT
+set -e
+
 echo ""
-echo -e "${GREEN}✓ Monitoring period completed${NC}"
+if [ "$STOP_MONITORING" = true ]; then
+    echo -e "${YELLOW}✓ Monitoring stopped by user${NC}"
+else
+    echo -e "${GREEN}✓ Monitoring period completed${NC}"
+fi
 echo ""
 
 # Check DynamoDB for processed claims
@@ -297,7 +313,143 @@ echo ""
 aws dynamodb scan --table-name "$CLAIMS_TABLE" --max-items 5 --output json | jq -r '.Items[] | "Claim ID: \(.claim_id.S // "N/A")\nStatus: \(.status.S // "N/A")\nTimestamp: \(.timestamp.S // "N/A")\n---"'
 
 echo ""
-echo -e "${GREEN}✓ Test completed!${NC}"
+echo -e "${GREEN}✓ Claim-1 test completed!${NC}"
+echo ""
+
+################################################################################
+# Test Claim-2
+################################################################################
+
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}Testing Claim-2 Submission${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+echo -e "${YELLOW}Ready to test claim-2 submission?${NC}"
+echo -e "${YELLOW}Press Enter to upload claim-2 files...${NC}"
+read -r
+
+# Set claim-2 folder path
+CLAIM2_DIR="$SCRIPT_DIR/data/claim-2"
+
+# Get all files in claim-2 folder
+CLAIMS2_FILES=($(find "$CLAIM2_DIR" -type f \( -name "*.pdf" -o -name "*.png" -o -name "*.jpg" -o -name "*.json" \) 2>/dev/null))
+
+echo ""
+echo -e "${BLUE}Claim-2 files to upload:${NC} ${#CLAIMS2_FILES[@]}"
+echo ""
+
+# Build SFTP commands for claim-2
+SFTP_COMMANDS2="put -r \"$CLAIM2_DIR\"\nls -l\nbye\n"
+
+echo -e "${BLUE}Uploading claim-2 files via SFTP...${NC}"
+echo -e "${YELLOW}You will be prompted for the password (it's in your clipboard)${NC}"
+echo ""
+
+echo -e "$SFTP_COMMANDS2" | sftp "$COGNITO_USERNAME@$TRANSFER_SERVER_ENDPOINT"
+
+if [ $? -eq 0 ]; then
+    echo ""
+    echo -e "${GREEN}✓ Claim-2 upload completed!${NC}"
+else
+    echo ""
+    echo -e "${RED}✗ Claim-2 upload failed.${NC}"
+fi
+
+echo ""
+echo -e "${YELLOW}Monitoring claim-2 processing...${NC}"
+echo -e "${YELLOW}Press Ctrl+C to stop monitoring early${NC}"
+echo ""
+
+# Monitor logs for claim-2 processing
+START_TIME=$(($(date +%s) * 1000))
+MAX_MONITOR_TIME=90
+MONITOR_START=$(date +%s)
+
+echo -e "${CYAN}[Watching agent activity for claim-2 for up to 90 seconds]${NC}"
+echo ""
+
+# Temporarily disable exit on error for monitoring loop
+set +e
+
+# Set up trap to catch Ctrl+C
+STOP_MONITORING2=false
+trap 'STOP_MONITORING2=true; echo' INT
+
+while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MONITORING2" = false ]; do
+    # Find all log groups for agentcore runtimes (refresh each loop)
+    LOG_GROUPS=$(aws logs describe-log-groups \
+        --log-group-name-prefix "/aws/bedrock-agentcore/runtimes/" \
+        --query 'logGroups[].logGroupName' \
+        --output text 2>/dev/null || echo "")
+    
+    # Fetch recent log events from all log groups
+    for LOG_GROUP in $LOG_GROUPS; do
+        # Extract agent name from log group path
+        AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||' | cut -d'-' -f1)
+        
+        # Use JSON output and parse with jq to properly handle newlines
+        aws logs filter-log-events \
+            --log-group-name "$LOG_GROUP" \
+            --start-time $START_TIME \
+            --output json 2>/dev/null | \
+            jq -r '.events[]?.message // empty' 2>/dev/null | \
+            while IFS= read -r line; do
+                if [ -n "$line" ]; then
+                    # Color code by agent type
+                    case "$AGENT_NAME" in
+                        *workflow*)
+                            echo -e "${MAGENTA}[WORKFLOW]${NC} $line"
+                            ;;
+                        *entity*)
+                            echo -e "${BLUE}[ENTITY]${NC} $line"
+                            ;;
+                        *validation*|*fraud*)
+                            echo -e "${RED}[FRAUD]${NC} $line"
+                            ;;
+                        *database*)
+                            echo -e "${YELLOW}[DATABASE]${NC} $line"
+                            ;;
+                        *summary*)
+                            echo -e "${GREEN}[SUMMARY]${NC} $line"
+                            ;;
+                        *)
+                            echo -e "${CYAN}[AGENT]${NC} $line"
+                            ;;
+                    esac
+                fi
+            done
+    done
+    
+    START_TIME=$(($(date +%s) * 1000))
+    sleep 3
+done
+
+# Reset trap and re-enable exit on error
+trap - INT
+set -e
+
+echo ""
+if [ "$STOP_MONITORING2" = true ]; then
+    echo -e "${YELLOW}✓ Monitoring stopped by user${NC}"
+else
+    echo -e "${GREEN}✓ Claim-2 monitoring completed${NC}"
+fi
+echo ""
+
+# Check DynamoDB for all processed claims
+echo -e "${YELLOW}Checking DynamoDB for all processed claims...${NC}"
+echo ""
+echo -e "${BLUE}Command:${NC} aws dynamodb scan --table-name $CLAIMS_TABLE"
+echo ""
+echo -e "${YELLOW}Press Enter to view all processed claims...${NC}"
+read -r
+echo ""
+
+aws dynamodb scan --table-name "$CLAIMS_TABLE" --output json | jq -r '.Items[] | "Claim ID: \(.claim_id.S // "N/A")\nStatus: \(.status.S // "N/A")\nTimestamp: \(.timestamp.S // "N/A")\n---"'
+
+echo ""
+echo -e "${GREEN}✓ All tests completed!${NC}"
 echo ""
 
 # Prompt to clean up test files
@@ -307,7 +459,7 @@ read -r
 echo ""
 echo -e "${YELLOW}Cleaning up test files...${NC}"
 
-# Delete uploaded files from all buckets (including claim-1 folder)
+# Delete claim-1 files from all buckets
 for file in "${CLAIMS_FILES[@]}"; do
     FILENAME=$(basename "$file")
     echo "  Deleting claim-1/$FILENAME from upload bucket..."
@@ -316,6 +468,17 @@ for file in "${CLAIMS_FILES[@]}"; do
     aws s3 rm "s3://$CLEAN_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
     echo "  Deleting claim-1/$FILENAME from quarantine bucket..."
     aws s3 rm "s3://$QUARANTINE_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
+done
+
+# Delete claim-2 files from all buckets
+for file in "${CLAIMS2_FILES[@]}"; do
+    FILENAME=$(basename "$file")
+    echo "  Deleting claim-2/$FILENAME from upload bucket..."
+    aws s3 rm "s3://$UPLOAD_BUCKET/claim-2/$FILENAME" 2>/dev/null || true
+    echo "  Deleting claim-2/$FILENAME from clean bucket..."
+    aws s3 rm "s3://$CLEAN_BUCKET/claim-2/$FILENAME" 2>/dev/null || true
+    echo "  Deleting claim-2/$FILENAME from quarantine bucket..."
+    aws s3 rm "s3://$QUARANTINE_BUCKET/claim-2/$FILENAME" 2>/dev/null || true
 done
 
 echo ""
