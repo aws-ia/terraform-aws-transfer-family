@@ -17,9 +17,7 @@ data "aws_region" "current" {}
 data "aws_ssoadmin_instances" "identity_center" {}
 
 locals {
-  identity_store_id         = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
-  access_grants_instance_id = var.access_grants_instance_arn != null ? var.access_grants_instance_arn : aws_s3control_access_grants_instance.instance[0].access_grants_instance_id
-  access_grants_location    = try(aws_s3control_access_grants_location.location_new_instance[0], aws_s3control_access_grants_location.location_existing_instance[0])
+  identity_store_id = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
 }
 
 # S3 bucket for file storage
@@ -93,77 +91,6 @@ resource "aws_identitystore_group_membership" "memberships" {
   identity_store_id = local.identity_store_id
   group_id          = aws_identitystore_group.groups[each.value.group_key].group_id
   member_id         = aws_identitystore_user.users[each.value.user_key].user_id
-}
-
-# S3 Access Grants Instance (create if not provided)
-resource "aws_s3control_access_grants_instance" "instance" {
-  count = var.access_grants_instance_arn == null ? 1 : 0
-
-  identity_center_arn = tolist(data.aws_ssoadmin_instances.identity_center.arns)[0]
-  tags                = var.tags
-}
-
-# IAM role for S3 Access Grants Location (to break circular dependency)
-data "aws_iam_policy_document" "access_grants_assume_role" {
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["access-grants.s3.amazonaws.com"]
-    }
-    actions = ["sts:AssumeRole", "sts:SetContext"]
-  }
-}
-
-resource "aws_iam_role" "access_grants_location_role" {
-  name               = "${random_pet.name.id}-access-grants-location-role"
-  assume_role_policy = data.aws_iam_policy_document.access_grants_assume_role.json
-  tags               = var.tags
-}
-
-data "aws_iam_policy_document" "access_grants_location_policy" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject",
-      "s3:ListBucket",
-      "s3:GetBucketLocation"
-    ]
-    resources = [
-      module.s3_bucket.s3_bucket_arn,
-      "${module.s3_bucket.s3_bucket_arn}/*"
-    ]
-  }
-}
-
-resource "aws_iam_role_policy" "access_grants_location_policy" {
-  name   = "${random_pet.name.id}-access-grants-location-policy"
-  role   = aws_iam_role.access_grants_location_role.id
-  policy = data.aws_iam_policy_document.access_grants_location_policy.json
-}
-
-# S3 Access Grants Location - when creating new instance
-resource "aws_s3control_access_grants_location" "location_new_instance" {
-  count = var.access_grants_instance_arn == null ? 1 : 0
-  
-  account_id     = data.aws_caller_identity.current.account_id
-  iam_role_arn   = aws_iam_role.access_grants_location_role.arn
-  location_scope = "s3://${module.s3_bucket.s3_bucket_id}"
-  tags           = var.tags
-
-  depends_on = [aws_s3control_access_grants_instance.instance]
-}
-
-# S3 Access Grants Location - when using existing instance
-resource "aws_s3control_access_grants_location" "location_existing_instance" {
-  count = var.access_grants_instance_arn != null ? 1 : 0
-  
-  account_id     = data.aws_caller_identity.current.account_id
-  iam_role_arn   = aws_iam_role.access_grants_location_role.arn
-  location_scope = "s3://${module.s3_bucket.s3_bucket_id}"
-  tags           = var.tags
 }
 
 # SNS topic for CloudTrail notifications
@@ -254,24 +181,16 @@ module "transfer_web_app" {
 
   iam_role_name                = "${random_pet.name.id}-web-app-role"
   identity_center_instance_arn = var.identity_center_instance_arn
-  s3_access_grants_instance_id = local.access_grants_instance_id
   custom_title                 = var.custom_title
   logo_file                    = var.logo_file
   favicon_file                 = var.favicon_file
-  cloudtrail_name              = "${random_pet.name.id}-audit-trail"
-  cloudtrail_sns_topic_arn     = aws_sns_topic.cloudtrail_notifications.arn
-  cloudtrail_kms_key_id        = aws_kms_key.cloudtrail.arn
-  s3_bucket_names              = [module.s3_bucket.s3_bucket_id]
-  cors_allowed_methods         = ["GET", "PUT", "POST", "DELETE", "HEAD"]
-  cors_allowed_headers         = ["*"]
 
   identity_center_users = [
     for user_key, user in var.users : {
       username = user.user_name
       access_grants = user.access_path != null ? [{
-        location_id = local.access_grants_location.access_grants_location_id
-        path        = user.access_path
-        permission  = coalesce(user.permission, "READWRITE")
+        s3_path    = "${module.s3_bucket.s3_bucket_id}/${user.access_path}"
+        permission = coalesce(user.permission, "READWRITE")
       }] : []
     }
   ]
@@ -280,9 +199,8 @@ module "transfer_web_app" {
     for group_key, group in var.groups : {
       group_name = group.group_name
       access_grants = [{
-        location_id = local.access_grants_location.access_grants_location_id
-        path        = coalesce(group.access_path, "*")
-        permission  = coalesce(group.permission, "READWRITE")
+        s3_path    = "${module.s3_bucket.s3_bucket_id}/${coalesce(group.access_path, "*")}"
+        permission = coalesce(group.permission, "READWRITE")
       }]
     }
   ]
@@ -291,8 +209,82 @@ module "transfer_web_app" {
 
   depends_on = [
     aws_identitystore_user.users,
-    aws_identitystore_group.groups,
-    aws_s3control_access_grants_location.location_new_instance,
-    aws_s3control_access_grants_location.location_existing_instance
+    aws_identitystore_group.groups
   ]
+}
+
+# CORS configuration for S3 bucket
+resource "aws_s3_bucket_cors_configuration" "web_app" {
+  bucket = module.s3_bucket.s3_bucket_id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
+    allowed_origins = [module.transfer_web_app.web_app_endpoint]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
+# CloudTrail for audit logging
+resource "aws_cloudtrail" "web_app_audit" {
+  name                          = "${random_pet.name.id}-audit-trail"
+  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
+  include_global_service_events = true
+  is_multi_region_trail         = true
+  enable_logging                = true
+  enable_log_file_validation    = true
+  sns_topic_name                = aws_sns_topic.cloudtrail_notifications.arn
+  kms_key_id                    = aws_kms_key.cloudtrail.arn
+
+  event_selector {
+    read_write_type           = "All"
+    include_management_events = true
+
+    data_resource {
+      type   = "AWS::S3::Object"
+      values = ["${module.s3_bucket.s3_bucket_arn}/*"]
+    }
+  }
+
+  depends_on = [aws_s3_bucket_policy.cloudtrail_logs]
+}
+
+# S3 bucket for CloudTrail logs
+resource "aws_s3_bucket" "cloudtrail_logs" {
+  bucket        = lower("${random_pet.name.id}-cloudtrail-logs-${random_id.suffix.hex}")
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_policy" "cloudtrail_logs" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AWSCloudTrailAclCheck"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action   = "s3:GetBucketAcl"
+        Resource = aws_s3_bucket.cloudtrail_logs.arn
+      },
+      {
+        Sid    = "AWSCloudTrailWrite"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/*"
+        Condition = {
+          StringEquals = {
+            "s3:x-amz-acl" = "bucket-owner-full-control"
+          }
+        }
+      }
+    ]
+  })
 }

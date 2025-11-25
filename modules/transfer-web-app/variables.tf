@@ -37,67 +37,7 @@ variable "custom_title" {
 }
 
 variable "s3_access_grants_instance_id" {
-  description = "ID of the S3 Access Grants instance to use. If not provided, will use the first available instance"
-  type        = string
-  default     = null
-}
-
-variable "s3_bucket_names" {
-  description = "List of S3 bucket names to configure CORS for"
-  type        = list(string)
-  default     = []
-}
-
-variable "cors_allowed_origins" {
-  description = "List of allowed origins for CORS"
-  type        = list(string)
-  default     = []
-}
-
-variable "cors_allowed_methods" {
-  description = "List of allowed HTTP methods for CORS"
-  type        = list(string)
-  default     = ["GET", "PUT", "POST", "DELETE", "HEAD"]
-}
-
-variable "cors_allowed_headers" {
-  description = "List of allowed headers for CORS"
-  type        = list(string)
-  default     = ["*"]
-}
-
-variable "enable_cloudtrail" {
-  description = "Enable CloudTrail for audit logging of user authentication and data operations"
-  type        = bool
-  default     = true
-}
-
-variable "cloudtrail_s3_bucket_name" {
-  description = "S3 bucket name for CloudTrail logs. If not provided, a bucket will be created"
-  type        = string
-  default     = null
-}
-
-variable "cloudtrail_name" {
-  description = "Name for the CloudTrail"
-  type        = string
-  default     = "transfer-web-app-audit-trail"
-}
-
-variable "cloudtrail_sns_topic_arn" {
-  description = "SNS topic ARN for CloudTrail notifications"
-  type        = string
-  default     = null
-}
-
-variable "cloudtrail_kms_key_id" {
-  description = "KMS key ID for CloudTrail log encryption"
-  type        = string
-  default     = null
-}
-
-variable "access_grants_instance_arn" {
-  description = "ARN of the S3 Access Grants instance (required if access grants are configured)"
+  description = "ID of the S3 Access Grants instance to use. If not provided, a new instance will be created"
   type        = string
   default     = null
 }
@@ -107,9 +47,8 @@ variable "identity_center_users" {
   type = list(object({
     username = string
     access_grants = optional(list(object({
-      location_id = string
-      path        = string
-      permission  = string
+      s3_path    = string
+      permission = string
     })))
   }))
   default = []
@@ -129,9 +68,8 @@ variable "identity_center_groups" {
   type = list(object({
     group_name = string
     access_grants = optional(list(object({
-      location_id = string
-      path        = string
-      permission  = string
+      s3_path    = string
+      permission = string
     })))
   }))
   default = []

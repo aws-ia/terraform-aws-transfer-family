@@ -13,16 +13,14 @@ data "aws_ssoadmin_instances" "identity_center" {}
 locals {
   identity_store_id            = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
   identity_center_instance_arn = var.identity_center_instance_arn != null ? var.identity_center_instance_arn : tolist(data.aws_ssoadmin_instances.identity_center.arns)[0]
-  access_grants_instance_id    = var.s3_access_grants_instance_id
   application_arn              = aws_transfer_web_app.web_app.identity_provider_details[0].identity_center_config[0].application_arn
 
   user_grants = flatten([
     for user in var.identity_center_users : [
       for grant in coalesce(user.access_grants, []) : {
-        username    = user.username
-        location_id = grant.location_id
-        path        = grant.path
-        permission  = grant.permission
+        username   = user.username
+        s3_path    = grant.s3_path
+        permission = grant.permission
       }
     ]
   ])
@@ -30,14 +28,35 @@ locals {
   group_grants = flatten([
     for group in var.identity_center_groups : [
       for grant in coalesce(group.access_grants, []) : {
-        group_name  = group.group_name
-        location_id = grant.location_id
-        path        = grant.path
-        permission  = grant.permission
+        group_name = group.group_name
+        s3_path    = grant.s3_path
+        permission = grant.permission
       }
     ]
   ])
+
+  access_grants_instance_id = coalesce(
+    var.s3_access_grants_instance_id,
+    try(aws_s3control_access_grants_instance.instance[0].access_grants_instance_id, null)
+  )
+
+  all_buckets_location_id = coalesce(
+    try([for loc in data.aws_s3control_access_grants_locations.all_buckets[0].locations : 
+      loc.access_grants_location_id if loc.location_scope == "s3://"
+    ][0], null),
+    try(aws_s3control_access_grants_location.all_buckets[0].access_grants_location_id, null)
+  )
 }
+
+# S3 Access Grants Instance (create if not provided)
+resource "aws_s3control_access_grants_instance" "instance" {
+  count = var.s3_access_grants_instance_id == null && (length(local.user_grants) > 0 || length(local.group_grants) > 0) ? 1 : 0
+
+  identity_center_arn = local.identity_center_instance_arn
+  tags                = var.tags
+}
+
+
 
 # Data source to lookup Identity Center users
 data "aws_identitystore_user" "users" {
@@ -179,31 +198,86 @@ resource "aws_ssoadmin_application_assignment" "groups" {
   depends_on = [aws_transfer_web_app.web_app]
 }
 
-# Configure CORS for S3 buckets
-resource "aws_s3_bucket_cors_configuration" "web_app_cors" {
-  count = length(var.s3_bucket_names) > 0 ? length(var.s3_bucket_names) : 0
+# Check for existing s3:// location
+data "aws_s3control_access_grants_locations" "all_buckets" {
+  count      = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
+  account_id = data.aws_caller_identity.current.account_id
+}
 
-  bucket = var.s3_bucket_names[count.index]
+# IAM role for s3:// location
+data "aws_iam_policy_document" "access_grants_location_assume_role" {
+  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
 
-  cors_rule {
-    allowed_headers = var.cors_allowed_headers
-    allowed_methods = var.cors_allowed_methods
-    allowed_origins = concat(
-      var.cors_allowed_origins,
-      [aws_transfer_web_app.web_app.access_endpoint]
-    )
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["access-grants.s3.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole", "sts:SetContext"]
   }
-  depends_on = [aws_transfer_web_app.web_app]
+}
+
+resource "aws_iam_role" "access_grants_location" {
+  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
+
+  name               = "${var.iam_role_name}-access-grants-location"
+  assume_role_policy = data.aws_iam_policy_document.access_grants_location_assume_role[0].json
+  tags               = var.tags
+}
+
+data "aws_iam_policy_document" "access_grants_location_policy" {
+  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:s3:::*"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:ResourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "access_grants_location" {
+  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
+
+  name   = "access-grants-location-policy"
+  role   = aws_iam_role.access_grants_location[0].id
+  policy = data.aws_iam_policy_document.access_grants_location_policy[0].json
+}
+
+
+
+# Create s3:// location if it doesn't exist
+resource "aws_s3control_access_grants_location" "all_buckets" {
+  count = local.all_buckets_location_id == null && (length(local.user_grants) > 0 || length(local.group_grants) > 0) ? 1 : 0
+
+  account_id     = data.aws_caller_identity.current.account_id
+  iam_role_arn   = aws_iam_role.access_grants_location[0].arn
+  location_scope = "s3://"
+  tags           = var.tags
+
+  depends_on = [aws_s3control_access_grants_instance.instance]
 }
 
 # Create S3 Access Grants for users
 resource "aws_s3control_access_grant" "user_grants" {
   for_each = {
-    for grant in local.user_grants : "${grant.username}-${grant.path}" => grant
+    for grant in local.user_grants : "${grant.username}-${grant.s3_path}" => grant
   }
 
   account_id                = data.aws_caller_identity.current.account_id
-  access_grants_location_id = each.value.location_id
+  access_grants_location_id = local.all_buckets_location_id
   permission                = each.value.permission
 
   grantee {
@@ -212,7 +286,7 @@ resource "aws_s3control_access_grant" "user_grants" {
   }
 
   access_grants_location_configuration {
-    s3_sub_prefix = each.value.path
+    s3_sub_prefix = each.value.s3_path
   }
 
   tags = var.tags
@@ -221,11 +295,11 @@ resource "aws_s3control_access_grant" "user_grants" {
 # Create S3 Access Grants for groups
 resource "aws_s3control_access_grant" "group_grants" {
   for_each = {
-    for grant in local.group_grants : "${grant.group_name}-${grant.path}" => grant
+    for grant in local.group_grants : "${grant.group_name}-${grant.s3_path}" => grant
   }
 
   account_id                = data.aws_caller_identity.current.account_id
-  access_grants_location_id = each.value.location_id
+  access_grants_location_id = local.all_buckets_location_id
   permission                = each.value.permission
 
   grantee {
@@ -234,94 +308,7 @@ resource "aws_s3control_access_grant" "group_grants" {
   }
 
   access_grants_location_configuration {
-    s3_sub_prefix = each.value.path
-  }
-
-  tags = var.tags
-}
-
-# CloudTrail S3 bucket (if not provided)
-resource "aws_s3_bucket" "cloudtrail" {
-  count  = var.enable_cloudtrail && var.cloudtrail_s3_bucket_name == null ? 1 : 0
-  bucket = "${var.cloudtrail_name}-logs-${random_id.bucket_suffix[0].hex}"
-  tags   = var.tags
-}
-
-resource "random_id" "bucket_suffix" {
-  count       = var.enable_cloudtrail && var.cloudtrail_s3_bucket_name == null ? 1 : 0
-  byte_length = 4
-}
-
-resource "aws_s3_bucket_policy" "cloudtrail" {
-  count  = var.enable_cloudtrail && var.cloudtrail_s3_bucket_name == null ? 1 : 0
-  bucket = aws_s3_bucket.cloudtrail[0].id
-  policy = data.aws_iam_policy_document.cloudtrail_s3[0].json
-}
-
-data "aws_iam_policy_document" "cloudtrail_s3" {
-  count = var.enable_cloudtrail && var.cloudtrail_s3_bucket_name == null ? 1 : 0
-
-  statement {
-    sid    = "AWSCloudTrailAclCheck"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["cloudtrail.amazonaws.com"]
-    }
-    actions   = ["s3:GetBucketAcl"]
-    resources = [aws_s3_bucket.cloudtrail[0].arn]
-  }
-
-  statement {
-    sid    = "AWSCloudTrailWrite"
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["cloudtrail.amazonaws.com"]
-    }
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.cloudtrail[0].arn}/*"]
-    condition {
-      test     = "StringEquals"
-      variable = "s3:x-amz-acl"
-      values   = ["bucket-owner-full-control"]
-    }
-  }
-}
-
-# CloudTrail for audit logging of user authentication and data operations
-resource "aws_cloudtrail" "audit_trail" {
-  count          = var.enable_cloudtrail ? 1 : 0
-  name           = var.cloudtrail_name
-  s3_bucket_name = var.cloudtrail_s3_bucket_name != null ? var.cloudtrail_s3_bucket_name : aws_s3_bucket.cloudtrail[0].bucket
-
-  # Security configurations
-  enable_log_file_validation = true
-  is_multi_region_trail      = true
-  sns_topic_name             = var.cloudtrail_sns_topic_arn
-  kms_key_id                 = var.cloudtrail_kms_key_id
-
-  # Capture management events (includes Identity Center authentication)
-  event_selector {
-    read_write_type           = "All"
-    include_management_events = true
-  }
-
-  # Capture S3 data operations for all buckets
-  dynamic "event_selector" {
-    for_each = length(var.s3_bucket_names) > 0 ? [1] : []
-    content {
-      read_write_type           = "All"
-      include_management_events = false
-
-      dynamic "data_resource" {
-        for_each = toset(var.s3_bucket_names)
-        content {
-          type   = "AWS::S3::Object"
-          values = ["arn:aws:s3:::${data_resource.value}/*"]
-        }
-      }
-    }
+    s3_sub_prefix = each.value.s3_path
   }
 
   tags = var.tags
