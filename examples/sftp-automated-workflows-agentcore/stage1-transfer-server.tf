@@ -190,8 +190,8 @@ module "s3_bucket_transfer" {
   count  = var.enable_transfer_server ? 1 : 0
   source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
 
-  bucket                   = "${random_pet.transfer[0].id}-claims-files"
-  force_destroy            = true
+  bucket        = "${random_pet.transfer[0].id}-claims-files"
+  force_destroy = true
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
   block_public_acls        = true

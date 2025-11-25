@@ -63,6 +63,7 @@ TRANSFER_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw transfer_s3_bucket_
 UPLOAD_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_upload_bucket_name 2>/dev/null || echo "")
 CLEAN_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_clean_bucket_name 2>/dev/null || echo "")
 QUARANTINE_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_quarantine_bucket_name 2>/dev/null || echo "")
+ERRORS_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_errors_bucket_name 2>/dev/null || echo "")
 
 # Function to empty S3 bucket
 empty_bucket() {
@@ -114,6 +115,7 @@ empty_bucket "$TRANSFER_BUCKET" "Transfer Bucket"
 empty_bucket "$UPLOAD_BUCKET" "Upload Bucket"
 empty_bucket "$CLEAN_BUCKET" "Clean Bucket"
 empty_bucket "$QUARANTINE_BUCKET" "Quarantine Bucket"
+empty_bucket "$ERRORS_BUCKET" "Errors Bucket"
 
 echo ""
 echo -e "${GREEN}✓ All S3 buckets cleaned${NC}"
