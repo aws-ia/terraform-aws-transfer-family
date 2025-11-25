@@ -40,7 +40,7 @@ output "codebuild_project_name" {
 
 output "users_table_name" {
   description = "DynamoDB users table name"
-  value       = local.users_table
+  value       = var.users_table_name == "" ? aws_dynamodb_table.users[0].name : var.users_table_name
 }
 
 output "users_table_arn" {
@@ -50,7 +50,7 @@ output "users_table_arn" {
 
 output "identity_providers_table_name" {
   description = "DynamoDB identity providers table name"
-  value       = local.providers_table
+  value       = var.identity_providers_table_name == "" ? aws_dynamodb_table.identity_providers[0].name : var.identity_providers_table_name
 }
 
 output "identity_providers_table_arn" {
