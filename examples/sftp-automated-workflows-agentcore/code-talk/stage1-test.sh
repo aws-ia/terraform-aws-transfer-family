@@ -162,12 +162,9 @@ read -r
 echo ""
 echo -e "${YELLOW}Cleaning up test files...${NC}"
 
-# Delete uploaded files from S3 (including claim-1 folder)
-for file in "${CLAIMS_FILES[@]}"; do
-    FILENAME=$(basename "$file")
-    echo "  Deleting claim-1/$FILENAME..."
-    aws s3 rm "s3://$TRANSFER_S3_BUCKET/claim-1/$FILENAME" 2>/dev/null
-done
+# Delete the entire claim-1 folder from S3
+echo "  Deleting claim-1/ folder and all contents..."
+aws s3 rm "s3://$TRANSFER_S3_BUCKET/claim-1/" --recursive 2>/dev/null
 
 echo ""
 echo -e "${GREEN}✓ Cleanup completed!${NC}"

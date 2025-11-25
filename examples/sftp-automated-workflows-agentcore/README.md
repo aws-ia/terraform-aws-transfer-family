@@ -6,13 +6,14 @@ This project demonstrates AWS Transfer Family with incremental stages, allowing 
 
 The solution consists of 5 stages that build upon each other:
 
-### Stage 0: Identity Foundation
-**"Setting up identity and access infrastructure"**
+### Stage 0: Identity Foundation + AgentCore ECR
+**"Setting up identity and access infrastructure + Docker images"**
 - IAM Identity Center with users and groups
 - S3 Access Grants instance
 - Cognito user pool for external authentication
+- ECR repositories and Docker images for AgentCore agents (~2 min build time)
 
-**Demo**: Show foundational identity infrastructure
+**Demo**: Show foundational identity infrastructure and pre-built agent images
 
 ### Stage 1: Transfer Server with External Users
 **"Secure file transfer with custom authentication"**
@@ -33,10 +34,11 @@ The solution consists of 5 stages that build upon each other:
 
 ### Stage 3: AI Claims Processing
 **"Intelligent claims processing with Bedrock"**
-- Agentcore with Amazon Bedrock
+- Agentcore with Amazon Bedrock (agent deployment only)
 - Automated claims data extraction
 - Fraud detection
 - DynamoDB storage
+- Uses pre-built Docker images from Stage 0
 
 **Demo**: Upload claim PDF → Malware scan → AI extracts data → Fraud detection → Database insert
 

@@ -41,6 +41,12 @@ variable "enable_malware_protection" {
   default     = false
 }
 
+variable "enable_agentcore_ecr" {
+  type        = bool
+  description = "Enable AgentCore ECR repositories and Docker builds"
+  default     = false
+}
+
 variable "enable_agentcore" {
   type        = bool
   description = "Enable AI claims processing with Bedrock"

@@ -15,6 +15,7 @@
 enable_identity_center    = true  # IAM Identity Center for internal user management
 enable_s3_access_grants   = true  # S3 Access Grants for granular permissions
 enable_cognito            = true  # Cognito User Pool for external authentication
+enable_agentcore_ecr      = true  # ECR repos and Docker builds for AgentCore (from Stage 0)
 enable_custom_idp         = true  # Custom Lambda IDP for Transfer Family
 enable_transfer_server    = true  # SFTP server for file uploads
 enable_malware_protection = true  # GuardDuty malware scanning and routing
@@ -23,7 +24,7 @@ enable_malware_protection = true  # GuardDuty malware scanning and routing
 # Future Stages (Disabled)
 ################################################################################
 
-enable_agentcore = false  # Stage 3: AI claims processing
+enable_agentcore = false  # Stage 3: AI claims processing (agent deployment)
 enable_webapp    = false  # Stage 4: Web app for internal users
 
 ################################################################################

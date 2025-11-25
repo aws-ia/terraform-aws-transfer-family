@@ -2,7 +2,8 @@
 
 ################################################################################
 # Stage 3 Deployment Script
-# Deploys AI Claims Processing with Amazon Bedrock
+# Deploys AI Claims Processing with Amazon Bedrock (Agent Deployment Only)
+# Note: Docker images were built in Stage 0
 ################################################################################
 
 set -e  # Exit on error
@@ -18,7 +19,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
-echo -e "${BLUE}Stage 3: AI Claims Processing Deployment${NC}"
+echo -e "${BLUE}Stage 3: AI Claims Processing (Agent Deployment)${NC}"
 echo -e "${BLUE}=================================${NC}"
 echo ""
 

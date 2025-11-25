@@ -8,7 +8,7 @@ module "workflow_agent" {
   create_runtime        = true
   runtime_name          = "workflow_agent"
   runtime_description   = "Claims processing workflow orchestrator"
-  runtime_container_uri = "${aws_ecr_repository.workflow_agent.repository_url}:latest"
+  runtime_container_uri = "${local.workflow_agent_url}:latest"
   runtime_network_mode  = "PUBLIC"
 
   runtime_environment_variables = {
@@ -48,7 +48,7 @@ module "entity_extraction_agent" {
   create_runtime        = true
   runtime_name          = "entity_extraction_agent"
   runtime_description   = "Extracts entities from PDF documents"
-  runtime_container_uri = "${aws_ecr_repository.entity_extraction_agent.repository_url}:latest"
+  runtime_container_uri = "${local.entity_extraction_agent_url}:latest"
   runtime_network_mode  = "PUBLIC"
 
   runtime_environment_variables = {
@@ -78,7 +78,7 @@ module "fraud_validation_agent" {
   create_runtime        = true
   runtime_name          = "validation_agent"
   runtime_description   = "Validates claims for fraud detection"
-  runtime_container_uri = "${aws_ecr_repository.fraud_validation_agent.repository_url}:latest"
+  runtime_container_uri = "${local.fraud_validation_agent_url}:latest"
   runtime_network_mode  = "PUBLIC"
 
   runtime_environment_variables = {
@@ -114,7 +114,7 @@ module "database_insertion_agent" {
   create_runtime        = true
   runtime_name          = "database_insertion_agent"
   runtime_description   = "Inserts processed claims into DynamoDB"
-  runtime_container_uri = "${aws_ecr_repository.database_insertion_agent.repository_url}:latest"
+  runtime_container_uri = "${local.database_insertion_agent_url}:latest"
   runtime_network_mode  = "PUBLIC"
 
   runtime_environment_variables = {
@@ -150,7 +150,7 @@ module "summary_generation_agent" {
   create_runtime        = true
   runtime_name          = "summary_generation_agent"
   runtime_description   = "Generates summary reports for processed claims"
-  runtime_container_uri = "${aws_ecr_repository.summary_generation_agent.repository_url}:latest"
+  runtime_container_uri = "${local.summary_generation_agent_url}:latest"
   runtime_network_mode  = "PUBLIC"
 
   runtime_environment_variables = {

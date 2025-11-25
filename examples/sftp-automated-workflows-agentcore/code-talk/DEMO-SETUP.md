@@ -19,12 +19,13 @@ This guide walks through the setup process for the SFTP Automated Workflows demo
   - Linux: `xclip` or `xsel` (`sudo apt-get install xclip`)
   - WSL: `clip.exe` (built-in)
 
-## Stage 0: Identity Foundation
+## Stage 0: Identity Foundation + AgentCore ECR
 
-Stage 0 deploys the identity and authentication infrastructure:
+Stage 0 deploys the identity and authentication infrastructure plus Docker images:
 - IAM Identity Center for internal users
 - S3 Access Grants for fine-grained permissions
 - Cognito User Pool for external users (SFTP)
+- **ECR repositories and Docker images for AgentCore agents (~2 min build time)**
 
 ### Step 1: Deploy Infrastructure
 
@@ -37,7 +38,7 @@ The script will:
 1. Initialize Terraform
 2. Show the deployment command
 3. Wait for confirmation
-4. Deploy all Stage 0 resources
+4. Deploy all Stage 0 resources (including Docker builds)
 5. Display deployment information with console links
 
 ### Step 2: Verify Deployment
@@ -142,11 +143,12 @@ Your demo environment is now configured and ready to use. You can deploy and tes
 ./stage2-test.sh    # Test malware scan and routing
 ```
 
-**Stage 3: AI Claims Processing**
+**Stage 3: AI Claims Processing (Agent Deployment)**
 ```bash
-./stage3-deploy.sh  # Deploy Bedrock agents
+./stage3-deploy.sh  # Deploy Bedrock agents (uses Docker images from Stage 0)
 ./stage3-test.sh    # Test AI processing pipeline
 ```
+**Note**: Stage 3 deploys the Bedrock agents only. Docker images were already built in Stage 0, saving ~2 minutes.
 
 **Stage 4: Web Application**
 ```bash

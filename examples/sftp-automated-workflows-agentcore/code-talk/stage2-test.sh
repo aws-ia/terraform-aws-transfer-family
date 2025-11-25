@@ -276,16 +276,13 @@ read -r
 echo ""
 echo -e "${YELLOW}Cleaning up test files...${NC}"
 
-# Delete uploaded files from all buckets (including claim-1 folder)
-for file in "${CLAIMS_FILES[@]}"; do
-    FILENAME=$(basename "$file")
-    echo "  Deleting claim-1/$FILENAME from upload bucket..."
-    aws s3 rm "s3://$UPLOAD_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
-    echo "  Deleting claim-1/$FILENAME from clean bucket..."
-    aws s3 rm "s3://$CLEAN_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
-    echo "  Deleting claim-1/$FILENAME from quarantine bucket..."
-    aws s3 rm "s3://$QUARANTINE_BUCKET/claim-1/$FILENAME" 2>/dev/null || true
-done
+# Delete the entire claim-1 folder from all buckets
+echo "  Deleting claim-1/ folder from upload bucket..."
+aws s3 rm "s3://$UPLOAD_BUCKET/claim-1/" --recursive 2>/dev/null || true
+echo "  Deleting claim-1/ folder from clean bucket..."
+aws s3 rm "s3://$CLEAN_BUCKET/claim-1/" --recursive 2>/dev/null || true
+echo "  Deleting claim-1/ folder from quarantine bucket..."
+aws s3 rm "s3://$QUARANTINE_BUCKET/claim-1/" --recursive 2>/dev/null || true
 
 # Delete EICAR test file from all buckets
 echo "  Deleting eicar-test-file.txt from upload bucket..."

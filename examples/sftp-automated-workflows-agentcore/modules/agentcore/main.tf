@@ -1,5 +1,12 @@
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
+  
+  # Use provided ECR URLs if skip_ecr_and_docker is true, otherwise use created repos
+  workflow_agent_url            = var.skip_ecr_and_docker ? var.workflow_agent_ecr_url : aws_ecr_repository.workflow_agent[0].repository_url
+  entity_extraction_agent_url   = var.skip_ecr_and_docker ? var.entity_extraction_agent_ecr_url : aws_ecr_repository.entity_extraction_agent[0].repository_url
+  fraud_validation_agent_url    = var.skip_ecr_and_docker ? var.fraud_validation_agent_ecr_url : aws_ecr_repository.fraud_validation_agent[0].repository_url
+  database_insertion_agent_url  = var.skip_ecr_and_docker ? var.database_insertion_agent_ecr_url : aws_ecr_repository.database_insertion_agent[0].repository_url
+  summary_generation_agent_url  = var.skip_ecr_and_docker ? var.summary_generation_agent_ecr_url : aws_ecr_repository.summary_generation_agent[0].repository_url
 }
 
 resource "random_id" "suffix" {
@@ -25,6 +32,7 @@ resource "aws_dynamodb_table" "claims" {
 
 # ECR Repositories
 resource "aws_ecr_repository" "workflow_agent" {
+  count                = var.skip_ecr_and_docker ? 0 : 1
   name                 = "${local.name_prefix}-workflow-agent"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -45,6 +53,7 @@ resource "aws_ecr_repository" "workflow_agent" {
 }
 
 resource "aws_ecr_repository" "entity_extraction_agent" {
+  count                = var.skip_ecr_and_docker ? 0 : 1
   name                 = "${local.name_prefix}-entity-extraction-agent"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -65,6 +74,7 @@ resource "aws_ecr_repository" "entity_extraction_agent" {
 }
 
 resource "aws_ecr_repository" "fraud_validation_agent" {
+  count                = var.skip_ecr_and_docker ? 0 : 1
   name                 = "${local.name_prefix}-fraud-validation-agent"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -85,6 +95,7 @@ resource "aws_ecr_repository" "fraud_validation_agent" {
 }
 
 resource "aws_ecr_repository" "database_insertion_agent" {
+  count                = var.skip_ecr_and_docker ? 0 : 1
   name                 = "${local.name_prefix}-database-insertion-agent"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -105,6 +116,7 @@ resource "aws_ecr_repository" "database_insertion_agent" {
 }
 
 resource "aws_ecr_repository" "summary_generation_agent" {
+  count                = var.skip_ecr_and_docker ? 0 : 1
   name                 = "${local.name_prefix}-summary-generation-agent"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
@@ -129,6 +141,7 @@ data "aws_ecr_authorization_token" "token" {}
 
 # Build and push Docker images
 resource "null_resource" "workflow_agent_image" {
+  count      = var.skip_ecr_and_docker ? 0 : 1
   depends_on = [aws_ecr_repository.workflow_agent]
 
   triggers = {
@@ -149,13 +162,14 @@ resource "null_resource" "workflow_agent_image" {
       
       aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${data.aws_ecr_authorization_token.token.proxy_endpoint}
       
-      docker build -t ${aws_ecr_repository.workflow_agent.repository_url}:latest -f ${path.module}/docker/Dockerfile.workflow ${path.module}
-      docker push ${aws_ecr_repository.workflow_agent.repository_url}:latest
+      docker build -t ${aws_ecr_repository.workflow_agent[0].repository_url}:latest -f ${path.module}/docker/Dockerfile.workflow ${path.module}
+      docker push ${aws_ecr_repository.workflow_agent[0].repository_url}:latest
     EOF
   }
 }
 
 resource "null_resource" "entity_extraction_agent_image" {
+  count      = var.skip_ecr_and_docker ? 0 : 1
   depends_on = [aws_ecr_repository.entity_extraction_agent]
 
   triggers = {
@@ -171,13 +185,14 @@ resource "null_resource" "entity_extraction_agent_image" {
       
       aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${data.aws_ecr_authorization_token.token.proxy_endpoint}
       
-      docker build -t ${aws_ecr_repository.entity_extraction_agent.repository_url}:latest -f ${path.module}/docker/Dockerfile.entity ${path.module}
-      docker push ${aws_ecr_repository.entity_extraction_agent.repository_url}:latest
+      docker build -t ${aws_ecr_repository.entity_extraction_agent[0].repository_url}:latest -f ${path.module}/docker/Dockerfile.entity ${path.module}
+      docker push ${aws_ecr_repository.entity_extraction_agent[0].repository_url}:latest
     EOF
   }
 }
 
 resource "null_resource" "fraud_validation_agent_image" {
+  count      = var.skip_ecr_and_docker ? 0 : 1
   depends_on = [aws_ecr_repository.fraud_validation_agent]
 
   triggers = {
@@ -193,13 +208,14 @@ resource "null_resource" "fraud_validation_agent_image" {
       
       aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${data.aws_ecr_authorization_token.token.proxy_endpoint}
       
-      docker build -t ${aws_ecr_repository.fraud_validation_agent.repository_url}:latest -f ${path.module}/docker/Dockerfile.fraud ${path.module}
-      docker push ${aws_ecr_repository.fraud_validation_agent.repository_url}:latest
+      docker build -t ${aws_ecr_repository.fraud_validation_agent[0].repository_url}:latest -f ${path.module}/docker/Dockerfile.fraud ${path.module}
+      docker push ${aws_ecr_repository.fraud_validation_agent[0].repository_url}:latest
     EOF
   }
 }
 
 resource "null_resource" "database_insertion_agent_image" {
+  count      = var.skip_ecr_and_docker ? 0 : 1
   depends_on = [aws_ecr_repository.database_insertion_agent]
 
   triggers = {
@@ -215,13 +231,14 @@ resource "null_resource" "database_insertion_agent_image" {
       
       aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${data.aws_ecr_authorization_token.token.proxy_endpoint}
       
-      docker build -t ${aws_ecr_repository.database_insertion_agent.repository_url}:latest -f ${path.module}/docker/Dockerfile.db ${path.module}
-      docker push ${aws_ecr_repository.database_insertion_agent.repository_url}:latest
+      docker build -t ${aws_ecr_repository.database_insertion_agent[0].repository_url}:latest -f ${path.module}/docker/Dockerfile.db ${path.module}
+      docker push ${aws_ecr_repository.database_insertion_agent[0].repository_url}:latest
     EOF
   }
 }
 
 resource "null_resource" "summary_generation_agent_image" {
+  count      = var.skip_ecr_and_docker ? 0 : 1
   depends_on = [aws_ecr_repository.summary_generation_agent]
 
   triggers = {
@@ -237,8 +254,8 @@ resource "null_resource" "summary_generation_agent_image" {
       
       aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${data.aws_ecr_authorization_token.token.proxy_endpoint}
       
-      docker build -t ${aws_ecr_repository.summary_generation_agent.repository_url}:latest -f ${path.module}/docker/Dockerfile.summary ${path.module}
-      docker push ${aws_ecr_repository.summary_generation_agent.repository_url}:latest
+      docker build -t ${aws_ecr_repository.summary_generation_agent[0].repository_url}:latest -f ${path.module}/docker/Dockerfile.summary ${path.module}
+      docker push ${aws_ecr_repository.summary_generation_agent[0].repository_url}:latest
     EOF
   }
 }

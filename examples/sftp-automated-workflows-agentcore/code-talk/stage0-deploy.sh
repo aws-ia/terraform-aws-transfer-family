@@ -2,7 +2,9 @@
 
 ################################################################################
 # Stage 0 Deployment Script
-# Deploys Identity Foundation: IAM Identity Center, S3 Access Grants, Cognito
+# Deploys Identity Foundation + AgentCore ECR:
+#   - IAM Identity Center, S3 Access Grants, Cognito
+#   - ECR repositories and Docker images for AgentCore agents (~2 min)
 ################################################################################
 
 set -e  # Exit on error
@@ -18,7 +20,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
-echo -e "${BLUE}Stage 0: Identity Foundation Deployment${NC}"
+echo -e "${BLUE}Stage 0: Identity Foundation + AgentCore ECR${NC}"
 echo -e "${BLUE}=================================${NC}"
 echo ""
 
@@ -69,6 +71,18 @@ if [ $? -eq 0 ]; then
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}Identity Foundation Information${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    
+    echo -e "${BLUE}✓ ECR Repositories Created:${NC}"
+    echo "  - workflow-agent"
+    echo "  - entity-extraction-agent"
+    echo "  - fraud-validation-agent"
+    echo "  - database-insertion-agent"
+    echo "  - summary-generation-agent"
+    echo ""
+    
+    echo -e "${BLUE}✓ Docker Images Built and Pushed${NC}"
+    echo "  (Images ready for Stage 3 agent deployment)"
     echo ""
     
     if [ -n "$IDENTITY_CENTER_ARN" ]; then
