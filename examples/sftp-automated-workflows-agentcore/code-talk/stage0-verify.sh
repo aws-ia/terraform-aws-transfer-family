@@ -175,6 +175,43 @@ else
 fi
 
 echo ""
+echo -e "${YELLOW}Checking ECR repositories...${NC}"
+echo ""
+
+# Check if ECR repositories exist for agentcore agents
+ECR_REPOS=(
+    "claims-processing-demo-workflow-agent"
+    "claims-processing-demo-entity-extraction-agent"
+    "claims-processing-demo-fraud-validation-agent"
+    "claims-processing-demo-database-insertion-agent"
+    "claims-processing-demo-summary-generation-agent"
+)
+
+ECR_REPOS_FOUND=0
+for REPO in "${ECR_REPOS[@]}"; do
+    REPO_URI=$(aws ecr describe-repositories --repository-names "$REPO" --query 'repositories[0].repositoryUri' --output text 2>/dev/null || echo "")
+    if [ -n "$REPO_URI" ] && [ "$REPO_URI" != "None" ]; then
+        # Check if repository has images
+        IMAGE_COUNT=$(aws ecr list-images --repository-name "$REPO" --query 'length(imageIds)' --output text 2>/dev/null || echo "0")
+        if [ "$IMAGE_COUNT" -gt 0 ]; then
+            check_result "pass" "ECR repository '$REPO' exists with $IMAGE_COUNT image(s)"
+        else
+            check_result "warn" "ECR repository '$REPO' exists but has no images"
+        fi
+        ECR_REPOS_FOUND=$((ECR_REPOS_FOUND + 1))
+    fi
+done
+
+if [ $ECR_REPOS_FOUND -eq 0 ]; then
+    check_result "warn" "No ECR repositories found - Stage 3 (AgentCore) will not be available"
+    echo -e "  ${BLUE}→${NC} Deploy ECR repositories with: terraform apply -var-file=stage0.tfvars -var enable_agentcore_ecr=true"
+elif [ $ECR_REPOS_FOUND -lt 5 ]; then
+    check_result "warn" "Only $ECR_REPOS_FOUND of 5 ECR repositories found"
+else
+    check_result "pass" "All 5 ECR repositories found"
+fi
+
+echo ""
 echo -e "${YELLOW}Checking Amazon Bedrock access...${NC}"
 echo ""
 
