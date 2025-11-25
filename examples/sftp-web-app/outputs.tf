@@ -20,7 +20,7 @@ output "s3_bucket_arn" {
 
 output "cloudtrail_arn" {
   description = "ARN of the CloudTrail for audit logging"
-  value       = module.transfer_web_app.cloudtrail_arn
+  value       = aws_cloudtrail.web_app_audit.arn
 }
 
 output "created_users" {
