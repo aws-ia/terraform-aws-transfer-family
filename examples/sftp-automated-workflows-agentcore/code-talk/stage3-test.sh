@@ -458,21 +458,15 @@ read -r
 echo ""
 echo -e "${YELLOW}Cleaning up test files...${NC}"
 
-# Delete claim-1 ZIP and extracted files from all buckets
+# Delete claim ZIP files from upload bucket only
+# Keep submitted-claims/ folders as they're needed for AI processing and web app access
 echo "  Deleting claim-1.zip from upload bucket..."
 aws s3 rm "s3://$UPLOAD_BUCKET/claim-1.zip" 2>/dev/null || true
-echo "  Deleting submitted-claims/claim-1/ from clean bucket..."
-aws s3 rm "s3://$CLEAN_BUCKET/submitted-claims/claim-1/" --recursive 2>/dev/null || true
-echo "  Deleting submitted-claims/claim-1/ from quarantine bucket..."
-aws s3 rm "s3://$QUARANTINE_BUCKET/submitted-claims/claim-1/" --recursive 2>/dev/null || true
-
-# Delete claim-2 ZIP and extracted files from all buckets
 echo "  Deleting claim-2.zip from upload bucket..."
 aws s3 rm "s3://$UPLOAD_BUCKET/claim-2.zip" 2>/dev/null || true
-echo "  Deleting submitted-claims/claim-2/ from clean bucket..."
-aws s3 rm "s3://$CLEAN_BUCKET/submitted-claims/claim-2/" --recursive 2>/dev/null || true
-echo "  Deleting submitted-claims/claim-2/ from quarantine bucket..."
-aws s3 rm "s3://$QUARANTINE_BUCKET/submitted-claims/claim-2/" --recursive 2>/dev/null || true
+
+echo ""
+echo -e "${BLUE}Note: Extracted files in submitted-claims/ are preserved for web app access${NC}"
 
 echo ""
 echo -e "${GREEN}✓ Cleanup completed!${NC}"
