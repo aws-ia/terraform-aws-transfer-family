@@ -73,6 +73,11 @@ output "malware_quarantine_bucket_name" {
   value       = var.enable_malware_protection ? module.s3_bucket_quarantine[0].s3_bucket_id : null
 }
 
+output "malware_errors_bucket_name" {
+  description = "Name of the errors bucket for scan failures"
+  value       = var.enable_malware_protection ? module.s3_bucket_errors[0].s3_bucket_id : null
+}
+
 # Stage 3: Agentcore outputs
 output "agentcore_workflow_agent_runtime_id" {
   description = "ID of the workflow agent runtime"

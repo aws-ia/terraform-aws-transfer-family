@@ -5,12 +5,17 @@
 
 # ECR Repositories
 resource "aws_ecr_repository" "workflow_agent" {
-  count        = var.enable_agentcore_ecr ? 1 : 0
-  name         = "claims-processing-demo-workflow-agent"
-  force_delete = true
+  count                = var.enable_agentcore_ecr ? 1 : 0
+  name                 = "claims-processing-demo-workflow-agent"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
   }
 
   tags = {
@@ -21,12 +26,17 @@ resource "aws_ecr_repository" "workflow_agent" {
 }
 
 resource "aws_ecr_repository" "entity_extraction_agent" {
-  count        = var.enable_agentcore_ecr ? 1 : 0
-  name         = "claims-processing-demo-entity-extraction-agent"
-  force_delete = true
+  count                = var.enable_agentcore_ecr ? 1 : 0
+  name                 = "claims-processing-demo-entity-extraction-agent"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
   }
 
   tags = {
@@ -37,12 +47,17 @@ resource "aws_ecr_repository" "entity_extraction_agent" {
 }
 
 resource "aws_ecr_repository" "fraud_validation_agent" {
-  count        = var.enable_agentcore_ecr ? 1 : 0
-  name         = "claims-processing-demo-fraud-validation-agent"
-  force_delete = true
+  count                = var.enable_agentcore_ecr ? 1 : 0
+  name                 = "claims-processing-demo-fraud-validation-agent"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
   }
 
   tags = {
@@ -53,12 +68,17 @@ resource "aws_ecr_repository" "fraud_validation_agent" {
 }
 
 resource "aws_ecr_repository" "database_insertion_agent" {
-  count        = var.enable_agentcore_ecr ? 1 : 0
-  name         = "claims-processing-demo-database-insertion-agent"
-  force_delete = true
+  count                = var.enable_agentcore_ecr ? 1 : 0
+  name                 = "claims-processing-demo-database-insertion-agent"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
   }
 
   tags = {
@@ -69,12 +89,17 @@ resource "aws_ecr_repository" "database_insertion_agent" {
 }
 
 resource "aws_ecr_repository" "summary_generation_agent" {
-  count        = var.enable_agentcore_ecr ? 1 : 0
-  name         = "claims-processing-demo-summary-generation-agent"
-  force_delete = true
+  count                = var.enable_agentcore_ecr ? 1 : 0
+  name                 = "claims-processing-demo-summary-generation-agent"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "KMS"
   }
 
   tags = {
