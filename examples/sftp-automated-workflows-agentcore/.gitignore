@@ -50,8 +50,9 @@ Thumbs.db
 .terraform/
 .terraform.lock.hcl
 *.tfplan
-*.tfvars
 terraform.tfstate.backup
+# Keep stage*.tfvars for example configuration
+# *.tfvars
 
 # AWS
 .aws/
