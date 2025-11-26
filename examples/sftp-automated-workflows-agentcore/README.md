@@ -6,6 +6,8 @@ This example demonstrates a complete end-to-end solution for secure file transfe
 
 This solution showcases how organizations can automate the processing of sensitive documents submitted by external partners while maintaining security, compliance, and operational efficiency. The example uses an insurance claims processing scenario where auto repair shops submit damage claims via SFTP, which are then automatically scanned for malware, processed by AI agents for data extraction and fraud detection, and made available to internal staff through a secure web interface.
 
+**Built with Terraform and AWS Transfer Family modules**, this solution provides production-ready infrastructure-as-code that can be deployed incrementally across 5 stages. The modular Terraform architecture uses the official AWS Transfer Family modules to provision secure file transfer infrastructure, making it easy to customize and extend for your specific use case.
+
 **Key capabilities demonstrated**:
 - Secure SFTP file transfer with custom authentication
 - Automated malware scanning and file routing
@@ -15,7 +17,8 @@ This solution showcases how organizations can automate the processing of sensiti
 - Automated deployment and testing scripts
 
 **Technologies used**:
-- AWS Transfer Family (SFTP server and web app)
+- **Terraform** for infrastructure-as-code deployment
+- **AWS Transfer Family modules** (SFTP server, web app, custom IDP)
 - Amazon GuardDuty Malware Protection
 - Amazon Bedrock AgentCore with Claude models
 - AWS Lambda for event-driven processing
