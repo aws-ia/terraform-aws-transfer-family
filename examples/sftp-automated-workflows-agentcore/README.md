@@ -4,9 +4,11 @@ This example demonstrates a complete end-to-end solution for secure file transfe
 
 ## Solution Overview
 
-This solution showcases how organizations can automate the processing of sensitive documents submitted by external partners while maintaining security, compliance, and operational efficiency. The example uses an insurance claims processing scenario where auto repair shops submit damage claims via SFTP, which are then automatically scanned for malware, processed by AI agents for data extraction and fraud detection, and made available to internal staff through a secure web interface.
+This **proof-of-concept** demonstrates how organizations can automate the processing of sensitive documents submitted by external partners while maintaining security, compliance, and operational efficiency. The example uses an insurance claims processing scenario where auto repair shops submit damage claims via SFTP, which are then automatically scanned for malware, processed by AI agents for data extraction and fraud detection, and made available to internal staff through a secure web interface.
 
-**Built with Terraform and AWS Transfer Family modules**, this solution provides production-ready infrastructure-as-code that can be deployed incrementally across 5 stages. The modular Terraform architecture uses the official AWS Transfer Family modules to provision secure file transfer infrastructure, making it easy to customize and extend for your specific use case.
+**Built with Terraform and AWS Transfer Family modules**, this proof-of-concept provides infrastructure-as-code that can be deployed incrementally across 5 stages for learning and evaluation purposes. The modular Terraform architecture uses the official AWS Transfer Family modules to provision secure file transfer infrastructure, making it easy to understand the architecture and adapt patterns for your specific use case.
+
+> **Note**: This is demonstration code intended for learning and evaluation. For production deployments, additional considerations for security hardening, high availability, monitoring, backup/recovery, and compliance requirements should be implemented.
 
 **Key capabilities demonstrated**:
 - Secure SFTP file transfer with custom authentication
