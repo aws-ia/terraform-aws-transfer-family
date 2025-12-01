@@ -1,0 +1,25 @@
+# AWS Region
+aws_region = "us-east-1"
+
+# Resource naming prefix
+name_prefix = "sftp-cognito-example"
+
+# Cognito user configuration (only used when creating a new Cognito pool)
+cognito_username   = "user1"
+cognito_user_email = "user1@example.com"
+
+# Tags to apply to all resources
+tags = {
+  Environment = "demo"
+  Project     = "transfer-family-cognito"
+}
+
+# Optional: Use existing Cognito User Pool
+# Uncomment and provide values to use an existing pool instead of creating a new one
+# existing_cognito_user_pool_id        = "us-east-1_XXXXXXXXX"
+# existing_cognito_user_pool_client_id = "1234567890abcdefghijklmnop"
+# existing_cognito_user_pool_region    = "us-east-1"
+
+# Optional: DynamoDB deletion protection (default: true)
+# Set to false to allow easy cleanup during testing
+# enable_deletion_protection = true

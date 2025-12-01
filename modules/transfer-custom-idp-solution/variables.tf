@@ -107,6 +107,12 @@ variable "identity_providers_table_name" {
   default     = ""
 }
 
+variable "enable_deletion_protection" {
+  description = "Enable deletion protection for DynamoDB tables. This is enabled by default to prevent accidental deletion."
+  type        = bool
+  default     = true
+}
+
 # API Gateway Configuration
 variable "provision_api" {
   description = "Create API Gateway REST API"
