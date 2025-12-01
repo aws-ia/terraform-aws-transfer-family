@@ -1,60 +1,25 @@
-# Transfer Web App Module
-# This module creates web application resources for AWS Transfer Family
+##################################################################
+# AWS Transfer Family Web App Module
+# This module web application resources for AWS Transfer Family
+##################################################################
+
+######################################
+# Defaults, Locals, and Checks
+######################################
+
+# Validation: providing existing S3 Access Grants location requires existing S3 Access Grants instance ID
+check "existing_location_requires_instance" {
+  assert {
+    condition     = var.s3_access_grants_location_existing != null ? var.s3_access_grants_instance_id != null : true
+    error_message = "When using an existing location (s3_access_grants_location_existing), you must also provide s3_access_grants_instance_id."
+  }
+}
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 data "aws_ssoadmin_instances" "identity_center" {}
-
-
-
-# Local variables
-locals {
-  identity_store_id            = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
-  identity_center_instance_arn = var.identity_center_instance_arn != null ? var.identity_center_instance_arn : tolist(data.aws_ssoadmin_instances.identity_center.arns)[0]
-  application_arn              = aws_transfer_web_app.web_app.identity_provider_details[0].identity_center_config[0].application_arn
-
-  user_grants = flatten([
-    for user in var.identity_center_users : [
-      for grant in coalesce(user.access_grants, []) : {
-        username   = user.username
-        s3_path    = grant.s3_path
-        permission = grant.permission
-      }
-    ]
-  ])
-
-  group_grants = flatten([
-    for group in var.identity_center_groups : [
-      for grant in coalesce(group.access_grants, []) : {
-        group_name = group.group_name
-        s3_path    = grant.s3_path
-        permission = grant.permission
-      }
-    ]
-  ])
-
-  access_grants_instance_id = coalesce(
-    var.s3_access_grants_instance_id,
-    try(aws_s3control_access_grants_instance.instance[0].access_grants_instance_id, null)
-  )
-
-  all_buckets_location_id = coalesce(
-    try([for loc in data.aws_s3control_access_grants_locations.all_buckets[0].locations : 
-      loc.access_grants_location_id if loc.location_scope == "s3://"
-    ][0], null),
-    try(aws_s3control_access_grants_location.all_buckets[0].access_grants_location_id, null)
-  )
-}
-
-# S3 Access Grants Instance (create if not provided)
-resource "aws_s3control_access_grants_instance" "instance" {
-  count = var.s3_access_grants_instance_id == null && (length(local.user_grants) > 0 || length(local.group_grants) > 0) ? 1 : 0
-
-  identity_center_arn = local.identity_center_instance_arn
-  tags                = var.tags
-}
 
 
 
@@ -105,6 +70,175 @@ data "aws_iam_policy_document" "assume_role_transfer" {
     }
   }
 }
+
+locals {
+  identity_store_id            = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
+  identity_center_instance_arn = var.identity_center_instance_arn != null ? var.identity_center_instance_arn : tolist(data.aws_ssoadmin_instances.identity_center.arns)[0]
+  application_arn              = aws_transfer_web_app.web_app.identity_provider_details[0].identity_center_config[0].application_arn
+
+  user_grants = flatten([
+    for user in var.identity_center_users : [
+      for grant in coalesce(user.access_grants, []) : {
+        username   = user.username
+        s3_path    = grant.s3_path
+        permission = grant.permission
+      }
+    ]
+  ])
+
+  group_grants = flatten([
+    for group in var.identity_center_groups : [
+      for grant in coalesce(group.access_grants, []) : {
+        group_name = group.group_name
+        s3_path    = grant.s3_path
+        permission = grant.permission
+      }
+    ]
+  ])
+
+  access_grants_instance_id = coalesce(
+    var.s3_access_grants_instance_id,
+    try(aws_s3control_access_grants_instance.instance[0].access_grants_instance_id, null)
+  )
+
+  # S3 Access Grants Location ID to use (existing or newly created)
+  access_grants_location_id = coalesce(
+    var.s3_access_grants_location_existing,
+    try(aws_s3control_access_grants_location.access_grants_location[0].access_grants_location_id, null)
+  )
+}
+
+#####################################################################################
+# S3 Access Grants Instance (create if not provided)
+#####################################################################################
+
+resource "aws_s3control_access_grants_instance" "instance" {
+  count = var.s3_access_grants_instance_id == null && (length(local.user_grants) > 0 || length(local.group_grants) > 0) ? 1 : 0
+
+  identity_center_arn = local.identity_center_instance_arn
+  tags                = var.tags
+}
+
+#####################################################################################
+# S3 Access Grants Location
+#####################################################################################
+
+data "aws_iam_policy_document" "access_grants_location_assume_role" {
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["access-grants.s3.amazonaws.com"]
+    }
+    actions = ["sts:AssumeRole", "sts:SetContext"]
+  }
+}
+
+resource "aws_iam_role" "access_grants_location" {
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+
+  name               = "${var.iam_role_name}-access-grants-location"
+  assume_role_policy = data.aws_iam_policy_document.access_grants_location_assume_role[0].json
+  tags               = var.tags
+}
+
+data "aws_iam_policy_document" "access_grants_location_policy" {
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:s3:::*"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:ResourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "access_grants_location" {
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+
+  name   = "access-grants-location-policy"
+  role   = aws_iam_role.access_grants_location[0].id
+  policy = data.aws_iam_policy_document.access_grants_location_policy[0].json
+}
+
+
+# Create S3 Access Grants location if instance exists, grants are needed, location is specified, and no existing location provided
+resource "aws_s3control_access_grants_location" "access_grants_location" {
+  count = local.access_grants_instance_id != null && (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+
+  account_id     = data.aws_caller_identity.current.account_id
+  iam_role_arn   = aws_iam_role.access_grants_location[0].arn
+  location_scope = var.s3_access_grants_location_new
+  tags           = var.tags
+
+  depends_on = [aws_s3control_access_grants_instance.instance]
+}
+
+#####################################################################################
+# S3 Access Grants 
+#####################################################################################
+
+# Create S3 Access Grants for users
+resource "aws_s3control_access_grant" "user_grants" {
+  for_each = {
+    for idx, grant in local.user_grants : "${grant.username}-${idx}" => grant
+  }
+
+  account_id                = data.aws_caller_identity.current.account_id
+  access_grants_location_id = local.access_grants_location_id
+  permission                = each.value.permission
+
+  grantee {
+    grantee_type       = "DIRECTORY_USER"
+    grantee_identifier = data.aws_identitystore_user.users[each.value.username].user_id
+  }
+
+  access_grants_location_configuration {
+    s3_sub_prefix = each.value.s3_path
+  }
+
+  tags = var.tags
+}
+
+# Create S3 Access Grants for groups
+resource "aws_s3control_access_grant" "group_grants" {
+  for_each = {
+    for idx, grant in local.group_grants : "${grant.group_name}-${idx}" => grant
+  }
+
+  account_id                = data.aws_caller_identity.current.account_id
+  access_grants_location_id = local.access_grants_location_id
+  permission                = each.value.permission
+
+  grantee {
+    grantee_type       = "DIRECTORY_GROUP"
+    grantee_identifier = data.aws_identitystore_group.groups[each.value.group_name].group_id
+  }
+
+  access_grants_location_configuration {
+    s3_sub_prefix = each.value.s3_path
+  }
+
+  tags = var.tags
+}
+
+
+#####################################################################################
+# AWS Transfer Family Web App
+#####################################################################################
 
 # IAM role for Transfer web app
 resource "aws_iam_role" "transfer_web_app" {
@@ -176,6 +310,10 @@ resource "aws_transfer_web_app_customization" "web_app" {
   title        = var.custom_title
 }
 
+#####################################################################################
+# IAM Identity Center Application User and Group Assignment 
+#####################################################################################
+
 # Assign users to Transfer Family Web App via Identity Center Application
 resource "aws_ssoadmin_application_assignment" "users" {
   for_each = { for user in var.identity_center_users : user.username => user }
@@ -196,120 +334,4 @@ resource "aws_ssoadmin_application_assignment" "groups" {
   principal_type  = "GROUP"
 
   depends_on = [aws_transfer_web_app.web_app]
-}
-
-# Check for existing s3:// location
-data "aws_s3control_access_grants_locations" "all_buckets" {
-  count      = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
-  account_id = data.aws_caller_identity.current.account_id
-}
-
-# IAM role for s3:// location
-data "aws_iam_policy_document" "access_grants_location_assume_role" {
-  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
-
-  statement {
-    effect = "Allow"
-    principals {
-      type        = "Service"
-      identifiers = ["access-grants.s3.amazonaws.com"]
-    }
-    actions = ["sts:AssumeRole", "sts:SetContext"]
-  }
-}
-
-resource "aws_iam_role" "access_grants_location" {
-  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
-
-  name               = "${var.iam_role_name}-access-grants-location"
-  assume_role_policy = data.aws_iam_policy_document.access_grants_location_assume_role[0].json
-  tags               = var.tags
-}
-
-data "aws_iam_policy_document" "access_grants_location_policy" {
-  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
-
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:ListBucket",
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject"
-    ]
-    resources = [
-      "arn:${data.aws_partition.current.partition}:s3:::*"
-    ]
-    condition {
-      test     = "StringEquals"
-      variable = "s3:ResourceAccount"
-      values   = [data.aws_caller_identity.current.account_id]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "access_grants_location" {
-  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
-
-  name   = "access-grants-location-policy"
-  role   = aws_iam_role.access_grants_location[0].id
-  policy = data.aws_iam_policy_document.access_grants_location_policy[0].json
-}
-
-
-
-# Create s3:// location if it doesn't exist
-resource "aws_s3control_access_grants_location" "all_buckets" {
-  count = local.all_buckets_location_id == null && (length(local.user_grants) > 0 || length(local.group_grants) > 0) ? 1 : 0
-
-  account_id     = data.aws_caller_identity.current.account_id
-  iam_role_arn   = aws_iam_role.access_grants_location[0].arn
-  location_scope = "s3://"
-  tags           = var.tags
-
-  depends_on = [aws_s3control_access_grants_instance.instance]
-}
-
-# Create S3 Access Grants for users
-resource "aws_s3control_access_grant" "user_grants" {
-  for_each = {
-    for grant in local.user_grants : "${grant.username}-${grant.s3_path}" => grant
-  }
-
-  account_id                = data.aws_caller_identity.current.account_id
-  access_grants_location_id = local.all_buckets_location_id
-  permission                = each.value.permission
-
-  grantee {
-    grantee_type       = "DIRECTORY_USER"
-    grantee_identifier = data.aws_identitystore_user.users[each.value.username].user_id
-  }
-
-  access_grants_location_configuration {
-    s3_sub_prefix = each.value.s3_path
-  }
-
-  tags = var.tags
-}
-
-# Create S3 Access Grants for groups
-resource "aws_s3control_access_grant" "group_grants" {
-  for_each = {
-    for grant in local.group_grants : "${grant.group_name}-${grant.s3_path}" => grant
-  }
-
-  account_id                = data.aws_caller_identity.current.account_id
-  access_grants_location_id = local.all_buckets_location_id
-  permission                = each.value.permission
-
-  grantee {
-    grantee_type       = "DIRECTORY_GROUP"
-    grantee_identifier = data.aws_identitystore_group.groups[each.value.group_name].group_id
-  }
-
-  access_grants_location_configuration {
-    s3_sub_prefix = each.value.s3_path
-  }
-
-  tags = var.tags
 }
