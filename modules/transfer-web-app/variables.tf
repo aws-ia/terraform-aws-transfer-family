@@ -42,6 +42,18 @@ variable "s3_access_grants_instance_id" {
   default     = null
 }
 
+variable "s3_access_grants_location_new" {
+  description = "S3 location scope for creating a new access grants location. Set to 's3://' (default) to create a location for all buckets, a specific path like 's3://bucket-name' or 's3://bucket-name/prefix' for a specific location, or null to skip location creation"
+  type        = string
+  default     = "s3://"
+}
+
+variable "s3_access_grants_location_existing" {
+  description = "ID of an existing S3 Access Grants location to use. If provided, no new location will be created and s3_access_grants_instance_id must be specified"
+  type        = string
+  default     = null
+}
+
 variable "identity_center_users" {
   description = "List of users to assign to the web app"
   type = list(object({

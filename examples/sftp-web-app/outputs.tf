@@ -1,6 +1,6 @@
-output "web_app_access_endpoint" {
-  description = "The access endpoint URL for the Transfer web app"
-  value       = module.transfer_web_app.web_app_access_endpoint
+output "web_app_endpoint" {
+  description = "The web app endpoint URL for access and CORS configuration"
+  value       = module.transfer_web_app.web_app_endpoint
 }
 
 output "web_app_id" {
@@ -46,5 +46,5 @@ output "created_groups" {
 
 output "access_grants_instance_arn" {
   description = "The ARN of the S3 Access Grants instance"
-  value       = var.access_grants_instance_arn == null ? aws_s3control_access_grants_instance.instance[0].access_grants_instance_arn : null
+  value       = module.transfer_web_app.access_grants_instance_arn
 }

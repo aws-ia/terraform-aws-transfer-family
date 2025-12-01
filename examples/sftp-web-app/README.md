@@ -1,60 +1,52 @@
 <!-- BEGIN_TF_DOCS -->
 # SFTP Web App Example
 
-This example demonstrates how to deploy an AWS Transfer Family Web App with integrated Identity Center authentication, S3 Access Grants, and comprehensive audit logging.
+This example demonstrates a complete deployment of AWS Transfer Family Web App with Identity Center authentication, S3 Access Grants, CloudTrail audit logging, and CORS configuration.
 
-## Architecture
+## What This Example Demonstrates
 
-This example creates:
-
-- **Transfer Family Web App**: Browser-based interface for secure S3 file access
-- **Identity Center Integration**: SSO authentication with groups and users
-- **S3 Access Grants**: Fine-grained permissions with configurable paths and permissions
-- **S3 Storage**: Encrypted bucket with versioning and public access blocking
-- **CloudTrail Audit**: Comprehensive logging with SNS notifications and KMS encryption
-- **CORS Configuration**: Restricted to web app endpoint only for enhanced security
-
-## Key Features
-
-- **Flexible Permission Model**: Configurable access paths and permissions via variables
-- **Mixed Access Control**: User-level and group-level permissions as needed
-- **Secure Authentication**: Integration with AWS Identity Center for SSO
-- **Compliance Ready**: CloudTrail logging with encryption and SNS notifications
-- **Customizable**: Easy to modify users, groups, paths, and permissions through variables
+- **Complete end-to-end setup** from Identity Center users/groups to web app deployment
+- **CloudTrail integration** with KMS encryption and SNS notifications for audit logging
+- **CORS configuration** restricted to the web app endpoint for security
+- **Mixed permission model** showing both user-level and group-level access grants
+- **Automatic path prefixing** demonstrating how to construct full S3 paths from bucket names
 
 ## What Gets Deployed
 
-### IAM Identity Center Resources
-- **Groups**: **Analysts** group (default) with read-only permission
-- **Users** (with email-based activation):
-  - **admin** user (default) with read/write access via user-level permissions
-  - **analyst** user (default) with read-only permission inherited from **Analysts** group
-- **Group memberships**: Links users to appropriate groups
+### Identity Center Resources
+- Users: **admin** (READWRITE via user grants) and **analyst** (READ via group membership)
+- Group: **Analysts** with read-only access
+- Group memberships linking users to groups
 
-### Transfer Family Resources
-- Web app with custom branding and Identity Center integration
-- IAM roles with S3 Access Grants permissions
-- S3 Access Grants instance (if not provided)
-- Access grants locations and grants for role-based permissions
+### Transfer Web App
+- Web app with Identity Center authentication
+- S3 Access Grants instance with default location scope ("s3://")
+- Access grants for configured users and groups
 
-### Storage and Security
+### Storage and Audit
 - S3 bucket with encryption, versioning, and public access blocking
-- CORS configuration restricted to web app endpoint only
+- CORS configuration restricted to web app endpoint
 - CloudTrail with KMS encryption and SNS notifications
-- KMS key for CloudTrail log encryption
+- Dedicated S3 bucket for CloudTrail logs
 
 ## Usage
 
-1. **Update terraform.tfvars**: Provide real email addresses and configure access paths/permissions
-2. **Deploy**: Run `terraform apply` to create all resources
-3. **User Activation**: Users will receive activation emails to set up their accounts
-4. **Access**: Users can log in through the web app endpoint URL
+1. **Configure variables**: Provide real email addresses for user activation
+2. **Deploy**: Run `terraform apply`
+3. **User Activation**: Users receive activation emails to set up accounts
+4. **Access**: Log in through the web app endpoint URL
 
 ## Permission Structure
 
-- **Admin User**: Gets READWRITE access via user-level permissions (configurable via `access_path` and `permission`)
-- **Analyst User**: Gets READ access via Analysts group membership (no user-level permissions)
-- **Default Access Path**: `*` (entire bucket) - configurable per user/group
+The example shows two permission patterns:
+
+- **User-level grants**: Admin user gets direct READWRITE access to `/*`
+- **Group-level grants**: Analyst user inherits READ access to `/*` from Analysts group
+
+S3 paths are automatically prefixed with the bucket name:
+```hcl
+s3_path = "/*"  # Becomes "bucket-name/*" in the module call
+```
 
 ## Configuration Variables
 
@@ -62,13 +54,15 @@ This example creates:
 ```hcl
 users = {
   "admin" = {
-    # ... user details ...
-    access_path = "*"           # Optional: defaults to no user-level access
-    permission  = "READWRITE"   # Optional: used when access_path is set
-  }
-  "analyst" = {
-    # ... user details ...
-    # No access_path/permission - inherits from group
+    display_name = "Admin User"
+    user_name    = "admin"
+    first_name   = "Admin"
+    last_name    = "User"
+    email        = "admin@example.com"
+    access_grants = [{
+      s3_path    = "/*"         # Auto-prefixed with bucket name
+      permission = "READWRITE"
+    }]
   }
 }
 ```
@@ -77,21 +71,34 @@ users = {
 ```hcl
 groups = {
   "analysts" = {
-    # ... group details ...
-    access_path = "*"     # Optional: defaults to "*"
-    permission  = "READ"  # Optional: defaults to "READWRITE"
+    group_name  = "Analysts"
+    description = "Read access to files"
+    members     = ["analyst"]
+    access_grants = [{
+      s3_path    = "/*"
+      permission = "READ"
+    }]
   }
 }
 ```
 
+## S3 Path Examples
+
+Supported path patterns (auto-prefixed with bucket name in this example):
+
+- `/*` - All objects
+- `/reports*` - Prefix within bucket
+- `/data/logs*` - Nested prefix
+- `/file.txt` - Specific object
+
 ## Important Notes
 
-- **Email Addresses**: Must be real and accessible for user activation
-- **Identity Center**: Requires an existing Identity Center instance in your account
-- **Permission Logic**: User-level permissions only created when `access_path` is defined
-- **CORS Security**: Origins restricted to web app endpoint only (no wildcards)
-- **Costs**: This example creates billable AWS resources
-- **Cleanup**: Run `terraform destroy` to remove all created resources
+- **Email Addresses**: Must be real for user activation
+- **Identity Center**: Requires existing instance in your account
+- **CloudTrail**: Logs all S3 data events on the web app bucket
+- **CORS**: Restricted to web app endpoint only (no wildcards)
+- **Costs**: Creates billable AWS resources
+- **Cleanup**: Run `terraform destroy` to remove all resources
 
 ## Requirements
 
@@ -125,6 +132,7 @@ groups = {
 | [aws_identitystore_user.users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_user) | resource |
 | [aws_kms_alias.cloudtrail](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.cloudtrail](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
+| [aws_kms_key_policy.cloudtrail](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy) | resource |
 | [aws_s3_bucket.cloudtrail_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
 | [aws_s3_bucket_cors_configuration.web_app](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_cors_configuration) | resource |
 | [aws_s3_bucket_policy.cloudtrail_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
@@ -144,11 +152,11 @@ groups = {
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
 | <a name="input_custom_title"></a> [custom\_title](#input\_custom\_title) | Custom title for the web app | `string` | `"Company File Portal"` | no |
 | <a name="input_favicon_file"></a> [favicon\_file](#input\_favicon\_file) | Path to favicon file for web app customization | `string` | `null` | no |
-| <a name="input_groups"></a> [groups](#input\_groups) | Map of groups to create | <pre>map(object({<br/>    group_name  = string<br/>    description = string<br/>    members     = optional(list(string))<br/>    access_path = optional(string)<br/>    permission  = optional(string)<br/>  }))</pre> | <pre>{<br/>  "analysts": {<br/>    "access_path": "*",<br/>    "description": "Read access to files",<br/>    "group_name": "Analysts",<br/>    "members": [<br/>      "analyst"<br/>    ],<br/>    "permission": "READ"<br/>  }<br/>}</pre> | no |
+| <a name="input_groups"></a> [groups](#input\_groups) | Map of groups to create | <pre>map(object({<br/>    group_name  = string<br/>    description = string<br/>    members     = optional(list(string))<br/>    access_grants = optional(list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    })))<br/>  }))</pre> | <pre>{<br/>  "analysts": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READ",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read access to files",<br/>    "group_name": "Analysts",<br/>    "members": [<br/>      "analyst"<br/>    ]<br/>  }<br/>}</pre> | no |
 | <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the Identity Center instance. If not provided, will use the first available instance | `string` | `null` | no |
 | <a name="input_logo_file"></a> [logo\_file](#input\_logo\_file) | Path to logo file for web app customization | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to resources | `map(string)` | <pre>{<br/>  "Environment": "Demo",<br/>  "Project": "Web App File Transfer Portal"<br/>}</pre> | no |
-| <a name="input_users"></a> [users](#input\_users) | Map of users to create | <pre>map(object({<br/>    display_name = string<br/>    user_name    = string<br/>    given_name   = string<br/>    family_name  = string<br/>    email        = string<br/>    access_path  = optional(string)<br/>    permission   = optional(string)<br/>  }))</pre> | <pre>{<br/>  "admin": {<br/>    "access_path": "*",<br/>    "display_name": "Admin User",<br/>    "email": "admin@example.com",<br/>    "family_name": "User",<br/>    "given_name": "Admin",<br/>    "permission": "READWRITE",<br/>    "user_name": "admin"<br/>  },<br/>  "analyst": {<br/>    "display_name": "Analyst User",<br/>    "email": "analyst@example.com",<br/>    "family_name": "User",<br/>    "given_name": "Analyst",<br/>    "user_name": "analyst"<br/>  }<br/>}</pre> | no |
+| <a name="input_users"></a> [users](#input\_users) | Map of users to create | <pre>map(object({<br/>    display_name = string<br/>    user_name    = string<br/>    first_name   = string<br/>    last_name    = string<br/>    email        = string<br/>    access_grants = optional(list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    })))<br/>  }))</pre> | <pre>{<br/>  "admin": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READWRITE",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "display_name": "Admin User",<br/>    "email": "admin@example.com",<br/>    "first_name": "Admin",<br/>    "last_name": "User",<br/>    "user_name": "admin"<br/>  },<br/>  "analyst": {<br/>    "display_name": "Analyst User",<br/>    "email": "analyst@example.com",<br/>    "first_name": "Analyst",<br/>    "last_name": "User",<br/>    "user_name": "analyst"<br/>  }<br/>}</pre> | no |
 
 ## Outputs
 
@@ -160,6 +168,6 @@ groups = {
 | <a name="output_created_users"></a> [created\_users](#output\_created\_users) | Map of created Identity Store users |
 | <a name="output_s3_bucket_arn"></a> [s3\_bucket\_arn](#output\_s3\_bucket\_arn) | ARN of the S3 bucket for file storage |
 | <a name="output_s3_bucket_name"></a> [s3\_bucket\_name](#output\_s3\_bucket\_name) | Name of the S3 bucket for file storage |
-| <a name="output_web_app_access_endpoint"></a> [web\_app\_access\_endpoint](#output\_web\_app\_access\_endpoint) | The access endpoint URL for the Transfer web app |
+| <a name="output_web_app_endpoint"></a> [web\_app\_endpoint](#output\_web\_app\_endpoint) | The web app endpoint URL for access and CORS configuration |
 | <a name="output_web_app_id"></a> [web\_app\_id](#output\_web\_app\_id) | The ID of the Transfer web app |
 <!-- END_TF_DOCS -->

@@ -21,30 +21,42 @@ variable "users" {
   type = map(object({
     display_name = string
     user_name    = string
-    given_name   = string
-    family_name  = string
+    first_name   = string
+    last_name    = string
     email        = string
-    access_path  = optional(string)
-    permission   = optional(string)
+    access_grants = optional(list(object({
+      s3_path    = string
+      permission = string
+    })))
   }))
   default = {
     "admin" = {
       display_name = "Admin User"
       user_name    = "admin"
-      given_name   = "Admin"
-      family_name  = "User"
+      first_name   = "Admin"
+      last_name    = "User"
       email        = "admin@example.com"
-      access_path  = "*"
-      permission   = "READWRITE"
+      access_grants = [{
+        s3_path    = "/*" # Will be prefixed with the newly created bucket name
+        permission = "READWRITE"
+      }]
     }
     "analyst" = {
       display_name = "Analyst User"
       user_name    = "analyst"
-      given_name   = "Analyst"
-      family_name  = "User"
-      email        = "analyst@example.com"
-      # No access_path/permission - inherits from group
+      first_name   = "Analyst"
+      last_name    = "User"
+      email        = "analyst@example.com" #access will be granted through group
     }
+  }
+
+  validation {
+    condition = alltrue([
+      for user in var.users : alltrue([
+        for grant in coalesce(user.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
+      ])
+    ])
+    error_message = "Access grant permission must be READ, WRITE, or READWRITE."
   }
 }
 
@@ -54,17 +66,30 @@ variable "groups" {
     group_name  = string
     description = string
     members     = optional(list(string))
-    access_path = optional(string)
-    permission  = optional(string)
+    access_grants = optional(list(object({
+      s3_path    = string
+      permission = string
+    })))
   }))
   default = {
     "analysts" = {
       group_name  = "Analysts"
       description = "Read access to files"
       members     = ["analyst"]
-      access_path = "*"
-      permission  = "READ"
+      access_grants = [{
+        s3_path    = "/*" # Will be prefixed with the newly created bucket name
+        permission = "READ"
+      }]
     }
+  }
+
+  validation {
+    condition = alltrue([
+      for group in var.groups : alltrue([
+        for grant in coalesce(group.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
+      ])
+    ])
+    error_message = "Access grant permission must be READ, WRITE, or READWRITE."
   }
 }
 
