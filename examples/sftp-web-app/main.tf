@@ -271,7 +271,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
 ############################
 module "transfer_web_app" {
   source = "../../modules/transfer-web-app"
-
+  
   iam_role_name                = "${random_pet.name.id}-web-app-role"
   identity_center_instance_arn = var.identity_center_instance_arn
   custom_title                 = var.custom_title
