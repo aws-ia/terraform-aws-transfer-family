@@ -85,6 +85,8 @@ s3_access_grants_location_new = "s3://my-bucket/prefix/*"  # Specific prefix
 ### 3. Use Existing Instance and Location
 ```hcl
 # Uses existing instance and location
+# IMPORTANT: Existing S3 Access Grants instance must be associated with
+# IAM Identity Center before creating access grants
 s3_access_grants_instance_id         = "instance-id"
 s3_access_grants_location_existing   = "location-id"
 s3_access_grants_location_new        = null  # Skip location creation
