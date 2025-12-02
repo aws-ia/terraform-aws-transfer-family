@@ -10,8 +10,8 @@ variable "identity_center_instance_arn" {
   default     = null
 }
 
-variable "access_grants_instance_arn" {
-  description = "ARN of the S3 Access Grants instance. If not provided, a new instance will be created"
+variable "s3_access_grants_instance_id" {
+  description = "ID of the S3 Access Grants instance. If not provided, a new instance will be created"
   type        = string
   default     = null
 }
