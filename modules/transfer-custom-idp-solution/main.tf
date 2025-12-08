@@ -393,6 +393,8 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
 
 # API Gateway for identity provider
 resource "aws_api_gateway_rest_api" "identity_provider" {
+  #checkov:skip=CKV_AWS_237: Not applicable in this use case
+  #checkov:skip=CKV_AWS_217: Not applicable in this use case
   count = var.provision_api ? 1 : 0
   name  = "${var.name_prefix}-identity-provider-api"
 
@@ -505,11 +507,13 @@ resource "aws_api_gateway_deployment" "identity_provider" {
   ]
 }
 
-
 resource "aws_api_gateway_stage" "identity_provider" {
   #checkov:skip=CKV2_AWS_4:CloudWatch logging is optional for this use case
   #checkov:skip=CKV2_AWS_51:Client certificate authentication not required for AWS IAM authenticated API
+  #checkov:skip=CKV2_AWS_76:API actions loggging is already present in a cloudwatch log group
   #checkov:skip=CKV2_AWS_29:WAF not required for internal Transfer Family IdP API
+  #checkov:skip=CKV_AWS_73:X-ray tracing is available to be enabled via the variables file
+  #checkov:skip=CKV_AWS_120:API Gateway caching is optional in this use case
   count         = var.provision_api ? 1 : 0
   deployment_id = aws_api_gateway_deployment.identity_provider[0].id
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
