@@ -61,7 +61,7 @@ variable "existing_cognito_user_pool_region" {
 variable "enable_deletion_protection" {
   description = "Enable deletion protection for DynamoDB tables"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "provision_api" {
