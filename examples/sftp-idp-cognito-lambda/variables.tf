@@ -67,5 +67,5 @@ variable "enable_deletion_protection" {
 variable "provision_api" {
   description = "Create API Gateway REST API"
   type        = bool
-  default     = false
+  default     = true
 }

@@ -97,8 +97,8 @@ module "transfer_server" {
   server_name                 = local.server_name
   identity_provider           = var.provision_api ? "API_GATEWAY" : "AWS_LAMBDA"
   lambda_function_arn         = var.provision_api ? null : module.custom_idp.lambda_function_arn
-  api_gateway_url             = var.provision_api ? module.custom_idp.api_gateway_role_arn : null
-  api_gateway_invocation_role = var.provision_api ? module.custom_idp.api_gateway_url : null
+  api_gateway_url             = var.provision_api ? module.custom_idp.api_gateway_url : null
+  api_gateway_invocation_role = var.provision_api ? module.custom_idp.api_gateway_role_arn : null
   security_policy_name        = "TransferSecurityPolicy-2024-01"
   enable_logging              = true
   
