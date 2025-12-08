@@ -463,12 +463,34 @@ resource "aws_api_gateway_integration" "lambda" {
 {
   "username": "$input.params('username')",
   "serverId": "$input.params('serverId')",
-  "password": "$input.params('Password')",
-  "sourceIp": "$input.params('sourceIp')",
+  "password": "$util.escapeJavaScript($input.params('Password')).replaceAll("\\\\'","'")",
+  "sourceIp": "$util.escapeJavaScript($input.params('SourceIp')).replaceAll("\\\\'","'")",
   "protocol": "$input.params('protocol')"
 }
 EOF
   }
+}
+
+resource "aws_api_gateway_method_response" "success" {
+  count       = var.provision_api ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "success" {
+  count       = var.provision_api ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = aws_api_gateway_method_response.success[0].status_code
+
+  depends_on = [aws_api_gateway_integration.lambda[0]]
 }
 
 resource "aws_api_gateway_deployment" "identity_provider" {
@@ -477,7 +499,9 @@ resource "aws_api_gateway_deployment" "identity_provider" {
 
   depends_on = [
     aws_api_gateway_method.get_user_config[0],
-    aws_api_gateway_integration.lambda[0]
+    aws_api_gateway_integration.lambda[0],
+    aws_api_gateway_method_response.success[0],
+    aws_api_gateway_integration_response.success[0]
   ]
 }
 

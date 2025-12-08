@@ -76,7 +76,7 @@ module "custom_idp" {
   identity_providers_table_name = ""
   create_vpc                    = false
   use_vpc                       = false
-  provision_api                 = false
+  provision_api                 = var.provision_api
   enable_deletion_protection    = var.enable_deletion_protection
   
   tags = var.tags
@@ -91,14 +91,16 @@ module "custom_idp" {
 module "transfer_server" {
   source = "../../modules/transfer-server"
   
-  domain               = "S3"
-  protocols            = ["SFTP"]
-  endpoint_type        = "PUBLIC"
-  server_name          = local.server_name
-  identity_provider    = "AWS_LAMBDA"
-  lambda_function_arn  = module.custom_idp.lambda_function_arn
-  security_policy_name = "TransferSecurityPolicy-2024-01"
-  enable_logging       = true
+  domain                      = "S3"
+  protocols                   = ["SFTP"]
+  endpoint_type               = "PUBLIC"
+  server_name                 = local.server_name
+  identity_provider           = var.provision_api ? "API_GATEWAY" : "AWS_LAMBDA"
+  lambda_function_arn         = var.provision_api ? null : module.custom_idp.lambda_function_arn
+  api_gateway_url             = var.provision_api ? module.custom_idp.api_gateway_role_arn : null
+  api_gateway_invocation_role = var.provision_api ? module.custom_idp.api_gateway_url : null
+  security_policy_name        = "TransferSecurityPolicy-2024-01"
+  enable_logging              = true
   
   tags = var.tags
 }
