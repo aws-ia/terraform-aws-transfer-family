@@ -393,6 +393,8 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
 
 # API Gateway for identity provider
 resource "aws_api_gateway_rest_api" "identity_provider" {
+  #checkov:skip=CKV_AWS_237: Not applicable in this use case
+  #checkov:skip=CKV_AWS_217: Not applicable in this use case
   count = var.provision_api ? 1 : 0
   name  = "${var.name_prefix}-identity-provider-api"
 
@@ -463,12 +465,34 @@ resource "aws_api_gateway_integration" "lambda" {
 {
   "username": "$input.params('username')",
   "serverId": "$input.params('serverId')",
-  "password": "$input.params('Password')",
-  "sourceIp": "$input.params('sourceIp')",
+  "password": "$util.escapeJavaScript($input.params('Password')).replaceAll("\\\\'","'")",
+  "sourceIp": "$util.escapeJavaScript($input.params('SourceIp')).replaceAll("\\\\'","'")",
   "protocol": "$input.params('protocol')"
 }
 EOF
   }
+}
+
+resource "aws_api_gateway_method_response" "success" {
+  count       = var.provision_api ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "success" {
+  count       = var.provision_api ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = aws_api_gateway_method_response.success[0].status_code
+
+  depends_on = [aws_api_gateway_integration.lambda[0]]
 }
 
 resource "aws_api_gateway_deployment" "identity_provider" {
@@ -477,15 +501,19 @@ resource "aws_api_gateway_deployment" "identity_provider" {
 
   depends_on = [
     aws_api_gateway_method.get_user_config[0],
-    aws_api_gateway_integration.lambda[0]
+    aws_api_gateway_integration.lambda[0],
+    aws_api_gateway_method_response.success[0],
+    aws_api_gateway_integration_response.success[0]
   ]
 }
-
 
 resource "aws_api_gateway_stage" "identity_provider" {
   #checkov:skip=CKV2_AWS_4:CloudWatch logging is optional for this use case
   #checkov:skip=CKV2_AWS_51:Client certificate authentication not required for AWS IAM authenticated API
+  #checkov:skip=CKV2_AWS_76:API actions loggging is already present in a cloudwatch log group
   #checkov:skip=CKV2_AWS_29:WAF not required for internal Transfer Family IdP API
+  #checkov:skip=CKV_AWS_73:X-ray tracing is available to be enabled via the variables file
+  #checkov:skip=CKV_AWS_120:API Gateway caching is optional in this use case
   count         = var.provision_api ? 1 : 0
   deployment_id = aws_api_gateway_deployment.identity_provider[0].id
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id
