@@ -48,6 +48,12 @@ variable "s3_access_grants_location_new" {
   default     = "s3://"
 }
 
+variable "s3_access_grants_location_iam_role_arn" {
+  description = "ARN of an existing IAM role to use for the S3 Access Grants location. If not provided, a new role will be created"
+  type        = string
+  default     = null
+}
+
 variable "s3_access_grants_location_existing" {
   description = "ID of an existing S3 Access Grants location to use. If provided, no new location will be created and s3_access_grants_instance_id must be specified"
   type        = string
