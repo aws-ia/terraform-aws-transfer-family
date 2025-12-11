@@ -84,9 +84,9 @@ users = {
     first_name   = "Admin"
     last_name    = "User"
     email        = "admin@example.com"
-    # No direct access_grants - access through group membership
   }
 }
+# Note: Access is granted through group membership, not direct user access grants
 ```
 
 ### Example Group Configuration
