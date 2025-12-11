@@ -145,6 +145,8 @@ resource "aws_iam_role" "access_grants_location" {
 }
 
 data "aws_iam_policy_document" "access_grants_location_policy" {
+  #checkov:skip=CKV_AWS_111:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
+  #checkov:skip=CKV_AWS_356:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
   count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   statement {
@@ -158,7 +160,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
       "s3:ListMultipartUploadParts"
     ]
     resources = [
-      "${replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::")}*"
+      "${trimsuffix(replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::"), "/*")}/*"
     ]
     condition {
       test     = "StringEquals"
@@ -184,7 +186,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
       "s3:AbortMultipartUpload"
     ]
     resources = [
-      "${replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::")}*"
+      "${trimsuffix(replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::"), "/*")}/*"
     ]
     condition {
       test     = "StringEquals"
@@ -218,9 +220,21 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
       values   = ["arn:aws:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
     }
   }
+
+  statement {
+    sid    = "KMSPermissions"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey"
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "access_grants_location" {
+  #checkov:skip=CKV_AWS_111:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
+  #checkov:skip=CKV_AWS_356:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
   count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   name   = "access-grants-location-policy"
