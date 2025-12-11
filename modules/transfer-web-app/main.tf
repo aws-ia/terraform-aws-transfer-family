@@ -124,7 +124,7 @@ resource "aws_s3control_access_grants_instance" "instance" {
 #####################################################################################
 
 data "aws_iam_policy_document" "access_grants_location_assume_role" {
-  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   statement {
     effect = "Allow"
@@ -137,7 +137,7 @@ data "aws_iam_policy_document" "access_grants_location_assume_role" {
 }
 
 resource "aws_iam_role" "access_grants_location" {
-  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   name               = "${var.iam_role_name}-access-grants-location"
   assume_role_policy = data.aws_iam_policy_document.access_grants_location_assume_role[0].json
@@ -145,29 +145,83 @@ resource "aws_iam_role" "access_grants_location" {
 }
 
 data "aws_iam_policy_document" "access_grants_location_policy" {
-  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   statement {
+    sid    = "ObjectLevelReadPermissions"
     effect = "Allow"
     actions = [
-      "s3:ListBucket",
       "s3:GetObject",
-      "s3:PutObject",
-      "s3:DeleteObject"
+      "s3:GetObjectVersion",
+      "s3:GetObjectAcl",
+      "s3:GetObjectVersionAcl",
+      "s3:ListMultipartUploadParts"
     ]
     resources = [
-      "arn:${data.aws_partition.current.partition}:s3:::*"
+      "${replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::")}*"
     ]
     condition {
       test     = "StringEquals"
-      variable = "s3:ResourceAccount"
+      variable = "aws:ResourceAccount"
       values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnEquals"
+      variable = "s3:AccessGrantsInstanceArn"
+      values   = ["arn:aws:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
+    }
+  }
+
+  statement {
+    sid    = "ObjectLevelWritePermissions"
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:PutObjectAcl",
+      "s3:PutObjectVersionAcl",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:AbortMultipartUpload"
+    ]
+    resources = [
+      "${replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::")}*"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnEquals"
+      variable = "s3:AccessGrantsInstanceArn"
+      values   = ["arn:aws:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
+    }
+  }
+
+  statement {
+    sid    = "BucketLevelReadPermissions"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket"
+    ]
+    resources = [
+      var.s3_access_grants_location_new == "s3://" ? "arn:aws:s3:::*" : trimsuffix(replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::"), "/*")
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnEquals"
+      variable = "s3:AccessGrantsInstanceArn"
+      values   = ["arn:aws:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
     }
   }
 }
 
 resource "aws_iam_role_policy" "access_grants_location" {
-  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
+  count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   name   = "access-grants-location-policy"
   role   = aws_iam_role.access_grants_location[0].id
@@ -180,7 +234,7 @@ resource "aws_s3control_access_grants_location" "access_grants_location" {
   count = local.access_grants_instance_id != null && (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null ? 1 : 0
 
   account_id     = data.aws_caller_identity.current.account_id
-  iam_role_arn   = aws_iam_role.access_grants_location[0].arn
+  iam_role_arn   = coalesce(var.s3_access_grants_location_iam_role_arn, try(aws_iam_role.access_grants_location[0].arn, null))
   location_scope = var.s3_access_grants_location_new
   tags           = var.tags
 

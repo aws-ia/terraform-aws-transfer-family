@@ -36,10 +36,6 @@ variable "users" {
       first_name   = "Admin"
       last_name    = "User"
       email        = "admin@example.com"
-      access_grants = [{
-        s3_path    = "/*" # Will be prefixed with the newly created bucket name
-        permission = "READWRITE"
-      }]
     }
     "analyst" = {
       display_name = "Analyst User"
@@ -72,6 +68,15 @@ variable "groups" {
     })))
   }))
   default = {
+    "admins" = {
+      group_name  = "Admins"
+      description = "Read and write access to files"
+      members     = ["admin"]
+      access_grants = [{
+        s3_path    = "/*" # Will be prefixed with the newly created bucket name
+        permission = "READWRITE"
+      }]
+    }
     "analysts" = {
       group_name  = "Analysts"
       description = "Read access to files"
@@ -96,19 +101,19 @@ variable "groups" {
 variable "logo_file" {
   description = "Path to logo file for web app customization"
   type        = string
-  default     = null
+  default     = "anycompany-logo-small.png"
 }
 
 variable "favicon_file" {
   description = "Path to favicon file for web app customization"
   type        = string
-  default     = null
+  default     = "favicon.png"
 }
 
 variable "custom_title" {
   description = "Custom title for the web app"
   type        = string
-  default     = "Company File Portal"
+  default     = "AnyCompany Financial Solutions"
 }
 
 variable "tags" {
