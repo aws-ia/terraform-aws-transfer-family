@@ -42,7 +42,7 @@ variable "users" {
       user_name    = "analyst"
       first_name   = "Analyst"
       last_name    = "User"
-      email        = "analyst@example.com" #access will be granted through group
+      email        = "analyst@example.com"
     }
   }
 
