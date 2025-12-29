@@ -130,6 +130,7 @@ Supported path patterns (auto-prefixed with bucket name in this example):
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.95.0 |
+| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 1.0.0 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0.0 |
 
 ## Providers
@@ -137,6 +138,7 @@ Supported path patterns (auto-prefixed with bucket name in this example):
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.95.0 |
+| <a name="provider_awscc"></a> [awscc](#provider\_awscc) | >= 1.0.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
 
 ## Modules
@@ -162,6 +164,7 @@ Supported path patterns (auto-prefixed with bucket name in this example):
 | [aws_s3_bucket_policy.cloudtrail_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
 | [aws_sns_topic.cloudtrail_notifications](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic) | resource |
 | [aws_sns_topic_policy.cloudtrail_notifications](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic_policy) | resource |
+| [awscc_sso_instance.identity_center](https://registry.terraform.io/providers/hashicorp/awscc/latest/docs/resources/sso_instance) | resource |
 | [random_id.suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
 | [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
@@ -172,11 +175,12 @@ Supported path patterns (auto-prefixed with bucket name in this example):
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the Identity Center instance (required) | `string` | n/a | yes |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
+| <a name="input_create_identity_center_instance"></a> [create\_identity\_center\_instance](#input\_create\_identity\_center\_instance) | Whether to create a new Identity Center instance | `bool` | `false` | no |
 | <a name="input_custom_title"></a> [custom\_title](#input\_custom\_title) | Custom title for the web app | `string` | `"AnyCompany Financial Solutions"` | no |
 | <a name="input_favicon_file"></a> [favicon\_file](#input\_favicon\_file) | Path to favicon file for web app customization | `string` | `"favicon.png"` | no |
-| <a name="input_groups"></a> [groups](#input\_groups) | Map of groups to create | <pre>map(object({<br/>    group_name  = string<br/>    description = string<br/>    members     = optional(list(string))<br/>    access_grants = optional(list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    })))<br/>  }))</pre> | <pre>{<br/>  "admins": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READWRITE",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read and write access to files",<br/>    "group_name": "Admins",<br/>    "members": [<br/>      "admin"<br/>    ]<br/>  },<br/>  "analysts": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READ",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read access to files",<br/>    "group_name": "Analysts",<br/>    "members": [<br/>      "analyst"<br/>    ]<br/>  }<br/>}</pre> | no |
-| <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the Identity Center instance. If not provided, will use the first available instance | `string` | `null` | no |
+| <a name="input_groups"></a> [groups](#input\_groups) | Map of groups to create | <pre>map(object({<br/>    group_name  = string<br/>    description = string<br/>    members     = list(string)<br/>    access_grants = list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    }))<br/>  }))</pre> | <pre>{<br/>  "admins": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READWRITE",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read and write access to files",<br/>    "group_name": "Admins",<br/>    "members": [<br/>      "admin"<br/>    ]<br/>  },<br/>  "analysts": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READ",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read access to files",<br/>    "group_name": "Analysts",<br/>    "members": [<br/>      "analyst"<br/>    ]<br/>  }<br/>}</pre> | no |
 | <a name="input_logo_file"></a> [logo\_file](#input\_logo\_file) | Path to logo file for web app customization | `string` | `"anycompany-logo-small.png"` | no |
 | <a name="input_s3_access_grants_instance_id"></a> [s3\_access\_grants\_instance\_id](#input\_s3\_access\_grants\_instance\_id) | ID of the S3 Access Grants instance. If not provided, a new instance will be created | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to resources | `map(string)` | <pre>{<br/>  "Environment": "Demo",<br/>  "Project": "Web App File Transfer Portal"<br/>}</pre> | no |

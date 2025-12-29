@@ -7,9 +7,8 @@ variable "iam_role_name" {
 }
 
 variable "identity_center_instance_arn" {
-  description = "ARN of the Identity Center instance. If not provided, will use the first available instance"
+  description = "ARN of the Identity Center instance (required)"
   type        = string
-  default     = null
 }
 
 variable "provisioned_units" {
@@ -43,7 +42,7 @@ variable "s3_access_grants_instance_id" {
 }
 
 variable "s3_access_grants_location_new" {
-  description = "S3 location scope for creating a new access grants location. Set to 's3://' (default) to create a location for all buckets, a specific path like 's3://bucket-name' or 's3://bucket-name/prefix' for a specific location, or null to skip location creation"
+  description = "S3 location scope for creating a new access grants location. Set to 's3://' (default) to create a location for all buckets, or null to skip location creation"
   type        = string
   default     = "s3://"
 }

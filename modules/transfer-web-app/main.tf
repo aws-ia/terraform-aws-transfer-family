@@ -21,6 +21,37 @@ data "aws_partition" "current" {}
 
 data "aws_ssoadmin_instances" "identity_center" {}
 
+# Extract unique bucket names from s3_path in grants
+locals {
+  all_s3_paths = concat(
+    [for grant in local.user_grants : grant.s3_path],
+    [for grant in local.group_grants : grant.s3_path]
+  )
+
+  bucket_names = toset([
+    for path in local.all_s3_paths :
+    split("/", path)[0]
+    if path != "" && path != "/*"
+  ])
+}
+
+# Get bucket regions for validation (only if there are buckets to validate)
+data "aws_s3_bucket" "grant_buckets" {
+  for_each = local.bucket_names
+  bucket   = each.value
+}
+
+# Validation: S3 buckets must be in the same region (only if there are buckets)
+check "s3_bucket_region_validation" {
+  assert {
+    condition = length(local.bucket_names) == 0 || alltrue([
+      for bucket_name in local.bucket_names :
+      data.aws_s3_bucket.grant_buckets[bucket_name].region == data.aws_region.current.id
+    ])
+    error_message = "All S3 buckets in access grants must be in the same region (${data.aws_region.current.id}) as the AWS provider."
+  }
+}
+
 
 
 # Data source to lookup Identity Center users
@@ -73,7 +104,7 @@ data "aws_iam_policy_document" "assume_role_transfer" {
 
 locals {
   identity_store_id            = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
-  identity_center_instance_arn = var.identity_center_instance_arn != null ? var.identity_center_instance_arn : tolist(data.aws_ssoadmin_instances.identity_center.arns)[0]
+  identity_center_instance_arn = var.identity_center_instance_arn
   application_arn              = aws_transfer_web_app.web_app.identity_provider_details[0].identity_center_config[0].application_arn
 
   user_grants = flatten([
@@ -160,7 +191,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
       "s3:ListMultipartUploadParts"
     ]
     resources = [
-      "${trimsuffix(replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::"), "/*")}/*"
+      "arn:aws:s3:::*"
     ]
     condition {
       test     = "StringEquals"
@@ -186,7 +217,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
       "s3:AbortMultipartUpload"
     ]
     resources = [
-      "${trimsuffix(replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::"), "/*")}/*"
+      "arn:aws:s3:::*"
     ]
     condition {
       test     = "StringEquals"
@@ -207,7 +238,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
       "s3:ListBucket"
     ]
     resources = [
-      var.s3_access_grants_location_new == "s3://" ? "arn:aws:s3:::*" : trimsuffix(replace(var.s3_access_grants_location_new, "s3://", "arn:aws:s3:::"), "/*")
+      "arn:aws:s3:::*"
     ]
     condition {
       test     = "StringEquals"

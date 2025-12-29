@@ -21,7 +21,8 @@ data "aws_region" "current" {}
 data "aws_ssoadmin_instances" "identity_center" {}
 
 locals {
-  identity_store_id = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
+  identity_store_id            = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
+  identity_center_instance_arn = var.create_identity_center_instance ? awscc_sso_instance.identity_center[0].instance_arn : var.identity_center_instance_arn
 }
 
 ###################################################################
@@ -50,6 +51,14 @@ module "s3_bucket" {
   }
 
   tags = var.tags
+}
+
+###################################################################
+# Create IAM Identity Center instance (optional)
+###################################################################
+resource "awscc_sso_instance" "identity_center" {
+  count = var.create_identity_center_instance ? 1 : 0
+  name  = "${random_id.suffix.hex}-identity-center"
 }
 
 ###################################################################
@@ -271,9 +280,9 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
 ############################
 module "transfer_web_app" {
   source = "../../modules/transfer-web-app"
-  
+
   iam_role_name                = "${random_pet.name.id}-web-app-role"
-  identity_center_instance_arn = var.identity_center_instance_arn
+  identity_center_instance_arn = local.identity_center_instance_arn
   custom_title                 = var.custom_title
   logo_file                    = var.logo_file
   favicon_file                 = var.favicon_file

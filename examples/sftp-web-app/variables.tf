@@ -5,9 +5,14 @@ variable "aws_region" {
 }
 
 variable "identity_center_instance_arn" {
-  description = "ARN of the Identity Center instance. If not provided, will use the first available instance"
+  description = "ARN of the Identity Center instance (required)"
   type        = string
-  default     = null
+}
+
+variable "create_identity_center_instance" {
+  description = "Whether to create a new Identity Center instance"
+  type        = bool
+  default     = false
 }
 
 variable "s3_access_grants_instance_id" {
@@ -61,11 +66,11 @@ variable "groups" {
   type = map(object({
     group_name  = string
     description = string
-    members     = optional(list(string))
-    access_grants = optional(list(object({
+    members     = list(string)
+    access_grants = list(object({
       s3_path    = string
       permission = string
-    })))
+    }))
   }))
   default = {
     "admins" = {

@@ -60,10 +60,10 @@ module "transfer_web_app" {
 
 Access grants support various path patterns:
 
-- `/*` - All objects in the bucket
-- `/reports*` - Prefix within bucket
-- `/data/logs*` - Prefix within prefix
-- `/file.txt` - Specific object
+- `bucket/*` - All objects in the bucket
+- `bucket/reports*` - Prefix within bucket
+- `bucket/data/logs*` - Prefix within prefix
+- `bucket/data/file.txt` - Specific object
 
 ## S3 Access Grants Configuration
 
@@ -117,6 +117,13 @@ s3_access_grants_location_new        = null  # Skip location creation
 ### Tags
 - `tags` - Map of tags to assign to resources (default: `{}`)
 
+## Important Configuration Notes
+
+### S3 CORS Configuration
+When using the Transfer Web App with S3 buckets, you must configure CORS (Cross-Origin Resource Sharing) on your S3 buckets to allow the web app to access the data. The `AllowedOrigins` in your S3 bucket CORS policy must include the URL of the newly created web app, which can be obtained from the module's `web_app_endpoint` output.
+
+For detailed CORS configuration requirements, see the [AWS Transfer Family documentation](https://docs.aws.amazon.com/transfer/latest/userguide/access-grant-cors.html).
+
 ## Requirements
 
 | Name | Version |
@@ -159,24 +166,25 @@ No modules.
 | [aws_identitystore_user.users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/identitystore_user) | data source |
 | [aws_partition.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/partition) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
+| [aws_s3_bucket.grant_buckets](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_bucket) | data source |
 | [aws_ssoadmin_instances.identity_center](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ssoadmin_instances) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the Identity Center instance (required) | `string` | n/a | yes |
 | <a name="input_custom_title"></a> [custom\_title](#input\_custom\_title) | Custom title for the web app | `string` | `null` | no |
 | <a name="input_favicon_file"></a> [favicon\_file](#input\_favicon\_file) | Path to favicon file for web app customization | `string` | `null` | no |
 | <a name="input_iam_role_name"></a> [iam\_role\_name](#input\_iam\_role\_name) | Name for the IAM role used by the Transfer web app | `string` | `"transfer-web-app-role"` | no |
 | <a name="input_identity_center_groups"></a> [identity\_center\_groups](#input\_identity\_center\_groups) | List of groups to assign to the web app | <pre>list(object({<br/>    group_name = string<br/>    access_grants = optional(list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    })))<br/>  }))</pre> | `[]` | no |
-| <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the Identity Center instance. If not provided, will use the first available instance | `string` | `null` | no |
 | <a name="input_identity_center_users"></a> [identity\_center\_users](#input\_identity\_center\_users) | List of users to assign to the web app | <pre>list(object({<br/>    username = string<br/>    access_grants = optional(list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    })))<br/>  }))</pre> | `[]` | no |
 | <a name="input_logo_file"></a> [logo\_file](#input\_logo\_file) | Path to logo file for web app customization | `string` | `null` | no |
 | <a name="input_provisioned_units"></a> [provisioned\_units](#input\_provisioned\_units) | Number of provisioned web app units | `number` | `1` | no |
 | <a name="input_s3_access_grants_instance_id"></a> [s3\_access\_grants\_instance\_id](#input\_s3\_access\_grants\_instance\_id) | ID of the S3 Access Grants instance to use. If not provided, a new instance will be created | `string` | `null` | no |
 | <a name="input_s3_access_grants_location_existing"></a> [s3\_access\_grants\_location\_existing](#input\_s3\_access\_grants\_location\_existing) | ID of an existing S3 Access Grants location to use. If provided, no new location will be created and s3\_access\_grants\_instance\_id must be specified | `string` | `null` | no |
 | <a name="input_s3_access_grants_location_iam_role_arn"></a> [s3\_access\_grants\_location\_iam\_role\_arn](#input\_s3\_access\_grants\_location\_iam\_role\_arn) | ARN of an existing IAM role to use for the S3 Access Grants location. If not provided, a new role will be created | `string` | `null` | no |
-| <a name="input_s3_access_grants_location_new"></a> [s3\_access\_grants\_location\_new](#input\_s3\_access\_grants\_location\_new) | S3 location scope for creating a new access grants location. Set to 's3://' (default) to create a location for all buckets, a specific path like 's3://bucket-name' or 's3://bucket-name/prefix' for a specific location, or null to skip location creation | `string` | `"s3://"` | no |
+| <a name="input_s3_access_grants_location_new"></a> [s3\_access\_grants\_location\_new](#input\_s3\_access\_grants\_location\_new) | S3 location scope for creating a new access grants location. Set to 's3://' (default) to create a location for all buckets, or null to skip location creation | `string` | `"s3://"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | A map of tags to assign to the resources | `map(string)` | `{}` | no |
 
 ## Outputs
