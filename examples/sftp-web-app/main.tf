@@ -5,6 +5,16 @@
 #####################################################################################
 
 ######################################
+# Validation
+######################################
+check "identity_center_configuration" {
+  assert {
+    condition     = var.identity_center_instance_arn != null || var.create_identity_center_instance == true
+    error_message = "If identity_center_instance_arn is null, create_identity_center_instance must be true."
+  }
+}
+
+######################################
 # Defaults and Locals
 ######################################
 resource "random_pet" "name" {
@@ -21,8 +31,12 @@ data "aws_region" "current" {}
 data "aws_ssoadmin_instances" "identity_center" {}
 
 locals {
-  identity_store_id            = tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
+  identity_store_id            = var.create_identity_center_instance ? awscc_sso_instance.identity_center[0].identity_store_id : tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
   identity_center_instance_arn = var.create_identity_center_instance ? awscc_sso_instance.identity_center[0].instance_arn : var.identity_center_instance_arn
+  
+  # Use variables if non-null, otherwise use locals from users.tf and groups.tf
+  final_users  = var.users != null ? var.users : local.users
+  final_groups = var.groups != null ? var.groups : local.groups
 }
 
 ###################################################################
@@ -65,7 +79,7 @@ resource "awscc_sso_instance" "identity_center" {
 # Create AWS IAM Identity Center users, groups, and membership
 ###################################################################
 resource "aws_identitystore_user" "users" {
-  for_each = var.users
+  for_each = var.users != null ? var.users : {}
 
   identity_store_id = local.identity_store_id
   display_name      = each.value.display_name
@@ -83,7 +97,7 @@ resource "aws_identitystore_user" "users" {
 }
 
 resource "aws_identitystore_group" "groups" {
-  for_each = var.groups
+  for_each = var.groups != null ? var.groups : {}
 
   identity_store_id = local.identity_store_id
   display_name      = each.value.group_name
@@ -91,7 +105,7 @@ resource "aws_identitystore_group" "groups" {
 }
 
 resource "aws_identitystore_group_membership" "memberships" {
-  for_each = {
+  for_each = var.groups != null ? {
     for membership in flatten([
       for group_key, group in var.groups : [
         for user_key in coalesce(group.members, []) : {
@@ -101,7 +115,7 @@ resource "aws_identitystore_group_membership" "memberships" {
         }
       ]
     ]) : membership.key => membership
-  }
+  } : {}
 
   identity_store_id = local.identity_store_id
   group_id          = aws_identitystore_group.groups[each.value.group_key].group_id
@@ -288,7 +302,7 @@ module "transfer_web_app" {
   favicon_file                 = var.favicon_file
 
   identity_center_users = [
-    for user_key, user in var.users : {
+    for user_key, user in local.final_users : {
       username = user.user_name
       access_grants = user.access_grants != null ? [
         for grant in user.access_grants : {
@@ -300,7 +314,7 @@ module "transfer_web_app" {
   ]
 
   identity_center_groups = [
-    for group_key, group in var.groups : {
+    for group_key, group in local.final_groups : {
       group_name = group.group_name
       access_grants = coalesce(group.access_grants, []) != [] ? [
         for grant in group.access_grants : {

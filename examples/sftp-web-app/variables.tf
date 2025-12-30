@@ -7,6 +7,7 @@ variable "aws_region" {
 variable "identity_center_instance_arn" {
   description = "ARN of the Identity Center instance (required)"
   type        = string
+  default     = null
 }
 
 variable "create_identity_center_instance" {
@@ -22,7 +23,7 @@ variable "s3_access_grants_instance_id" {
 }
 
 variable "users" {
-  description = "Map of users to create"
+  description = "Map of users to create. If non-null, sample users will be created. If null, existing users must be provided in users.tf for web app assignment and access grants."
   type = map(object({
     display_name = string
     user_name    = string
@@ -52,7 +53,7 @@ variable "users" {
   }
 
   validation {
-    condition = alltrue([
+    condition = var.users == null || alltrue([
       for user in var.users : alltrue([
         for grant in coalesce(user.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
       ])
@@ -62,7 +63,7 @@ variable "users" {
 }
 
 variable "groups" {
-  description = "Map of groups to create"
+  description = "Map of groups to create. If non-null, sample groups will be created. If null, existing groups must be provided in groups.tf for web app assignment and access grants."
   type = map(object({
     group_name  = string
     description = string
@@ -94,7 +95,7 @@ variable "groups" {
   }
 
   validation {
-    condition = alltrue([
+    condition = var.groups == null || alltrue([
       for group in var.groups : alltrue([
         for grant in coalesce(group.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
       ])
