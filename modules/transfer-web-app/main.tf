@@ -21,39 +21,6 @@ data "aws_partition" "current" {}
 
 data "aws_ssoadmin_instances" "identity_center" {}
 
-# Extract unique bucket names from s3_path in grants
-locals {
-  all_s3_paths = concat(
-    [for grant in local.user_grants : grant.s3_path],
-    [for grant in local.group_grants : grant.s3_path]
-  )
-
-  bucket_names = toset([
-    for path in local.all_s3_paths :
-    split("/", path)[0]
-    if path != "" && path != "/*"
-  ])
-}
-
-# Get bucket regions for validation (only if there are buckets to validate)
-data "aws_s3_bucket" "grant_buckets" {
-  for_each = local.bucket_names
-  bucket   = each.value
-}
-
-# Validation: S3 buckets must be in the same region (only if there are buckets)
-check "s3_bucket_region_validation" {
-  assert {
-    condition = length(local.bucket_names) == 0 || alltrue([
-      for bucket_name in local.bucket_names :
-      data.aws_s3_bucket.grant_buckets[bucket_name].region == data.aws_region.current.id
-    ])
-    error_message = "All S3 buckets in access grants must be in the same region (${data.aws_region.current.id}) as the AWS provider."
-  }
-}
-
-
-
 # Data source to lookup Identity Center users
 data "aws_identitystore_user" "users" {
   for_each = { for user in var.identity_center_users : user.username => user }
@@ -397,6 +364,59 @@ resource "aws_transfer_web_app" "web_app" {
   }
 
   tags = var.tags
+}
+
+# Post-apply S3 bucket region validation
+resource "terraform_data" "s3_bucket_validation" {
+  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
+
+  input = {
+    all_s3_paths = concat(
+      [for grant in local.user_grants : grant.s3_path],
+      [for grant in local.group_grants : grant.s3_path]
+    )
+    current_region = data.aws_region.current.id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      #!/bin/bash
+      set -e
+      
+      bucket_names=$(echo '${jsonencode(self.input.all_s3_paths)}' | jq -r '.[] | split("/")[0]' | grep -v '^$' | sort -u)
+      current_region="${self.input.current_region}"
+      
+      for bucket in $bucket_names; do
+        if [[ "$bucket" != "/*" ]]; then
+          # Use head-bucket to get the bucket region from response headers
+          bucket_region=$(aws s3api head-bucket --bucket "$bucket" 2>&1 | grep -i 'x-amz-bucket-region' | cut -d':' -f2 | tr -d ' ' || echo "")
+          
+          # If we couldn't get region from headers, fall back to the bucket location API
+          if [[ -z "$bucket_region" ]]; then
+            bucket_region=$(aws s3api get-bucket-location --bucket "$bucket" --query 'LocationConstraint' --output text 2>/dev/null || echo "null")
+            # Handle us-east-1 special case
+            if [[ "$bucket_region" == "null" || "$bucket_region" == "None" ]]; then
+              bucket_region="us-east-1"
+            fi
+          fi
+          
+          if [[ "$bucket_region" != "$current_region" ]]; then
+            echo "ERROR: S3 bucket '$bucket' is in region '$bucket_region' but AWS provider is configured for region '$current_region'"
+            exit 1
+          fi
+          echo "✓ Bucket '$bucket' is in correct region: $current_region"
+        fi
+      done
+      
+      echo "✓ All S3 buckets are in the correct region: $current_region"
+    EOT
+  }
+
+  depends_on = [
+    aws_s3control_access_grant.user_grants,
+    aws_s3control_access_grant.group_grants,
+    aws_transfer_web_app.web_app
+  ]
 }
 
 # Transfer Web App Customization (separate resource)

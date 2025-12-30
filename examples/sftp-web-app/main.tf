@@ -33,10 +33,36 @@ data "aws_ssoadmin_instances" "identity_center" {}
 locals {
   identity_store_id            = var.create_identity_center_instance ? awscc_sso_instance.identity_center[0].identity_store_id : tolist(data.aws_ssoadmin_instances.identity_center.identity_store_ids)[0]
   identity_center_instance_arn = var.create_identity_center_instance ? awscc_sso_instance.identity_center[0].instance_arn : var.identity_center_instance_arn
-  
-  # Use variables if non-null, otherwise use locals from users.tf and groups.tf
-  final_users  = var.users != null ? var.users : local.users
-  final_groups = var.groups != null ? var.groups : local.groups
+
+  # Create normalized user and group structures for the module
+  # This handles both var.users (with full user details) and local.users (with just username/grants)
+  normalized_users = length(var.users) > 0 ? {
+    # Extract from var.users (full user objects)
+    for user_key, user in var.users : user_key => {
+      user_name     = user.user_name
+      access_grants = try(user.access_grants, [])
+    }
+    } : {
+    # Extract from local.users (simple user objects)
+    for user_key, user in local.users : user_key => {
+      user_name     = user.user_name
+      access_grants = try(user.access_grants, [])
+    }
+  }
+
+  normalized_groups = length(var.groups) > 0 ? {
+    # Extract from var.groups (full group objects) 
+    for group_key, group in var.groups : group_key => {
+      group_name    = group.group_name
+      access_grants = try(group.access_grants, [])
+    }
+    } : {
+    # Extract from local.groups (simple group objects)
+    for group_key, group in local.groups : group_key => {
+      group_name    = group.group_name
+      access_grants = try(group.access_grants, [])
+    }
+  }
 }
 
 ###################################################################
@@ -302,7 +328,7 @@ module "transfer_web_app" {
   favicon_file                 = var.favicon_file
 
   identity_center_users = [
-    for user_key, user in local.final_users : {
+    for user_key, user in local.normalized_users : {
       username = user.user_name
       access_grants = user.access_grants != null ? [
         for grant in user.access_grants : {
@@ -314,20 +340,21 @@ module "transfer_web_app" {
   ]
 
   identity_center_groups = [
-    for group_key, group in local.final_groups : {
+    for group_key, group in local.normalized_groups : {
       group_name = group.group_name
-      access_grants = coalesce(group.access_grants, []) != [] ? [
-        for grant in group.access_grants : {
+      access_grants = [
+        for grant in coalesce(group.access_grants, []) : {
           s3_path    = "${module.s3_bucket.s3_bucket_id}${grant.s3_path}"
           permission = grant.permission
         }
-      ] : []
+      ]
     }
   ]
 
   tags = var.tags
 
   depends_on = [
+    module.s3_bucket,
     aws_identitystore_user.users,
     aws_identitystore_group.groups
   ]

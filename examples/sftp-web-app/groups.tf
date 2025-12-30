@@ -6,7 +6,7 @@
 locals {
   groups = {
     # Uncomment and modify the examples below to add groups:
-    
+
     # "admins" = {
     #   group_name = "Admins"
     #   access_grants = [
@@ -15,8 +15,8 @@ locals {
     #       permission = "READWRITE"
     #     }
     #   ]
-    # }
-    
+    # },
+
     # "analysts" = {
     #   group_name = "Analysts"
     #   access_grants = [
@@ -25,8 +25,8 @@ locals {
     #       permission = "READ"
     #     }
     #   ]
-    # }
-    
+    # },
+
     # "developers" = {
     #   group_name = "Developers"
     #   access_grants = [

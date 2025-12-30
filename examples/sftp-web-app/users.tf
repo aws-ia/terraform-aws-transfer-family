@@ -6,7 +6,7 @@
 locals {
   users = {
     # Uncomment and modify the examples below to add users:
-    
+
     # "admin" = {
     #   user_name = "admin"
     #   access_grants = [  # Optional: access_grants can be given through group membership only
@@ -15,8 +15,8 @@ locals {
     #       permission = "READWRITE"
     #     }
     #   ]
-    # }
-    
+    # },
+
     # "analyst" = {
     #   user_name = "analyst"
     #   access_grants = [  # Optional: access_grants can be given through group membership only
@@ -25,8 +25,8 @@ locals {
     #       permission = "READ"
     #     }
     #   ]
-    # }
-    
+    # },
+
     # "developer" = {
     #   user_name = "developer"
     #   access_grants = [  # Optional: access_grants can be given through group membership only
@@ -35,5 +35,19 @@ locals {
     #       permission = "WRITE"
     #     }
     #   ]
+
+    "admin" = {
+      user_name = "testuseriamicadmin"
+    }
+
+    "analyst" = {
+      user_name = "testuseriamic1"
+      access_grants = [ # Optional: access_grants can be given through group membership only
+        {
+          s3_path    = "/*"
+          permission = "READ"
+        }
+      ]
+    }
   }
 }
