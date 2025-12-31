@@ -1,28 +1,28 @@
 <!-- BEGIN_TF_DOCS -->
 # SFTP Web App Example
 
-This example demonstrates a complete deployment of AWS Transfer Family Web App with Identity Center authentication, S3 Access Grants, CloudTrail audit logging, and CORS configuration.
+This example demonstrates a complete deployment of AWS Transfer Family Web App with IAM Identity Center authentication, S3 Access Grants, CloudTrail audit logging, and CORS configuration.
 
 ## What This Example Demonstrates
 
 - **Complete end-to-end setup** from Identity Center users/groups to web-app deployment
 - **CloudTrail integration** with KMS encryption and SNS notifications for audit logging
 - **CORS configuration** restricted to the web app endpoint for security
-- **Group-based permission model** showing access grants through group membership only
+- **Flexible user/group management** supporting both test user and/or creation and imported existing users/groups
 - **Automatic path prefixing** demonstrating how to construct full S3 paths from bucket names
 - **Custom branding** with logo and favicon support
 
 ## What Gets Deployed
 
-### Identity Center Resources
-- Users: **admin** and **analyst**
-- Groups: **Admins** (READWRITE) and **Analysts** (READ)
-- Group memberships: admin → Admins, analyst → Analysts
+### Identity Center Resources (Optional)
+- Users and groups (when `create_test_users_and_groups = true`)
+- Group creation and group memberships for created users
+- OR references to existing Identity Center users/groups (default mode)
 
 ### Transfer Web App
 - Web app with Identity Center authentication and custom branding
 - S3 Access Grants instance with default location scope ("s3://")
-- Access grants for configured groups
+- Access grants for configured users and/or groups
 
 ### Storage and Audit
 - S3 bucket with encryption, versioning, and public access blocking
@@ -32,22 +32,36 @@ This example demonstrates a complete deployment of AWS Transfer Family Web App w
 
 ## Usage
 
-1. **Configure variables**: Provide real email addresses for user activation
-2. **Deploy**: Run `terraform apply`
-3. **User Activation**: Users receive activation emails to set up accounts
-4. **Access**: Log in through the web app endpoint URL
+1. **Configure users/groups**: Choose between creating test users and/or groups or configuring existing ones
+2. **Email addresses**: If creating new users, provide real email addresses for user activation
+3. **Deploy**: Run `terraform apply`
+4. **User Activation**: If creating new users, they receive activation emails to set up accounts
+5. **Access**: Log in through the web app endpoint URL
 
-## Permission Structure
+## User and Group Management Options
 
-This example uses group-based permissions only:
+This example supports two approaches for managing users and groups:
 
-- **Admin user**: Gets READWRITE access through **Admins** group membership
-- **Analyst user**: Gets READ access through **Analysts** group membership
+### Option 1: Create Test Users and Groups (Default: Disabled)
+Set `create_test_users_and_groups = true` to have Terraform create new Identity Center users and groups:
+- Creates users with email activation required
+- Creates groups with specified descriptions and member assignments
+- Automatically handles group memberships
+- Ideal for demo environments or new Identity Center setups
+
+### Option 2: Import Existing Users and Groups (Default: Enabled)
+Configure existing Identity Center users/groups via `imported-users.tf` and `imported-groups.tf`:
+- **imported-users.tf**: Reference existing users by username and assign individual access grants
+- **imported-groups.tf**: Reference existing groups by name and assign group-level access grants
+- Users and groups must already exist in Identity Center before deployment
+- Ideal for production environments with established Identity Center configurations
 
 S3 paths are automatically prefixed with the bucket name:
 ```hcl
 s3_path = "/*"  # Becomes "bucket-name/*" in the module call
 ```
+
+To switch modes, modify the `create_test_users_and_groups` variable and update the respective configuration files.
 
 ## Configuration Variables
 
@@ -59,13 +73,13 @@ None - all variables have defaults
 #### AWS Configuration
 - `aws_region` (default: `"us-east-1"`) - AWS region for deployment
 - `identity_center_instance_arn` (default: `null`) - ARN of Identity Center instance, uses first available if not specified
+- `create_identity_center_instance` (default: `false`) - Whether to create a new Identity Center instance
 - `s3_access_grants_instance_id` (default: `null`) - ID of existing S3 Access Grants instance, creates new if not specified
 
-#### User Configuration
-- `users` (default: admin and analyst users) - Map of users to create with display names, emails, etc.
-
-#### Group Configuration  
-- `groups` (default: admins and analysts groups) - Map of groups with members and access grants
+#### User and Group Configuration
+- `create_test_users_and_groups` (default: `false`) - Whether to create new users/groups or use existing ones
+- `test_users` (default: admin and analyst users) - Map of users to create when `create_test_users_and_groups = true`
+- `test_groups` (default: admins and analysts groups) - Map of groups to create when `create_test_users_and_groups = true`
 
 #### Web App Customization
 - `logo_file` (default: `"anycompany-logo-small.png"`) - Path to logo file for web app branding
@@ -75,9 +89,9 @@ None - all variables have defaults
 #### Resource Tagging
 - `tags` (default: Environment="Demo", Project="Web App File Transfer Portal") - Tags to apply to all resources
 
-### Example User Configuration
+### Example Test User Configuration
 ```hcl
-users = {
+test_users = {
   "admin" = {
     display_name = "Admin User"
     user_name    = "admin"
@@ -86,12 +100,12 @@ users = {
     email        = "admin@example.com"
   }
 }
-# Note: Access is granted through group membership, not direct user access grants
+# Note: Only used when create_test_users_and_groups = true
 ```
 
-### Example Group Configuration
+### Example Test Group Configuration
 ```hcl
-groups = {
+test_groups = {
   "admins" = {
     group_name  = "Admins"
     description = "Read and write access to files"
@@ -102,22 +116,23 @@ groups = {
     }]
   }
 }
+# Note: Only used when create_test_users_and_groups = true
 ```
 
 ## S3 Path Examples
 
 Supported path patterns (auto-prefixed with bucket name in this example):
 
-- `/*` - All objects
+- `/*` - All objects in the bucket
 - `/reports*` - Prefix within bucket
-- `/data/logs*` - Nested prefix
-- `/file.txt` - Specific object
+- `/data/logs*` - Prefix within prefix
+- `/data/file.txt` - Specific object
 
 ## Important Notes
 
-- **Email Addresses**: Must be real for user activation
-- **Identity Center**: Requires existing instance in your account
-- **Group-Based Access**: All permissions granted through group membership for better security management
+- **Email Addresses**: Must be real for user activation when creating new users
+- **Identity Center**: Requires existing instance in your account with `identity_center_instance_arn` provided, or set `create_identity_center_instance = true` to create a new one
+- **User/Group Management**: Choose between creating test users or importing existing ones via configuration files
 - **CloudTrail**: Logs all S3 data events on the web app bucket
 - **CORS**: Restricted to web app endpoint only (no wildcards)
 - **Custom Branding**: Logo and favicon files should be placed in the example directory
@@ -129,7 +144,7 @@ Supported path patterns (auto-prefixed with bucket name in this example):
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.95.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 6.16.0 |
 | <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 1.0.0 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0.0 |
 
@@ -137,7 +152,7 @@ Supported path patterns (auto-prefixed with bucket name in this example):
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.95.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 6.16.0 |
 | <a name="provider_awscc"></a> [awscc](#provider\_awscc) | >= 1.0.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
 
@@ -176,15 +191,16 @@ Supported path patterns (auto-prefixed with bucket name in this example):
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
-| <a name="input_create_identity_center_instance"></a> [create\_identity\_center\_instance](#input\_create\_identity\_center\_instance) | Whether to create a new Identity Center instance | `bool` | `false` | no |
+| <a name="input_create_identity_center_instance"></a> [create\_identity\_center\_instance](#input\_create\_identity\_center\_instance) | Whether to create a new IAM Identity Center instance | `bool` | `false` | no |
+| <a name="input_create_test_users_and_groups"></a> [create\_test\_users\_and\_groups](#input\_create\_test\_users\_and\_groups) | Whether to create test users and groups | `bool` | `false` | no |
 | <a name="input_custom_title"></a> [custom\_title](#input\_custom\_title) | Custom title for the web app | `string` | `"AnyCompany Financial Solutions"` | no |
 | <a name="input_favicon_file"></a> [favicon\_file](#input\_favicon\_file) | Path to favicon file for web app customization | `string` | `"favicon.png"` | no |
-| <a name="input_groups"></a> [groups](#input\_groups) | Map of groups to create. If non-null, sample groups will be created. If null, existing groups must be provided in groups.tf for web app assignment and access grants. | <pre>map(object({<br/>    group_name  = string<br/>    description = string<br/>    members     = list(string)<br/>    access_grants = list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    }))<br/>  }))</pre> | <pre>{<br/>  "admins": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READWRITE",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read and write access to files",<br/>    "group_name": "Admins",<br/>    "members": [<br/>      "admin"<br/>    ]<br/>  },<br/>  "analysts": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READ",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read access to files",<br/>    "group_name": "Analysts",<br/>    "members": [<br/>      "analyst"<br/>    ]<br/>  }<br/>}</pre> | no |
-| <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the Identity Center instance (required) | `string` | `null` | no |
+| <a name="input_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#input\_identity\_center\_instance\_arn) | ARN of the IAM Identity Center instance (required) | `string` | `null` | no |
 | <a name="input_logo_file"></a> [logo\_file](#input\_logo\_file) | Path to logo file for web app customization | `string` | `"anycompany-logo-small.png"` | no |
 | <a name="input_s3_access_grants_instance_id"></a> [s3\_access\_grants\_instance\_id](#input\_s3\_access\_grants\_instance\_id) | ID of the S3 Access Grants instance. If not provided, a new instance will be created | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to resources | `map(string)` | <pre>{<br/>  "Environment": "Demo",<br/>  "Project": "Web App File Transfer Portal"<br/>}</pre> | no |
-| <a name="input_users"></a> [users](#input\_users) | Map of users to create. If non-null, sample users will be created. If null, existing users must be provided in users.tf for web app assignment and access grants. | <pre>map(object({<br/>    display_name = string<br/>    user_name    = string<br/>    first_name   = string<br/>    last_name    = string<br/>    email        = string<br/>    access_grants = optional(list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    })))<br/>  }))</pre> | <pre>{<br/>  "admin": {<br/>    "display_name": "Admin User",<br/>    "email": "admin@example.com",<br/>    "first_name": "Admin",<br/>    "last_name": "User",<br/>    "user_name": "admin"<br/>  },<br/>  "analyst": {<br/>    "display_name": "Analyst User",<br/>    "email": "analyst@example.com",<br/>    "first_name": "Analyst",<br/>    "last_name": "User",<br/>    "user_name": "analyst"<br/>  }<br/>}</pre> | no |
+| <a name="input_test_groups"></a> [test\_groups](#input\_test\_groups) | Map of test groups to create | <pre>map(object({<br/>    group_name  = string<br/>    description = string<br/>    members     = list(string)<br/>    access_grants = list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    }))<br/>  }))</pre> | <pre>{<br/>  "admins": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READWRITE",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read and write access to files",<br/>    "group_name": "Admins",<br/>    "members": [<br/>      "admin"<br/>    ]<br/>  },<br/>  "analysts": {<br/>    "access_grants": [<br/>      {<br/>        "permission": "READ",<br/>        "s3_path": "/*"<br/>      }<br/>    ],<br/>    "description": "Read access to files",<br/>    "group_name": "Analysts",<br/>    "members": [<br/>      "analyst"<br/>    ]<br/>  }<br/>}</pre> | no |
+| <a name="input_test_users"></a> [test\_users](#input\_test\_users) | Map of test users to create. Note: The grants and access in this default value are being assigned through the created groups only. | <pre>map(object({<br/>    display_name = string<br/>    user_name    = string<br/>    first_name   = string<br/>    last_name    = string<br/>    email        = string<br/>    access_grants = optional(list(object({<br/>      s3_path    = string<br/>      permission = string<br/>    })))<br/>  }))</pre> | <pre>{<br/>  "admin": {<br/>    "display_name": "Admin User",<br/>    "email": "admin@example.com",<br/>    "first_name": "Admin",<br/>    "last_name": "User",<br/>    "user_name": "admin"<br/>  },<br/>  "analyst": {<br/>    "display_name": "Analyst User",<br/>    "email": "analyst@example.com",<br/>    "first_name": "Analyst",<br/>    "last_name": "User",<br/>    "user_name": "analyst"<br/>  }<br/>}</pre> | no |
 
 ## Outputs
 
