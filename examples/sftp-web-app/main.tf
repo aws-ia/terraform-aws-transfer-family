@@ -4,9 +4,10 @@
 # to build your own root module that invokes this module
 #####################################################################################
 
-######################################
-# Validation
-######################################
+#####################################################################################
+# Checks
+#####################################################################################
+
 check "identity_center_configuration" {
   assert {
     condition     = var.identity_center_instance_arn != null || var.create_identity_center_instance == true
@@ -14,9 +15,31 @@ check "identity_center_configuration" {
   }
 }
 
-######################################
+check "imported_users_access_grants_permissions" {
+  assert {
+    condition = alltrue([
+      for user_key, user in local.imported_users : alltrue([
+        for grant in coalesce(user.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
+      ])
+    ])
+    error_message = "All access_grants[].permission values in local.imported_users must be READ, WRITE, or READWRITE."
+  }
+}
+
+check "imported_groups_access_grants_permissions" {
+  assert {
+    condition = alltrue([
+      for group_key, group in local.imported_groups : alltrue([
+        for grant in coalesce(group.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
+      ])
+    ])
+    error_message = "All access_grants[].permission values in local.imported_groups must be READ, WRITE, or READWRITE."
+  }
+}
+
+#####################################################################################
 # Defaults and Locals
-######################################
+#####################################################################################
 resource "random_pet" "name" {
   prefix = "aws-ia"
   length = 2
@@ -35,39 +58,39 @@ locals {
   identity_center_instance_arn = var.create_identity_center_instance ? awscc_sso_instance.identity_center[0].instance_arn : var.identity_center_instance_arn
 
   # Create normalized user and group structures for the module
-  # This handles both var.users (with full user details) and local.users (with just username/grants)
-  normalized_users = length(var.users) > 0 ? {
-    # Extract from var.users (full user objects)
-    for user_key, user in var.users : user_key => {
+  # This handles both var.test_users (with full user details) and local.imported_users (with just username/grants)
+  normalized_users = var.create_test_users_and_groups ? {
+    # Extract from var.test_users (full user objects)
+    for user_key, user in var.test_users : user_key => {
       user_name     = user.user_name
       access_grants = try(user.access_grants, [])
     }
     } : {
-    # Extract from local.users (simple user objects)
-    for user_key, user in local.users : user_key => {
+    # Extract from local.imported_users (simple user objects)
+    for user_key, user in local.imported_users : user_key => {
       user_name     = user.user_name
       access_grants = try(user.access_grants, [])
     }
   }
 
-  normalized_groups = length(var.groups) > 0 ? {
-    # Extract from var.groups (full group objects) 
-    for group_key, group in var.groups : group_key => {
+  normalized_groups = var.create_test_users_and_groups ? {
+    # Extract from var.test_groups (full group objects) 
+    for group_key, group in var.test_groups : group_key => {
       group_name    = group.group_name
       access_grants = try(group.access_grants, [])
     }
     } : {
-    # Extract from local.groups (simple group objects)
-    for group_key, group in local.groups : group_key => {
+    # Extract from local.imported_groups (simple group objects)
+    for group_key, group in local.imported_groups : group_key => {
       group_name    = group.group_name
       access_grants = try(group.access_grants, [])
     }
   }
 }
 
-###################################################################
+#####################################################################################
 # Create Amazon S3 destination bucket for file storage
-###################################################################
+#####################################################################################
 module "s3_bucket" {
   source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
   bucket                   = lower("${random_pet.name.id}-web-app-${random_id.suffix.hex}")
@@ -93,19 +116,78 @@ module "s3_bucket" {
   tags = var.tags
 }
 
-###################################################################
+#####################################################################################
+# Transfer Web App module 
+#####################################################################################
+module "transfer_web_app" {
+  source = "../../modules/transfer-web-app"
+
+  iam_role_name                = "${random_pet.name.id}-web-app-role"
+  identity_center_instance_arn = local.identity_center_instance_arn
+  custom_title                 = var.custom_title
+  logo_file                    = var.logo_file
+  favicon_file                 = var.favicon_file
+
+  identity_center_users = [
+    for user_key, user in local.normalized_users : {
+      username = user.user_name
+      access_grants = user.access_grants != null ? [
+        for grant in user.access_grants : {
+          s3_path    = "${module.s3_bucket.s3_bucket_id}${grant.s3_path}"
+          permission = grant.permission
+        }
+      ] : []
+    }
+  ]
+
+  identity_center_groups = [
+    for group_key, group in local.normalized_groups : {
+      group_name = group.group_name
+      access_grants = [
+        for grant in coalesce(group.access_grants, []) : {
+          s3_path    = "${module.s3_bucket.s3_bucket_id}${grant.s3_path}"
+          permission = grant.permission
+        }
+      ]
+    }
+  ]
+
+  tags = var.tags
+
+  depends_on = [
+    module.s3_bucket,
+    aws_identitystore_user.users,
+    aws_identitystore_group.groups
+  ]
+}
+
+#####################################################################################
+# CORS configuration for S3 destination bucket
+#####################################################################################
+resource "aws_s3_bucket_cors_configuration" "web_app" {
+  bucket = module.s3_bucket.s3_bucket_id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
+    allowed_origins = [module.transfer_web_app.web_app_endpoint]
+    expose_headers  = ["ETag"]
+  }
+}
+
+#####################################################################################
 # Create IAM Identity Center instance (optional)
-###################################################################
+#####################################################################################
 resource "awscc_sso_instance" "identity_center" {
   count = var.create_identity_center_instance ? 1 : 0
   name  = "${random_id.suffix.hex}-identity-center"
 }
 
-###################################################################
-# Create AWS IAM Identity Center users, groups, and membership
-###################################################################
+#####################################################################################
+# Create AWS IAM Identity Center users, groups, and membership (optional)
+#####################################################################################
 resource "aws_identitystore_user" "users" {
-  for_each = var.users != null ? var.users : {}
+  for_each = var.create_test_users_and_groups ? var.test_users : {}
 
   identity_store_id = local.identity_store_id
   display_name      = each.value.display_name
@@ -123,7 +205,7 @@ resource "aws_identitystore_user" "users" {
 }
 
 resource "aws_identitystore_group" "groups" {
-  for_each = var.groups != null ? var.groups : {}
+  for_each = var.create_test_users_and_groups ? var.test_groups : {}
 
   identity_store_id = local.identity_store_id
   display_name      = each.value.group_name
@@ -131,9 +213,9 @@ resource "aws_identitystore_group" "groups" {
 }
 
 resource "aws_identitystore_group_membership" "memberships" {
-  for_each = var.groups != null ? {
+  for_each = var.create_test_users_and_groups ? {
     for membership in flatten([
-      for group_key, group in var.groups : [
+      for group_key, group in var.test_groups : [
         for user_key in coalesce(group.members, []) : {
           key       = "${group_key}-${user_key}"
           group_key = group_key
@@ -148,9 +230,9 @@ resource "aws_identitystore_group_membership" "memberships" {
   member_id         = aws_identitystore_user.users[each.value.user_key].user_id
 }
 
-###################################################################
+#####################################################################################
 # Create SNS resources for CloudTrail notifications
-###################################################################
+#####################################################################################
 resource "aws_sns_topic" "cloudtrail_notifications" {
   name              = "${random_pet.name.id}-cloudtrail-alerts"
   kms_master_key_id = aws_kms_key.cloudtrail.id
@@ -180,9 +262,9 @@ resource "aws_sns_topic_policy" "cloudtrail_notifications" {
   })
 }
 
-############################################################################
+#####################################################################################
 # Create CloudTrail and related resources (AWS KMS Key, Logging Bucket, etc)
-############################################################################
+#####################################################################################
 
 resource "aws_kms_key" "cloudtrail" {
   description         = "KMS key for CloudTrail encryption"
@@ -314,64 +396,3 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
     ]
   })
 }
-
-############################
-# Transfer Web App module 
-############################
-module "transfer_web_app" {
-  source = "../../modules/transfer-web-app"
-
-  iam_role_name                = "${random_pet.name.id}-web-app-role"
-  identity_center_instance_arn = local.identity_center_instance_arn
-  custom_title                 = var.custom_title
-  logo_file                    = var.logo_file
-  favicon_file                 = var.favicon_file
-
-  identity_center_users = [
-    for user_key, user in local.normalized_users : {
-      username = user.user_name
-      access_grants = user.access_grants != null ? [
-        for grant in user.access_grants : {
-          s3_path    = "${module.s3_bucket.s3_bucket_id}${grant.s3_path}"
-          permission = grant.permission
-        }
-      ] : []
-    }
-  ]
-
-  identity_center_groups = [
-    for group_key, group in local.normalized_groups : {
-      group_name = group.group_name
-      access_grants = [
-        for grant in coalesce(group.access_grants, []) : {
-          s3_path    = "${module.s3_bucket.s3_bucket_id}${grant.s3_path}"
-          permission = grant.permission
-        }
-      ]
-    }
-  ]
-
-  tags = var.tags
-
-  depends_on = [
-    module.s3_bucket,
-    aws_identitystore_user.users,
-    aws_identitystore_group.groups
-  ]
-}
-
-################################################
-# CORS configuration for S3 destination bucket
-################################################
-resource "aws_s3_bucket_cors_configuration" "web_app" {
-  bucket = module.s3_bucket.s3_bucket_id
-
-  cors_rule {
-    allowed_headers = ["*"]
-    allowed_methods = ["GET", "PUT", "POST", "DELETE", "HEAD"]
-    allowed_origins = [module.transfer_web_app.web_app_endpoint]
-    expose_headers  = ["ETag"]
-  }
-}
-
-

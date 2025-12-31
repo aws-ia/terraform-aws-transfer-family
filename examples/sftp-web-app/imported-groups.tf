@@ -1,10 +1,10 @@
 # Group Configuration
-# NOTE: Groups must already exist in IAM Identity Center before adding them here
-# NOTE: access_grants can be given through individual users instead of groups
+# NOTE: - Groups must already exist in IAM Identity Center before adding them here
+#       - access_grants can be given through individual users instead of groups
 # Uncomment and customize the groups below as needed
 
 locals {
-  groups = {
+  imported_groups = {
     # Uncomment and modify the examples below to add groups:
 
     # "admins" = {
@@ -12,7 +12,7 @@ locals {
     #   access_grants = [
     #     {
     #       s3_path    = "/*"
-    #       permission = "READWRITE"
+    #       permission = "READWRITE" 
     #     }
     #   ]
     # },
@@ -36,5 +36,6 @@ locals {
     #     }
     #   ]
     # }
+
   }
 }

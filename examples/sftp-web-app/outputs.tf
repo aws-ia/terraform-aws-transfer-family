@@ -25,23 +25,23 @@ output "cloudtrail_arn" {
 
 output "created_users" {
   description = "Map of created Identity Store users"
-  value = {
-    for key, user in var.users : key => {
+  value = var.create_test_users_and_groups ? {
+    for key, user in var.test_users : key => {
       display_name = user.display_name
       user_name    = key
       email        = user.email
     }
-  }
+  } : {}
 }
 
 output "created_groups" {
   description = "Map of created Identity Store groups"
-  value = {
-    for key, group in var.groups : key => {
+  value = var.create_test_users_and_groups ? {
+    for key, group in var.test_groups : key => {
       group_name  = group.group_name
       description = group.description
     }
-  }
+  } : {}
 }
 
 output "access_grants_instance_arn" {

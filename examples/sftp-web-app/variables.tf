@@ -5,13 +5,13 @@ variable "aws_region" {
 }
 
 variable "identity_center_instance_arn" {
-  description = "ARN of the Identity Center instance (required)"
+  description = "ARN of the IAM Identity Center instance (required)"
   type        = string
   default     = null
 }
 
 variable "create_identity_center_instance" {
-  description = "Whether to create a new Identity Center instance"
+  description = "Whether to create a new IAM Identity Center instance"
   type        = bool
   default     = false
 }
@@ -22,8 +22,14 @@ variable "s3_access_grants_instance_id" {
   default     = null
 }
 
-variable "users" {
-  description = "Map of users to create. If non-null, sample users will be created. If null, existing users must be provided in users.tf for web app assignment and access grants."
+variable "create_test_users_and_groups" {
+  description = "Whether to create test users and groups"
+  type        = bool
+  default     = false
+}
+
+variable "test_users" {
+  description = "Map of test users to create. Note: The grants and access in this default value are being assigned through the created groups only."
   type = map(object({
     display_name = string
     user_name    = string
@@ -53,8 +59,8 @@ variable "users" {
   }
 
   validation {
-    condition = var.users == null || alltrue([
-      for user in var.users : alltrue([
+    condition = var.test_users == null || alltrue([
+      for user in var.test_users : alltrue([
         for grant in coalesce(user.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
       ])
     ])
@@ -62,8 +68,8 @@ variable "users" {
   }
 }
 
-variable "groups" {
-  description = "Map of groups to create. If non-null, sample groups will be created. If null, existing groups must be provided in groups.tf for web app assignment and access grants."
+variable "test_groups" {
+  description = "Map of test groups to create"
   type = map(object({
     group_name  = string
     description = string
@@ -95,8 +101,8 @@ variable "groups" {
   }
 
   validation {
-    condition = var.groups == null || alltrue([
-      for group in var.groups : alltrue([
+    condition = var.test_groups == null || alltrue([
+      for group in var.test_groups : alltrue([
         for grant in coalesce(group.access_grants, []) : contains(["READ", "WRITE", "READWRITE"], grant.permission)
       ])
     ])

@@ -3,11 +3,11 @@
 # This module web application resources for AWS Transfer Family
 ##################################################################
 
-######################################
-# Defaults, Locals, and Checks
-######################################
+#####################################################################################
+# Checks
+#####################################################################################
 
-# Validation: providing existing S3 Access Grants location requires existing S3 Access Grants instance ID
+# Providing existing S3 Access Grants location requires existing S3 Access Grants instance ID
 check "existing_location_requires_instance" {
   assert {
     condition     = var.s3_access_grants_location_existing != null ? var.s3_access_grants_instance_id != null : true
@@ -15,10 +15,13 @@ check "existing_location_requires_instance" {
   }
 }
 
+#####################################################################################
+# Defaults and Locals
+#####################################################################################
+
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 data "aws_partition" "current" {}
-
 data "aws_ssoadmin_instances" "identity_center" {}
 
 # Data source to lookup Identity Center users
@@ -45,26 +48,6 @@ data "aws_identitystore_group" "groups" {
     unique_attribute {
       attribute_path  = "DisplayName"
       attribute_value = each.value.group_name
-    }
-  }
-}
-
-# IAM assume role policy for Transfer service
-data "aws_iam_policy_document" "assume_role_transfer" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "sts:AssumeRole",
-      "sts:SetContext"
-    ]
-    principals {
-      type        = "Service"
-      identifiers = ["transfer.amazonaws.com"]
-    }
-    condition {
-      test     = "StringEquals"
-      values   = [data.aws_caller_identity.current.account_id]
-      variable = "aws:SourceAccount"
     }
   }
 }
@@ -107,6 +90,128 @@ locals {
 }
 
 #####################################################################################
+# AWS Transfer Family Web App
+#####################################################################################
+
+# IAM assume role policy for Transfer service
+data "aws_iam_policy_document" "assume_role_transfer" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "sts:AssumeRole",
+      "sts:SetContext"
+    ]
+    principals {
+      type        = "Service"
+      identifiers = ["transfer.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      values   = [data.aws_caller_identity.current.account_id]
+      variable = "aws:SourceAccount"
+    }
+  }
+}
+
+# IAM role for Transfer web app
+resource "aws_iam_role" "transfer_web_app" {
+  name               = var.iam_role_name
+  assume_role_policy = data.aws_iam_policy_document.assume_role_transfer.json
+  tags               = var.tags
+}
+
+# IAM policy document for S3 Access Grants
+data "aws_iam_policy_document" "transfer_web_app" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetDataAccess",
+      "s3:ListCallerAccessGrants",
+    ]
+    resources = [
+      "arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:access-grants/*"
+    ]
+    condition {
+      test     = "StringEquals"
+      values   = [data.aws_caller_identity.current.account_id]
+      variable = "s3:ResourceAccount"
+    }
+  }
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:ListAccessGrantsInstances"
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      values   = [data.aws_caller_identity.current.account_id]
+      variable = "s3:ResourceAccount"
+    }
+  }
+}
+
+# IAM role policy attachment
+resource "aws_iam_role_policy" "transfer_web_app" {
+  policy = data.aws_iam_policy_document.transfer_web_app.json
+  role   = aws_iam_role.transfer_web_app.name
+}
+
+# Transfer Web App
+resource "aws_transfer_web_app" "web_app" {
+  identity_provider_details {
+    identity_center_config {
+      instance_arn = local.identity_center_instance_arn
+      role         = aws_iam_role.transfer_web_app.arn
+    }
+  }
+
+  web_app_units {
+    provisioned = var.provisioned_units
+  }
+
+  tags = var.tags
+}
+
+
+
+# Transfer Web App Customization (separate resource)
+resource "aws_transfer_web_app_customization" "web_app" {
+  count = var.logo_file != null || var.favicon_file != null || var.custom_title != null ? 1 : 0
+
+  web_app_id   = aws_transfer_web_app.web_app.web_app_id
+  favicon_file = var.favicon_file != null ? filebase64(var.favicon_file) : null
+  logo_file    = var.logo_file != null ? filebase64(var.logo_file) : null
+  title        = var.custom_title
+}
+
+#####################################################################################
+# IAM Identity Center Application User and Group Assignment 
+#####################################################################################
+
+# Assign users to Transfer Family Web App via Identity Center Application
+resource "aws_ssoadmin_application_assignment" "users" {
+  for_each = { for user in var.identity_center_users : user.username => user }
+
+  application_arn = local.application_arn
+  principal_id    = data.aws_identitystore_user.users[each.key].user_id
+  principal_type  = "USER"
+
+  depends_on = [aws_transfer_web_app.web_app]
+}
+
+# Assign groups to Transfer Family Web App via Identity Center Application
+resource "aws_ssoadmin_application_assignment" "groups" {
+  for_each = { for group in var.identity_center_groups : group.group_name => group }
+
+  application_arn = local.application_arn
+  principal_id    = data.aws_identitystore_group.groups[each.key].group_id
+  principal_type  = "GROUP"
+
+  depends_on = [aws_transfer_web_app.web_app]
+}
+
+#####################################################################################
 # S3 Access Grants Instance (create if not provided)
 #####################################################################################
 
@@ -143,8 +248,8 @@ resource "aws_iam_role" "access_grants_location" {
 }
 
 data "aws_iam_policy_document" "access_grants_location_policy" {
-  #checkov:skip=CKV_AWS_111:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
-  #checkov:skip=CKV_AWS_356:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
+  #checkov:skip=CKV_AWS_111:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-grants-location-register.html
+  #checkov:skip=CKV_AWS_356:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-grants-location-register.html
   count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   statement {
@@ -231,8 +336,8 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
 }
 
 resource "aws_iam_role_policy" "access_grants_location" {
-  #checkov:skip=CKV_AWS_111:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
-  #checkov:skip=CKV_AWS_356:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation
+  #checkov:skip=CKV_AWS_111:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-grants-location-register.html
+  #checkov:skip=CKV_AWS_356:KMS wildcard resource is required for S3 Access Grants with SSE-KMS encryption per AWS documentation https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-grants-location-register.html
   count = (length(local.user_grants) > 0 || length(local.group_grants) > 0) && var.s3_access_grants_location_new != null && var.s3_access_grants_location_existing == null && var.s3_access_grants_location_iam_role_arn == null ? 1 : 0
 
   name   = "access-grants-location-policy"
@@ -299,158 +404,4 @@ resource "aws_s3control_access_grant" "group_grants" {
   }
 
   tags = var.tags
-}
-
-
-#####################################################################################
-# AWS Transfer Family Web App
-#####################################################################################
-
-# IAM role for Transfer web app
-resource "aws_iam_role" "transfer_web_app" {
-  name               = var.iam_role_name
-  assume_role_policy = data.aws_iam_policy_document.assume_role_transfer.json
-  tags               = var.tags
-}
-
-# IAM policy document for S3 Access Grants
-data "aws_iam_policy_document" "transfer_web_app" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:GetDataAccess",
-      "s3:ListCallerAccessGrants",
-    ]
-    resources = [
-      "arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:access-grants/*"
-    ]
-    condition {
-      test     = "StringEquals"
-      values   = [data.aws_caller_identity.current.account_id]
-      variable = "s3:ResourceAccount"
-    }
-  }
-  statement {
-    effect = "Allow"
-    actions = [
-      "s3:ListAccessGrantsInstances"
-    ]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      values   = [data.aws_caller_identity.current.account_id]
-      variable = "s3:ResourceAccount"
-    }
-  }
-}
-
-# IAM role policy attachment
-resource "aws_iam_role_policy" "transfer_web_app" {
-  policy = data.aws_iam_policy_document.transfer_web_app.json
-  role   = aws_iam_role.transfer_web_app.name
-}
-
-# Transfer Web App
-resource "aws_transfer_web_app" "web_app" {
-  identity_provider_details {
-    identity_center_config {
-      instance_arn = local.identity_center_instance_arn
-      role         = aws_iam_role.transfer_web_app.arn
-    }
-  }
-
-  web_app_units {
-    provisioned = var.provisioned_units
-  }
-
-  tags = var.tags
-}
-
-# Post-apply S3 bucket region validation
-resource "terraform_data" "s3_bucket_validation" {
-  count = length(local.user_grants) > 0 || length(local.group_grants) > 0 ? 1 : 0
-
-  input = {
-    all_s3_paths = concat(
-      [for grant in local.user_grants : grant.s3_path],
-      [for grant in local.group_grants : grant.s3_path]
-    )
-    current_region = data.aws_region.current.id
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      #!/bin/bash
-      set -e
-      
-      bucket_names=$(echo '${jsonencode(self.input.all_s3_paths)}' | jq -r '.[] | split("/")[0]' | grep -v '^$' | sort -u)
-      current_region="${self.input.current_region}"
-      
-      for bucket in $bucket_names; do
-        if [[ "$bucket" != "/*" ]]; then
-          # Use head-bucket to get the bucket region from response headers
-          bucket_region=$(aws s3api head-bucket --bucket "$bucket" 2>&1 | grep -i 'x-amz-bucket-region' | cut -d':' -f2 | tr -d ' ' || echo "")
-          
-          # If we couldn't get region from headers, fall back to the bucket location API
-          if [[ -z "$bucket_region" ]]; then
-            bucket_region=$(aws s3api get-bucket-location --bucket "$bucket" --query 'LocationConstraint' --output text 2>/dev/null || echo "null")
-            # Handle us-east-1 special case
-            if [[ "$bucket_region" == "null" || "$bucket_region" == "None" ]]; then
-              bucket_region="us-east-1"
-            fi
-          fi
-          
-          if [[ "$bucket_region" != "$current_region" ]]; then
-            echo "ERROR: S3 bucket '$bucket' is in region '$bucket_region' but AWS provider is configured for region '$current_region'"
-            exit 1
-          fi
-          echo "✓ Bucket '$bucket' is in correct region: $current_region"
-        fi
-      done
-      
-      echo "✓ All S3 buckets are in the correct region: $current_region"
-    EOT
-  }
-
-  depends_on = [
-    aws_s3control_access_grant.user_grants,
-    aws_s3control_access_grant.group_grants,
-    aws_transfer_web_app.web_app
-  ]
-}
-
-# Transfer Web App Customization (separate resource)
-resource "aws_transfer_web_app_customization" "web_app" {
-  count = var.logo_file != null || var.favicon_file != null || var.custom_title != null ? 1 : 0
-
-  web_app_id   = aws_transfer_web_app.web_app.web_app_id
-  favicon_file = var.favicon_file != null ? filebase64(var.favicon_file) : null
-  logo_file    = var.logo_file != null ? filebase64(var.logo_file) : null
-  title        = var.custom_title
-}
-
-#####################################################################################
-# IAM Identity Center Application User and Group Assignment 
-#####################################################################################
-
-# Assign users to Transfer Family Web App via Identity Center Application
-resource "aws_ssoadmin_application_assignment" "users" {
-  for_each = { for user in var.identity_center_users : user.username => user }
-
-  application_arn = local.application_arn
-  principal_id    = data.aws_identitystore_user.users[each.key].user_id
-  principal_type  = "USER"
-
-  depends_on = [aws_transfer_web_app.web_app]
-}
-
-# Assign groups to Transfer Family Web App via Identity Center Application
-resource "aws_ssoadmin_application_assignment" "groups" {
-  for_each = { for group in var.identity_center_groups : group.group_name => group }
-
-  application_arn = local.application_arn
-  principal_id    = data.aws_identitystore_group.groups[each.key].group_id
-  principal_type  = "GROUP"
-
-  depends_on = [aws_transfer_web_app.web_app]
 }

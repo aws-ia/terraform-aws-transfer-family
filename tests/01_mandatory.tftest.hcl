@@ -115,3 +115,25 @@ run "malware_protection_apply" {
     source = "./examples/sftp-malware-protection-guardduty"
   }
 }
+
+run "web_app_plan" {
+  command = plan
+  module {
+    source = "./examples/sftp-web-app"
+  }
+  variables {
+    create_identity_center_instance = true
+    create_test_users_and_groups = true
+  }
+}
+
+run "web_app_apply" {
+  command = apply
+  module {
+    source = "./examples/sftp-web-app"
+  }
+  variables {
+    create_identity_center_instance = true
+    create_test_users_and_groups = true
+  }
+}

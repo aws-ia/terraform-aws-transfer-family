@@ -1,12 +1,12 @@
 # User Configuration
-# NOTE: Users must already exist in IAM Identity Center before adding them here
-# NOTE: access_grants can be given through groups only instead of each individual user
+# NOTE: - Users must already exist in IAM Identity Center before adding them here
+#       - access_grants can be given through groups only instead of each individual user
 # Uncomment and customize the users below as needed
 
 locals {
-  users = {
+  imported_users = {
     # Uncomment and modify the examples below to add users:
-    
+
     # "admin" = {
     #   user_name = "admin"
     #   access_grants = [ 
@@ -16,7 +16,7 @@ locals {
     #     }
     #   ]
     # },
-    
+
     # "analyst" = {
     #   user_name = "analyst"
     #   access_grants = [  
@@ -26,7 +26,7 @@ locals {
     #     }
     #   ]
     # },
-    
+
     # "developer" = {
     #   user_name = "developer"
     #   access_grants = [  
@@ -35,5 +35,6 @@ locals {
     #       permission = "WRITE"
     #     }
     #   ]
+    # }
   }
 }
