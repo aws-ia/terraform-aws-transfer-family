@@ -110,7 +110,7 @@ module "s3_bucket" {
   }
 
   versioning = {
-    enabled = true
+    enabled = false # Turn on versioning if needed
   }
 
   tags = var.tags
@@ -326,6 +326,26 @@ resource "aws_kms_key_policy" "cloudtrail" {
           "kms:GenerateDataKey*"
         ]
         Resource = aws_kms_key.cloudtrail.arn
+      },
+      {
+        Sid    = "Allow CloudWatch Logs to use the key"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.cloudtrail.arn
+        Condition = {
+          ArnEquals = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/cloudtrail/${random_pet.name.id}"
+          }
+        }
       }
     ]
   })
@@ -338,13 +358,15 @@ resource "aws_kms_alias" "cloudtrail" {
 
 resource "aws_cloudtrail" "web_app_audit" {
   name                          = "${random_pet.name.id}-audit-trail"
-  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
+  s3_bucket_name                = module.s3_bucket_cloudtrail_logs.s3_bucket_id
   include_global_service_events = true
   is_multi_region_trail         = true
   enable_logging                = true
   enable_log_file_validation    = true
   sns_topic_name                = aws_sns_topic.cloudtrail_notifications.arn
   kms_key_id                    = aws_kms_key.cloudtrail.arn
+  cloud_watch_logs_group_arn    = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+  cloud_watch_logs_role_arn     = aws_iam_role.cloudtrail_cloudwatch_logs.arn
 
   event_selector {
     read_write_type           = "All"
@@ -359,13 +381,78 @@ resource "aws_cloudtrail" "web_app_audit" {
   depends_on = [aws_s3_bucket_policy.cloudtrail_logs]
 }
 
-resource "aws_s3_bucket" "cloudtrail_logs" {
-  bucket        = lower("${random_pet.name.id}-cloudtrail-logs-${random_id.suffix.hex}")
-  force_destroy = true
+resource "aws_cloudwatch_log_group" "cloudtrail" {
+  name              = "/aws/cloudtrail/${random_pet.name.id}"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.cloudtrail.arn
+}
+
+resource "aws_iam_role" "cloudtrail_cloudwatch_logs" {
+  name = "${random_pet.name.id}-cloudtrail-cloudwatch-logs-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "cloudtrail_cloudwatch_logs" {
+  name = "cloudtrail-cloudwatch-logs-policy"
+  role = aws_iam_role.cloudtrail_cloudwatch_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:PutLogEvents",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream"
+        ]
+        Resource = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+      }
+    ]
+  })
+}
+
+module "s3_bucket_cloudtrail_logs" {
+  source                   = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
+  bucket                   = lower("${random_pet.name.id}-cloudtrail-logs-${random_id.suffix.hex}")
+  force_destroy            = true
+  control_object_ownership = true
+  object_ownership         = "BucketOwnerEnforced"
+  block_public_acls        = true
+  block_public_policy      = true
+  ignore_public_acls       = true
+  restrict_public_buckets  = true
+
+  server_side_encryption_configuration = {
+    rule = {
+      apply_server_side_encryption_by_default = {
+        kms_master_key_id = aws_kms_key.cloudtrail.arn
+        sse_algorithm     = "aws:kms"
+      }
+    }
+  }
+
+  versioning = {
+    enabled = false # Turn on versioning if needed
+  }
+
+  tags = var.tags
 }
 
 resource "aws_s3_bucket_policy" "cloudtrail_logs" {
-  bucket = aws_s3_bucket.cloudtrail_logs.id
+  bucket = module.s3_bucket_cloudtrail_logs.s3_bucket_id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -377,7 +464,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
           Service = "cloudtrail.amazonaws.com"
         }
         Action   = "s3:GetBucketAcl"
-        Resource = aws_s3_bucket.cloudtrail_logs.arn
+        Resource = module.s3_bucket_cloudtrail_logs.s3_bucket_arn
       },
       {
         Sid    = "AWSCloudTrailWrite"
@@ -386,7 +473,7 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
           Service = "cloudtrail.amazonaws.com"
         }
         Action   = "s3:PutObject"
-        Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/*"
+        Resource = "${module.s3_bucket_cloudtrail_logs.s3_bucket_arn}/*"
         Condition = {
           StringEquals = {
             "s3:x-amz-acl" = "bucket-owner-full-control"
