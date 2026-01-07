@@ -32,7 +32,6 @@ data "aws_caller_identity" "current" {}
 ###################################################################
 # Transfer Server example usage
 ###################################################################
-#checkov:skip=CKV_AWS_380: "At the moment the default security policy must be TransferSecurityPolicy-2024-01 but will be updated to TransferSecurityPolicy-2025-03"
 module "transfer_server" {
   source = "../.."
   
