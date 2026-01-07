@@ -88,6 +88,7 @@ module "custom_idp" {
 # Lambda-based custom identity provider integration, CloudWatch logging,
 # and security policy TransferSecurityPolicy-2024-01
 ###################################################################
+#checkov:skip=CKV_AWS_380: "At the moment the default security policy must be TransferSecurityPolicy-2024-01 but will be updated to TransferSecurityPolicy-2025-03"
 module "transfer_server" {
   source = "../../modules/transfer-server"
   
