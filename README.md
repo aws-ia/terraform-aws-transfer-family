@@ -14,6 +14,7 @@ This module creates and configures AWS Transfer Family resources with the follow
   smart routing, and thread notification
 - Custom hostname support through AWS Route53 or other DNS providers (Optional)
 - CloudWatch logging configuration with a customizable retention
+- **Transfer Web App**: Browser-based interface with Identity Center authentication and S3 Access Grants
 
 ## Quick Start
 
@@ -177,6 +178,19 @@ This project utilizes multiple modules to create a complete AWS Transfer Family 
 
 For more detailed configuration, see the
 [Transfer Malware Protection Module documentation](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/modules/transfer-malware-protection/README.md).
+
+### Transfer Web App Module
+
+- Purpose: Creates browser-based file transfer interface with Identity Center authentication
+- Key features:
+  - AWS IAM Identity Center integration for authentication
+  - S3 Access Grants for fine-grained permissions
+  - Custom branding with logo, favicon, and title
+  - CORS configuration support
+  - Built-in validation for proper configuration
+
+For more detailed configuration, see the
+[Transfer Web App documentation](https://github.com/aws-ia/terraform-aws-transfer-family/blob/main/modules/transfer-web-app/README.md).
 
 ## Installation
 
@@ -393,6 +407,22 @@ Key features:
 - Smart file routing based on scan results
 - Configurable destination buckets for clean, infected, and error files
 - Optional file cleanup from ingestion bucket
+
+## Example for SFTP Web App
+
+This example demonstrates a complete browser-based file transfer portal with Identity Center authentication and S3 Access Grants.
+
+**Example location**: `examples/sftp-web-app`
+
+Key features:
+
+- Browser-based interface for secure file access
+- AWS IAM Identity Center authentication with SSO support
+- S3 Access Grants for fine-grained user and group permissions
+- CloudTrail audit logging with KMS encryption and SNS notifications
+- Custom branding with logo, favicon, and title customization
+- Flexible user/group management (create new or import existing)
+- CORS configuration for secure web app access
 
 ## Key Connector Configuration
 
