@@ -3,6 +3,16 @@
 
 This Terraform module creates a complete custom identity provider solution for AWS Transfer Family using Lambda, DynamoDB, and optionally API Gateway. The module automatically builds Lambda artifacts from the AWS Transfer Family Toolkit GitHub repository.
 
+## Features
+
+- **Lambda-based Identity Provider**: Validates user credentials and returns Transfer Family configuration
+- **DynamoDB Storage**: Stores user configurations and identity provider settings
+- **Multiple Identity Provider Support**: Cognito, Active Directory, LDAP, public key authentication
+- **API Gateway Integration**: Optional REST API for Transfer Family invocation
+- **VPC Support**: Optional VPC attachment for Lambda function
+- **Automated Build**: CodeBuild automatically builds Lambda artifacts from GitHub
+- **Flexible Configuration**: Use existing or create new DynamoDB tables and VPC resources
+
 ## Usage
 
 ### Basic Usage (Direct Lambda)
@@ -23,6 +33,23 @@ module "custom_idp" {
   tags = {
     Environment = "production"
     Project     = "file-transfer"
+  }
+}
+```
+
+### With API Gateway
+
+```hcl
+module "custom_idp" {
+  source = "../../modules/transfer-custom-idp-solution"
+
+  name_prefix = "my-sftp"
+  # Enable API Gateway
+  provision_api = true
+  use_vpc    = false
+  create_vpc = false
+  tags = {
+    Environment = "production"
   }
 }
 ```
@@ -65,23 +92,6 @@ module "custom_idp" {
 }
 ```
 
-### With API Gateway
-
-```hcl
-module "custom_idp" {
-  source = "../../modules/transfer-custom-idp-solution"
-
-  name_prefix = "my-sftp"
-  # Enable API Gateway
-  provision_api = true
-  use_vpc    = false
-  create_vpc = false
-  tags = {
-    Environment = "production"
-  }
-}
-```
-
 ### With Existing DynamoDB Tables
 
 ```hcl
@@ -107,13 +117,19 @@ module "custom_idp" {
 - **Lambda Layer**: Python dependencies
 - **S3 Bucket**: Stores build artifacts
 - **CodeBuild Project**: Builds Lambda artifacts from GitHub
-- **IAM Roles**: Lambda execution role, Transfer invocation role
+- **IAM Roles**: Lambda execution role, Transfer/API Gateway invocation role
 - **IAM Policies**: DynamoDB access, CloudWatch Logs, optional Secrets Manager
 
 ### Conditionally Created
 - **DynamoDB Tables**: Users and Identity Providers tables (if not using existing)
 - **VPC Resources**: VPC, subnets, NAT gateways, security groups (if `create_vpc = true`)
 - **API Gateway**: REST API, resources, methods, deployment, stage (if `provision_api = true`)
+
+## Examples
+
+For complete working examples, see:
+- [SFTP with Cognito (Lambda)](../../examples/sftp-idp-cognito-lambda) - Direct Lambda invocation
+- [SFTP with Cognito (API Gateway)](../../examples/sftp-idp-cognito-api-gateway) - API Gateway integration
 
 ### Prerequisites
 
