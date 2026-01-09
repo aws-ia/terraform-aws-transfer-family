@@ -61,7 +61,7 @@ module "transfer_web_app" {
 Access grants support various path patterns:
 
 - `bucket/*` - All objects in the bucket
-- `bucket/reports*` - Prefix within bucket
+- `bucket/reports*` - Prefix within a bucket
 - `bucket/data/logs*` - Prefix within prefix
 - `bucket/data/file.txt` - Specific object
 
