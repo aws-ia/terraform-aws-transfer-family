@@ -104,6 +104,7 @@ check "api_gateway_integration_requirements" {
 ######################################
 
 resource "aws_transfer_server" "transfer_server" {
+  #checkov:skip=CKV_AWS_380: "At the moment the default security policy must be TransferSecurityPolicy-2024-01 but will be updated to TransferSecurityPolicy-2025-03"
   #checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
   identity_provider_type      = var.identity_provider
   domain                      = var.domain
