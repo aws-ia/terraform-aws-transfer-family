@@ -8,6 +8,11 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+# Get the existing Entra client secret from Secrets Manager
+data "aws_secretsmanager_secret" "entra_client_secret" {
+  name = var.entra_client_secret_name
+}
+
 resource "random_pet" "name" {
   prefix = "aws-ia"
   length = 1
@@ -35,7 +40,7 @@ module "custom_idp" {
   identity_providers_table_name = ""
   create_vpc                    = false
   use_vpc                       = false
-  provision_api                 = false
+  provision_api                 = var.provision_api
   enable_deletion_protection    = var.enable_deletion_protection
   
   tags = var.tags
@@ -50,14 +55,16 @@ module "custom_idp" {
 module "transfer_server" {
   source = "../../modules/transfer-server"
   
-  domain               = "S3"
-  protocols            = ["SFTP"]
-  endpoint_type        = "PUBLIC"
-  server_name          = local.server_name
-  identity_provider    = "AWS_LAMBDA"
-  lambda_function_arn  = module.custom_idp.lambda_function_arn
-  security_policy_name = "TransferSecurityPolicy-2024-01"
-  enable_logging       = true
+  domain                      = "S3"
+  protocols                   = ["SFTP"]
+  endpoint_type               = "PUBLIC"
+  server_name                 = local.server_name
+  identity_provider           = var.provision_api ? "API_GATEWAY" : "AWS_LAMBDA"
+  lambda_function_arn         = var.provision_api ? null : module.custom_idp.lambda_function_arn
+  api_gateway_url             = var.provision_api ? module.custom_idp.api_gateway_url : null
+  api_gateway_invocation_role = var.provision_api ? module.custom_idp.api_gateway_role_arn : null
+  security_policy_name        = "TransferSecurityPolicy-2024-01"
+  enable_logging              = true
   
   tags = var.tags
 }
@@ -86,7 +93,7 @@ resource "aws_dynamodb_table_item" "entra_provider" {
           S = var.entra_client_id
         }
         app_secret_arn = {
-          S = aws_secretsmanager_secret_version.entra_client_secret.arn
+          S = data.aws_secretsmanager_secret.entra_client_secret.arn
         }
         authority_url = {
           S = var.entra_authority_url
@@ -188,28 +195,32 @@ resource "aws_dynamodb_table_item" "entra_users" {
         }
       }
     }
-    ipv4_allow_list = {
-      SS = [
-        "0.0.0.0/0"
-      ]
-    }
   })
 }
 
-# Store Entra client secret securely in Secrets Manager
-resource "aws_secretsmanager_secret" "entra_client_secret" {
-  
-  name_prefix             = "${var.name_prefix}-transfer-idp-entra-client-secret"
-  recovery_window_in_days = 0
-
-  tags = var.tags
+# Get Lambda function details to retrieve its execution role
+data "aws_lambda_function" "identity_provider" {
+  depends_on    = [module.custom_idp]
+  function_name = module.custom_idp.lambda_function_name
 }
 
-# Store Entra client secret securely in Secrets Manager
-resource "aws_secretsmanager_secret_version" "entra_client_secret" {
-  
-  secret_id = aws_secretsmanager_secret.entra_client_secret.id
-  secret_string = var.entra_client_secret
+# IAM policy to allow Lambda function to read the Entra client secret
+resource "aws_iam_role_policy" "lambda_secrets_access" {
+  name = "${var.name_prefix}-lambda-secrets-policy"
+  role = split("/", data.aws_lambda_function.identity_provider.role)[1]
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = data.aws_secretsmanager_secret.entra_client_secret.arn
+      }
+    ]
+  })
 }
 
 ###################################################################

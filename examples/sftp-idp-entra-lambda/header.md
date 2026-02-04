@@ -1,0 +1,182 @@
+# SFTP with Microsoft Entra ID Identity Provider Example
+
+This example demonstrates how to set up AWS Transfer Family SFTP server with a custom identity provider using Microsoft Entra ID for user authentication and AWS Lambda for identity provider logic.
+
+## Architecture
+
+This example creates a complete SFTP solution with Microsoft Entra ID based authentication:
+
+- **Transfer Server**: Public SFTP endpoint with Lambda-based custom identity provider
+- **Lambda Function**: Custom identity provider that validates Microsoft Entra ID users and returns Transfer Family configuration
+- **DynamoDB Tables**: Stores user configurations and identity provider settings
+- **S3 Bucket**: Secure file storage with user-specific directories
+
+## Resources Created
+
+- AWS Transfer Family SFTP server (public endpoint)
+- Custom Identity Provider Lambda function (via transfer-custom-idp-solution module)
+- DynamoDB tables for users and identity providers configuration
+- S3 bucket with versioning and encryption
+- IAM roles and policies for Transfer Family session access, Custom Identity Provider Lambda function
+
+## How It Works
+
+1. **User Authentication**: Users authenticate via SFTP using their Microsoft Entra ID username and password
+2. **DynamoDB Lookup**: Lambda function looks up username, user configuration (home directory, IAM role, IP allowlist) and identifies the Identity provider associated with the user. It then performs a lookup for the identity provider, retrieves its configuration and establishes a connection with Microsoft Entra ID. 
+3. **Session Creation**: Transfer Family creates an SFTP session with the returned configuration
+4. **File Access**: Users access their dedicated S3 directory based on their username
+
+## Prerequisites
+
+- AWS CLI configured with appropriate credentials
+- Terraform >= 1.0
+- An AWS account with permissions to create the required resources
+
+## Usage
+
+### 1. Deploy the Infrastructure
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+### 3. Test the SFTP Connection
+
+The example uses 2 kinds of Microsoft Entra ID users to demonstrate different behaviors:
+
+#### User 1 (Primary User with Explicit Configuration)
+
+This user has an explicit DynamoDB record with custom home directory mapping:
+
+```bash
+# Get the server endpoint
+SERVER_ENDPOINT=$(terraform output -raw server_endpoint)
+
+# Get the username
+USER=transfer@xyz.onmicrosoft.com
+
+# Connect via SFTP (you'll be prompted for the password)
+sftp $USER@$SERVER_ENDPOINT
+
+# Once connected, you'll see the root of the S3 bucket
+sftp> ls
+# Shows all files in the bucket root
+```
+
+#### User 2 (Default Fallback User)
+
+This user has NO explicit DynamoDB record, so it uses the `$default$` configuration:
+
+```bash
+# Connect as user2 (User must exist in Microsoft Entra ID application)
+sftp user2@$SERVER_ENDPOINT
+
+# Once connected, you'll be in an isolated user-specific directory
+sftp> ls
+# Shows only files in /home/users/user2/
+
+# Files uploaded by user2 are isolated from user1
+sftp> put myfile.txt
+# File is stored at: s3://<bucket>/users/user2/myfile.txt
+```
+
+Or use an SFTP client like FileZilla with:
+- **Host**: Server endpoint from Terraform output
+- **Username**: `transfer@xyz.onmicrosoft.com` (explicit config) or `user2` (default fallback)
+- **Password**: User password
+- **Port**: 22
+
+**Key Differences:**
+- **User 1**: Has full bucket access, sees root directory (`/`)
+- **User2**: Has isolated access, sees only their folder (`/home/users/user2/`)
+- **User2**: Demonstrates the `$default$` fallback behavior for any authenticated Microsoft Entra ID user without explicit configuration
+
+> [!NOTE]
+> Users must be pre-created in Microsoft Entra ID. This example does NOT create users in Microsoft Entra ID. 
+
+## User Configuration
+
+The example demonstrates access with two types of users:
+
+1. **Primary User**:
+   - No IP restrictions
+   - Home directory mapped to root of S3 bucket
+   - Full access to entire bucket
+   - Authenticates via Microsoft Entra ID credentials
+
+2. **Default Fallback User** (`$default$`):
+   - IP allowlist: `0.0.0.0/0` (all IPs - restrict in production)
+   - Home directory mapped to user-specific folder: `/home/users/<username>/`
+   - Isolated access per authenticated user
+   - Catches any authenticated Microsoft Entra ID user not explicitly configured
+
+## DynamoDB Configuration
+
+The example configures DynamoDB items for identity provider and users:
+
+1. **Identity Provider Configuration**:
+   - Provider: Name used for referencing the provider in the users table
+   - Client ID: The Client ID of the Entra ID application that will be used for authentication and retrieving user profile attributes.
+   - App Secret ARN: The ARN of the AWS Secrets Manager secret containing the client secret for the Entra ID application.
+   - Authority URL: The authority URL for the Entra ID tenant
+   - Module type: `entra`
+
+2. **User Records** (for each user in entra_usernames list):
+   - Username and identity provider key
+   - Home directory mappings (virtual to physical paths)
+   - IAM role for S3 access
+   - IP allowlist (optional, only for default user)
+
+## Security Considerations
+
+- **S3 Encryption**: Bucket uses AES256 server-side encryption
+- **Versioning**: S3 versioning is enabled for data protection
+- **Public Access**: S3 bucket blocks all public access
+- **IP Allowlist**: Default allows all IPs - restrict to specific IPs in production
+
+## Customization
+
+You can customize the deployment by modifying variables:
+
+```hcl
+# terraform.tfvars
+aws_region         = "us-east-1"
+name_prefix        = "my-sftp"
+entra_usernames    = ["user@example.onmicrosoft.com"]
+entra_provider_name = "example.onmicrosoft.com"
+entra_client_id    = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
+entra_authority_url = "https://login.microsoftonline.com/xyz"
+entra_client_secret_name = "entra-secret"
+
+tags = {
+  Environment = "production"
+  Project     = "secure-file-transfer"
+}
+```
+
+## Outputs
+
+The example provides the following outputs:
+
+- `server_id`: Transfer Family server ID
+- `server_endpoint`: SFTP server endpoint for connections
+- `s3_bucket_name`: S3 bucket name for file storage
+- `s3_bucket_arn`: S3 bucket ARN for file storage
+- `lambda_function_arn`: Custom IDP Lambda function ARN
+- `lambda_function_name`: Custom IDP Lambda function name
+- `users_table_name`: DynamoDB users table name
+- `identity_providers_table_name`: DynamoDB identity providers table name
+- `transfer_session_role_arn`: ARN of the Transfer Family session role
+
+## Cleanup
+
+To destroy all resources:
+
+```bash
+terraform destroy
+```
+
+> [!IMPORTANT]
+> The S3 bucket must be empty before destruction. Remove all files first if needed.
