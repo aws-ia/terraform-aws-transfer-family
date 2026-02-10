@@ -1,0 +1,5 @@
+okta_api_token = "your-okta-api-token-here"
+okta_user_id   = "00u..."  # Your existing Okta user ID
+
+# Optional: Okta application ID to assign user to
+# okta_app_id = "0oa..."
