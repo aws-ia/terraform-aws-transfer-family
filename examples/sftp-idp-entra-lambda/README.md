@@ -231,7 +231,7 @@ terraform destroy
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
-| <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `true` | no |
+| <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `false` | no |
 | <a name="input_entra_authority_url"></a> [entra\_authority\_url](#input\_entra\_authority\_url) | Authority URL of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_client_id"></a> [entra\_client\_id](#input\_entra\_client\_id) | Client/Application ID of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_client_secret_name"></a> [entra\_client\_secret\_name](#input\_entra\_client\_secret\_name) | Name of the AWS Secrets Manager secret containing the Entra ID client secret | `string` | `null` | no |

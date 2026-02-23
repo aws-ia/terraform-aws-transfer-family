@@ -77,7 +77,7 @@ variable "entra_provider_name" {
 variable "enable_deletion_protection" {
   description = "Enable deletion protection for DynamoDB tables"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "provision_api" {
