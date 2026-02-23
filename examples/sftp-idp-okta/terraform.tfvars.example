@@ -1,0 +1,46 @@
+# ========================================================================
+# Terraform Variables for SFTP with Okta Identity Provider
+# ========================================================================
+#
+# Instructions:
+# 1. Copy this file: cp terraform.tfvars.example terraform.tfvars
+# 2. Replace placeholder values with your actual Okta and AWS configuration
+# 3. Never commit terraform.tfvars to git (it contains sensitive tokens)
+#
+# Example with real values:
+#   okta_org_name  = "dev-12345"
+#   okta_domain    = "dev-12345.okta.com"
+#   okta_api_token = "00AbCdEfGhIjKlMnOpQrStUvWxYz..."
+#   okta_user_id   = "00ux8fjyp6iWhateverYourIdIs"
+# ========================================================================
+
+# AWS Configuration
+aws_region  = "us-east-1"              # AWS region to deploy resources
+name_prefix = "sftp-okta-example"      # Prefix for resource names (customize for your organization)
+
+# Okta Configuration
+okta_org_name      = "your-org-name"               # REQUIRED: Your Okta organization name (e.g., "dev-12345" or "mycompany")
+okta_base_url      = "okta.com"                    # okta.com or oktapreview.com (usually okta.com)
+okta_api_token     = "your-okta-api-token-here"    # REQUIRED: Okta API token (create in Okta Admin Console → Security → API → Tokens)
+okta_domain        = "your-org-name.okta.com"      # REQUIRED: Full Okta domain (e.g., "dev-12345.okta.com" or "mycompany.okta.com")
+okta_app_client_id = ""                            # OPTIONAL: Leave empty unless retrieving user profile attributes (Uid, Gid, Role, Policy from Okta)
+okta_redirect_uri  = "awstransfer:/callback"       # OPTIONAL: Sign-in redirect URI (only needed if okta_app_client_id is set)
+
+# MFA Configuration (optional)
+okta_enable_mfa       = false  # Set to true if your Okta requires MFA (users will append 6-digit code to password)
+okta_mfa_token_length = 6      # Number of digits in MFA token (usually 6 for Google Authenticator, Okta Verify)
+
+# Okta User
+okta_user_id = "00u1234567890abcdef"  # REQUIRED: ID of existing Okta user to grant SFTP access (find in Okta Admin Console → Directory → People → click user → copy ID from URL)
+
+# DynamoDB Configuration
+enable_deletion_protection = false  # Set to true in production
+
+# API Gateway (optional)
+provision_api = false  # Set to true to use API Gateway instead of Lambda
+
+# Tags
+tags = {
+  Environment = "demo"
+  Project     = "transfer-family-okta"
+}

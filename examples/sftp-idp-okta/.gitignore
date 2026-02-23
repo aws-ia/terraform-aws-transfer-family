@@ -1,0 +1,10 @@
+.venv/
+venv/
+*.pyc
+__pycache__/
+pycache/
+requirements.txt.venv/
+venv/
+*.pyc
+pycache/
+requirements.txt 
