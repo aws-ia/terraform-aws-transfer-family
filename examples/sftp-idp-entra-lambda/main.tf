@@ -36,8 +36,8 @@ module "custom_idp" {
   source = "../../modules/transfer-custom-idp-solution"
 
   name_prefix                   = var.name_prefix
-  users_table_name              = ""
-  identity_providers_table_name = ""
+  users_table_name              = var.users_table_name != null ? var.users_table_name : ""
+  identity_providers_table_name = var.identity_providers_table_name != null ? var.identity_providers_table_name : ""
   create_vpc                    = false
   use_vpc                       = false
   provision_api                 = var.provision_api

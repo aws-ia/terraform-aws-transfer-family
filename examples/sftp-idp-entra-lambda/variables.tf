@@ -77,11 +77,23 @@ variable "entra_provider_name" {
 variable "enable_deletion_protection" {
   description = "Enable deletion protection for DynamoDB tables"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "provision_api" {
   description = "Create API Gateway REST API"
   type        = bool
   default     = false
+}
+
+variable "users_table_name" {
+  description = "Name of an existing DynamoDB table for users. If not provided, a new table will be created."
+  type        = string
+  default     = null
+}
+
+variable "identity_providers_table_name" {
+  description = "Name of an existing DynamoDB table for identity providers. If not provided, a new table will be created."
+  type        = string
+  default     = null
 }
