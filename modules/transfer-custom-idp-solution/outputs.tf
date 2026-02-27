@@ -20,7 +20,7 @@ output "transfer_invocation_role_arn" {
 
 output "api_gateway_url" {
   description = "API Gateway URL (if provisioned)"
-  value       = var.provision_api ? "https://${aws_api_gateway_rest_api.identity_provider[0].id}.execute-api.${data.aws_region.current.name}.amazonaws.com/prod" : null
+  value       = var.provision_api ? "https://${aws_api_gateway_rest_api.identity_provider[0].id}.execute-api.${data.aws_region.current.region}.amazonaws.com/prod" : null
 }
 
 output "api_gateway_role_arn" {
