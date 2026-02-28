@@ -320,7 +320,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
     sid    = "BucketLevelReadPermissions"
     effect = "Allow"
     actions = [
-      "s3:ListBuckets"
+      "s3:ListBucket"
     ]
     resources = [
       "arn:${data.aws_partition.current.partition}:s3:::*"
