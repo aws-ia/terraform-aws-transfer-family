@@ -182,6 +182,11 @@ variable "lambda_function_arn" {
   description = "Lambda function ARN for custom identity provider (required when identity_provider is AWS_LAMBDA)"
   type        = string
   default     = null
+
+  validation {
+    condition     = var.identity_provider != "AWS_LAMBDA" || var.lambda_function_arn != null
+    error_message = "lambda_function_arn is required when identity_provider is AWS_LAMBDA."
+  }
 }
 
 # tflint-ignore: terraform_unused_declarations
@@ -195,10 +200,20 @@ variable "api_gateway_url" {
   description = "API Gateway URL for custom identity provider (required when identity_provider is API_GATEWAY)"
   type        = string
   default     = null
+
+  validation {
+    condition     = var.identity_provider != "API_GATEWAY" || var.api_gateway_url != null
+    error_message = "api_gateway_url is required when identity_provider is API_GATEWAY."
+  }
 }
 
 variable "api_gateway_invocation_role" {
   description = "IAM role ARN for API Gateway invocation (required when identity_provider is API_GATEWAY)"
   type        = string
   default     = null
+
+  validation {
+    condition     = var.identity_provider != "API_GATEWAY" || var.api_gateway_invocation_role != null
+    error_message = "api_gateway_invocation_role is required when identity_provider is API_GATEWAY."
+  }
 }

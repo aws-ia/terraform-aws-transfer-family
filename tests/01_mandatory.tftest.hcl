@@ -143,3 +143,33 @@ run "web_app_apply" {
     favicon_file = "./examples/sample-web-app/favicon.png"
   }
 }
+
+run "entra_id_example_plan" {
+  command = plan
+  module {
+    source = "./examples/sftp-idp-entra-lambda"
+  }
+  variables {
+    entra_usernames   = ["user@example.onmicrosoft.com"]
+    entra_provider_name = "example.onmicrosoft.com"
+    entra_client_id = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
+    entra_authority_url = "https://login.microsoftonline.com/xyz"
+    entra_client_secret_name = "entra_client_secret"
+    provision_api   = false
+  }
+}
+
+run "entra_id_example_apply" {
+  command = apply
+  module {
+    source = "./examples/sftp-idp-entra-lambda"
+  }
+  variables {
+    entra_usernames   = ["user@example.onmicrosoft.com"]
+    entra_provider_name = "example.onmicrosoft.com"
+    entra_client_id = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
+    entra_authority_url = "https://login.microsoftonline.com/xyz"
+    entra_client_secret_name = "entra_client_secret"
+    provision_api   = false
+  }
+}
