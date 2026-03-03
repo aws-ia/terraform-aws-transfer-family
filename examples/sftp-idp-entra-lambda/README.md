@@ -56,7 +56,7 @@ This user has an explicit DynamoDB record with custom home directory mapping:
 SERVER_ENDPOINT=$(terraform output -raw server_endpoint)
 
 # Get the username
-USER=transfer@xyz.onmicrosoft.com
+USER=user@example.onmicrosoft.com
 
 # Connect via SFTP (you'll be prompted for the password)
 sftp $USER@$SERVER_ENDPOINT
@@ -86,7 +86,7 @@ sftp> put myfile.txt
 Or use an SFTP client like FileZilla with:
 
 - **Host**: Server endpoint from Terraform output
-- **Username**: `transfer@xyz.onmicrosoft.com` (explicit config) or `user2` (default fallback)
+- **Username**: `user@example.onmicrosoft.com` (explicit config) or `user2` (default fallback)
 - **Password**: User password
 - **Port**: 22
 
@@ -97,7 +97,8 @@ Or use an SFTP client like FileZilla with:
 - **User2**: Demonstrates the `$default$` fallback behavior for any authenticated Microsoft Entra ID user without explicit configuration
 
 > [!NOTE]
-> Users must be pre-created in Microsoft Entra ID. This example does NOT create users in Microsoft Entra ID.
+> - Users must be pre-created in Microsoft Entra ID. This example does NOT create users in Microsoft Entra ID.
+> - This example requires an app registration to be completed by creating a Client ID and secret in Microsoft Entra ID as a pre-requisite. See the [documentation for the Custom IDP solution on Github](https://github.com/aws-samples/toolkit-for-aws-transfer-family/blob/main/solutions/custom-idp/README.md#configuring-entra-id-as-an-identity-provider) for detailed steps.
 
 ## User Configuration
 
@@ -231,15 +232,17 @@ terraform destroy
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
-| <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `false` | no |
+| <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `true` | no |
 | <a name="input_entra_authority_url"></a> [entra\_authority\_url](#input\_entra\_authority\_url) | Authority URL of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_client_id"></a> [entra\_client\_id](#input\_entra\_client\_id) | Client/Application ID of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_client_secret_name"></a> [entra\_client\_secret\_name](#input\_entra\_client\_secret\_name) | Name of the AWS Secrets Manager secret containing the Entra ID client secret | `string` | `null` | no |
 | <a name="input_entra_provider_name"></a> [entra\_provider\_name](#input\_entra\_provider\_name) | Provider name of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_usernames"></a> [entra\_usernames](#input\_entra\_usernames) | Username for the Entra user | `list(string)` | <pre>[<br/>  "user1@example.onmicrosoft.com"<br/>]</pre> | no |
+| <a name="input_identity_providers_table_name"></a> [identity\_providers\_table\_name](#input\_identity\_providers\_table\_name) | Name of an existing DynamoDB table for identity providers. If not provided, a new table will be created. | `string` | `null` | no |
 | <a name="input_name_prefix"></a> [name\_prefix](#input\_name\_prefix) | Prefix for resource names | `string` | `"sftp-entra-example"` | no |
 | <a name="input_provision_api"></a> [provision\_api](#input\_provision\_api) | Create API Gateway REST API | `bool` | `false` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources | `map(string)` | <pre>{<br/>  "Environment": "demo",<br/>  "Project": "transfer-family-entra"<br/>}</pre> | no |
+| <a name="input_users_table_name"></a> [users\_table\_name](#input\_users\_table\_name) | Name of an existing DynamoDB table for users. If not provided, a new table will be created. | `string` | `null` | no |
 
 ## Outputs
 
