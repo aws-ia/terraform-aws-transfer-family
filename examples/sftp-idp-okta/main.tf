@@ -5,13 +5,29 @@ provider "aws" {
 provider "okta" {
   org_name  = var.okta_org_name
   base_url  = var.okta_base_url
+
+  # Method 1: API Token (simpler, legacy)
   api_token = var.okta_api_token
+
+  # Method 2: OAuth2 (recommended, more secure)
+  client_id      = var.okta_client_id
+  private_key    = var.okta_private_key
+  private_key_id = var.okta_private_key_id
+  scopes         = var.okta_scopes
 }
 
 # Alternative: Use full org_url if above doesn't work
 # provider "okta" {
 #   org_url   = "https://${var.okta_domain}"
+#
+#   # Method 1: API Token
 #   api_token = var.okta_api_token
+#
+#   # Method 2: OAuth2
+#   client_id      = var.okta_client_id
+#   private_key    = var.okta_private_key
+#   private_key_id = var.okta_private_key_id
+#   scopes         = var.okta_scopes
 # }
 
 ######################################
@@ -31,10 +47,10 @@ resource "random_id" "suffix" {
 
 locals {
   server_name = "transfer-server-${random_pet.name.id}"
-  
+
   # Okta configuration
   okta_domain           = var.okta_domain
-  okta_client_id        = var.okta_client_id
+  okta_app_client_id    = var.okta_app_client_id
   okta_user_email       = data.okta_user.sftp_user.email
   
   # List of Transfer Family users with their entitlements
@@ -126,7 +142,7 @@ resource "aws_dynamodb_table_item" "okta_provider" {
           S = local.okta_domain
         }
         okta_app_client_id = {
-          S = local.okta_client_id
+          S = local.okta_app_client_id
         }
         okta_redirect_uri = {
           S = "awstransfer:/callback"

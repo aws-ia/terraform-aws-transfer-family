@@ -8,7 +8,7 @@ terraform {
     }
     okta = {
       source  = "okta/okta"
-      version = "~> 4.0"
+      version = "~> 6.6.0"
     }
     random = {
       source  = "hashicorp/random"
