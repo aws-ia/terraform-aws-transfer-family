@@ -202,3 +202,15 @@ variable "api_gateway_invocation_role" {
   type        = string
   default     = null
 }
+
+variable "s3_storage_options" {
+  description = "Specifies whether or not performance for your Amazon S3 directories is optimized"
+  type = object({
+    directory_listing_optimization = string
+  })
+  default = null
+  validation {
+    condition     = var.s3_storage_options == null || try(contains(["DISABLED", "ENABLED"], var.s3_storage_options.directory_listing_optimization), false)
+    error_message = "Valid directory optimization setting needs to be specified: DISABLED, ENABLED."
+  }
+}

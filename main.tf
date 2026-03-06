@@ -129,6 +129,13 @@ resource "aws_transfer_server" "transfer_server" {
     }
   }
 
+  dynamic "s3_storage_options" {
+    for_each = var.s3_storage_options != null ? [1] : []
+    content {
+      directory_listing_optimization = var.s3_storage_options.directory_listing_optimization
+    }
+  }
+
   dynamic "workflow_details" {
     for_each = var.workflow_details != null ? [1] : []
     content {
