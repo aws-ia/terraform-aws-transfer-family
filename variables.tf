@@ -202,3 +202,14 @@ variable "api_gateway_invocation_role" {
   type        = string
   default     = null
 }
+
+variable "pre_authentication_login_banner" {
+  description = "Specify a string to display when users connect to a server. This string is displayed before the user authenticates."
+  type        = string
+  default     = null
+}
+variable "post_authentication_login_banner" {
+  description = "Specify a string to display when users connect to a server. This string is displayed after the user authenticates."
+  type        = string
+  default     = null
+}
