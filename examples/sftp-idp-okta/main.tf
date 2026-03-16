@@ -6,14 +6,14 @@ provider "okta" {
   org_name  = var.okta_org_name
   base_url  = var.okta_base_url
 
-  # Method 1: API Token (simpler, legacy)
-  api_token = var.okta_api_token
+  # Method 1: API Token (simpler, legacy) - only used if set
+  api_token = var.okta_api_token != "" && var.okta_api_token != null ? var.okta_api_token : null
 
-  # Method 2: OAuth2 (recommended, more secure)
-  client_id      = var.okta_client_id
-  private_key    = var.okta_private_key
-  private_key_id = var.okta_private_key_id
-  scopes         = var.okta_scopes
+  # Method 2: OAuth2 (recommended, more secure) - only used if client_id is set
+  client_id      = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_client_id : null
+  private_key    = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_private_key : null
+  private_key_id = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_private_key_id : null
+  scopes         = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_scopes : null
 }
 
 # Alternative: Use full org_url if above doesn't work
@@ -215,7 +215,8 @@ resource "aws_dynamodb_table_item" "transfer_user_records" {
 
 # Data source to retrieve existing Okta user
 data "okta_user" "sftp_user" {
-  user_id = var.okta_user_id
+  user_id    = var.okta_user_id
+  skip_roles = true
 }
 
 # Assign user to the Okta SFTP application
