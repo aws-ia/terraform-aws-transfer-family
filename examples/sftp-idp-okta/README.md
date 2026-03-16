@@ -35,29 +35,89 @@ This example creates a complete SFTP solution with Okta-based authentication:
 - AWS CLI configured with appropriate credentials
 - Terraform >= 1.5
 - An AWS account with permissions to create the required resources
-- Okta account with an OAuth application configured
-- Okta client secret for the application
+- Okta account with permissions to create applications and manage API tokens
 
 ## Okta Configuration
 
-This example uses the following Okta configuration:
+This example supports **two authentication methods** for the Terraform Okta provider:
 
-- **Okta Domain**: `integrator-7292670.okta.com`
-- **Client ID**: `0oax6hum50n7CJNA8697` (optional, only needed for retrieving user attributes)
-- **User Email**: `nizarl@amazon.com`
+1. **API Token** (simpler, legacy) - Good for testing
+2. **OAuth2 with Private Key JWT** (recommended, more secure) - Good for production
 
-**Authentication Method**: This example uses Okta's Authentication API with username/password. Users authenticate directly against Okta without OAuth flows.
+**Important**: The authentication method only affects how **Terraform authenticates to Okta** to manage resources. SFTP users authenticate separately using Okta's Authentication API with their username and password.
+
+### Option 1: API Token Authentication
+
+1. Log into **Okta Admin Console**
+2. Go to **Security** → **API** → **Tokens**
+3. Click **Create Token** and copy the value
+
+### Option 2: OAuth2 Authentication (Recommended)
+
+1. **Create OAuth2 Application**:
+   - Go to **Applications** → **Create App Integration**
+   - Select **API Services**
+   - Note the **Client ID**
+
+2. **Grant Scopes**:
+   - Go to **Okta API Scopes** tab
+   - Grant `okta.users.read` scope
+
+3. **Generate Key Pair**:
+   - In the application's **General** tab → **Client Credentials**
+   - Select **Public Key / Private Key**
+   - Generate a new key and note the **Key ID (kid)**
+   - Download the private key in PKCS#1 format (begins with `<RSA PRIVATE KEY HEADER>`)
+
+4. **Disable DPoP** (Critical):
+   - In **General** tab, ensure "Require Demonstrating Proof of Possession (DPoP)" is **disabled**
+
+5. **Get User ID**:
+   - Go to **Directory** → **People** → click your user
+   - Copy the user ID from the URL
+
+For detailed setup instructions, see [Okta's Terraform Org Access guide](https://developer.okta.com/docs/guides/terraform-enable-org-access/-/main/).
 
 ## Usage
 
 ### 1. Configure Terraform Variables
 
-Create a `terraform.tfvars` file:
+Create a `terraform.tfvars` file with **ONE** of the following authentication methods:
+
+#### Option A: API Token
 
 ```hcl
+aws_region     = "us-east-1"
+name_prefix    = "sftp-okta-example"
+okta_org_name  = "your-org-name"
+okta_base_url  = "okta.com"
+okta_domain    = "your-org-name.okta.com"
+
 okta_api_token = "your-okta-api-token-here"
 okta_user_id   = "00u..."  # Your existing Okta user ID
 ```
+
+#### Option B: OAuth2 (Recommended)
+
+```hcl
+aws_region     = "us-east-1"
+name_prefix    = "sftp-okta-example"
+okta_org_name  = "your-org-name"
+okta_base_url  = "okta.com"
+okta_domain    = "your-org-name.okta.com"
+
+okta_client_id      = "0oa..."  # Your OAuth2 client ID
+okta_private_key_id = "xxx..."  # Your key ID (kid)
+okta_private_key    = <<-EOT
+<RSA PRIVATE KEY HEADER>
+[Your PKCS#1 formatted key content]
+<RSA PRIVATE KEY FOOTER>
+EOT
+okta_scopes  = ["okta.users.read"]
+okta_user_id = "00u..."  # Your existing Okta user ID
+```
+
+**Note:** See [Okta Terraform Provider docs](https://registry.terraform.io/providers/okta/okta/latest/docs) for authentication configuration details. Do not configure both methods at once as they conflict.
 
 ### 2. Deploy the Infrastructure
 
@@ -117,11 +177,34 @@ terraform destroy
 
 ## Troubleshooting
 
-### Authentication Failures
+### Terraform Provider Issues
+
+#### "empty access token" or OAuth2 Errors
+
+- **Cause:** DPoP (Demonstrating Proof of Possession) is enabled on your Okta OAuth2 application
+- **Fix:** Disable DPoP in Okta app settings → General tab → General Settings, then regenerate your private key
+
+#### "The access token provided does not contain the required scopes"
+
+- **Cause:** Missing `okta.users.read` scope
+- **Fix:** Grant `okta.users.read` scope in your Okta application's API Scopes tab
+
+#### "Conflicting configuration arguments" - api_token conflicts with scopes
+
+- **Cause:** Both API token and OAuth2 configured in `terraform.tfvars`
+- **Fix:** Choose ONE authentication method - comment out or remove the other
+
+#### Private Key Format Error
+
+- **Cause:** Private key is in PKCS#8 format instead of PKCS#1
+- **Fix:** Ensure your key begins with `<RSA PRIVATE KEY HEADER>` (not `<PRIVATE KEY HEADER>`)
+
+### SFTP Authentication Failures
 
 - Verify the Okta user password is correct
 - Ensure the user exists in Okta and is active
 - Check that the user is assigned to the application (if okta_app_id is provided)
+- Review CloudWatch logs for the Lambda function to see authentication details
 
 ### Connection Issues
 
@@ -137,3 +220,10 @@ terraform destroy
 - `okta_user_email`: Email address of the Okta user
 - `s3_bucket_name`: Name of the S3 bucket for file storage
 - `connection_instructions`: Step-by-step connection instructions
+
+## Additional Resources
+
+- [Okta Terraform Provider Documentation](https://registry.terraform.io/providers/okta/okta/latest/docs)
+- [Enable Terraform access for your Okta org](https://developer.okta.com/docs/guides/terraform-enable-org-access/-/main/)
+- [AWS Transfer Family Documentation](https://docs.aws.amazon.com/transfer/)
+- [Okta OAuth 2.0 Documentation](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/)

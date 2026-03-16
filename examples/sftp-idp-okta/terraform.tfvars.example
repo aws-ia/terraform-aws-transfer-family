@@ -1,5 +1,18 @@
+# ============================================================================
+# AWS Configuration
+# ============================================================================
+aws_region  = "us-east-1"
+name_prefix = "sftp-okta-example"
+
+# ============================================================================
+# Okta Configuration
+# ============================================================================
+okta_org_name = "your-org-name"              # REQUIRED: Your Okta organization name (e.g., "dev-12345")
+okta_base_url = "okta.com"                    # okta.com or oktapreview.com (usually okta.com)
+okta_domain   = "your-org-name.okta.com"      # REQUIRED: Full Okta domain (e.g., "dev-12345.okta.com")
+
 # Required: Existing Okta user ID
-okta_user_id = "00u..."  # Your existing Okta user ID
+okta_user_id = "00u..."  # Your existing Okta user ID (find in Okta Admin Console → Directory → People → click user → copy ID from URL)
 
 # ============================================================================
 # CHOOSE ONE AUTHENTICATION METHOD:
@@ -9,7 +22,7 @@ okta_user_id = "00u..."  # Your existing Okta user ID
 # METHOD 1: API Token (Simpler - good for testing/development)
 # ----------------------------------------------------------------------------
 # To get an API token:
-# 1. Go to Okta Admin Console > Security > API > Tokens
+# 1. Go to Okta Admin Console → Security → API → Tokens
 # 2. Click "Create Token"
 # 3. Give it a name and click "Create Token"
 # 4. Copy the token value (you won't be able to see it again)
@@ -21,39 +34,56 @@ okta_api_token = "00..."  # Your Okta API token (SSWS format)
 # METHOD 2: OAuth2 with Private Key (Recommended for production)
 # ----------------------------------------------------------------------------
 # To set up OAuth2 authentication:
-# 1. In Okta Admin Console, go to Applications > Applications
-# 2. Click "Create App Integration" > "API Services" > "Next"
-# 3. Enter an application name (e.g., "Terraform Provider")
-# 4. Click "Save"
-# 5. Go to the "General" tab and copy the Client ID
-# 6. Under "Client Credentials", click "Edit" and select "Public key / Private key"
-# 7. Click "Add key" and either:
-#    - Generate a new key pair (download the private key)
-#    - Upload your own public key
-# 8. Copy the Key ID (kid)
-# 9. Grant the application necessary scopes under "Okta API Scopes"
-#    Required scopes: okta.users.read, okta.apps.read, okta.groups.read
+# 1. Create OAuth2 Application:
+#    - Go to Applications → Create App Integration
+#    - Select "API Services"
+#    - Copy the Client ID
+#
+# 2. Grant Scopes:
+#    - Go to "Okta API Scopes" tab
+#    - Grant "okta.users.read" scope
+#
+# 3. Generate Key Pair:
+#    - In "General" tab → "Client Credentials"
+#    - Select "Public Key / Private Key"
+#    - Generate a new key and note the Key ID (kid)
+#    - Copy the private key in PKCS#1 format (begins with "<RSA PRIVATE KEY HEADER>")
+#
+# 4. Disable DPoP (CRITICAL):
+#    - In "General" tab, ensure "Require Demonstrating Proof of Possession (DPoP)" is DISABLED
+#
+# For detailed setup: https://developer.okta.com/docs/guides/terraform-enable-org-access/-/main/
 
 # okta_client_id      = "0oa..."  # Your Okta OAuth2 client ID
-# okta_private_key_id = "kid..."  # Your private key ID (kid from the JWK)
+# okta_private_key_id = "kid..."  # Your private key ID (kid from the key generation)
 
-# Private key in PEM format (can also be loaded from file using file() function)
+# Private key in PKCS#1 format (must begin with "<RSA PRIVATE KEY HEADER>")
 # okta_private_key = <<-EOT
+# <RSA PRIVATE KEY HEADER>
+# [Your key content here]
+# <RSA PRIVATE KEY FOOTER>
 # EOT
 
-# Optional: Customize OAuth2 scopes (defaults provided in variables.tf)
-# okta_scopes = ["okta.users.read", "okta.apps.read", "okta.groups.read"]
+# Required scope for this example
+# okta_scopes = ["okta.users.read"]
 
 
 # ============================================================================
 # OPTIONAL VARIABLES:
 # ============================================================================
 
+# Optional: Okta application client ID (only needed for retrieving user profile attributes from Okta)
+# okta_app_client_id = ""
+
 # Optional: Okta application ID to assign user to
 # okta_app_id = "0oa..."
 
-# Optional: Whether to use API Gateway instead of Lambda for identity provider
-# provision_api = false
+# Infrastructure Configuration
+# enable_deletion_protection = false  # Set to true in production
+# provision_api              = false  # Set to true to use API Gateway instead of Lambda
 
-# Optional: Enable deletion protection for DynamoDB tables
-# enable_deletion_protection = false
+# Optional: Tags for all resources
+# tags = {
+#   Environment = "demo"
+#   Project     = "transfer-family-okta"
+# }
