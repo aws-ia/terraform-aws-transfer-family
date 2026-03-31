@@ -41,14 +41,14 @@ variable "entra_client_id" {
   }
 }
 
-variable "entra_client_secret_name" {
-  description = "Name of the AWS Secrets Manager secret containing the Entra ID client secret"
+variable "entra_client_secret_arn" {
+  description = "ARN of the AWS Secrets Manager secret containing the Entra ID client secret"
   type        = string
   default     = null
 
   validation {
-    condition     = var.entra_client_secret_name == null || length(var.entra_client_secret_name) > 0
-    error_message = "Entra client secret name cannot be empty if provided."
+    condition     = var.entra_client_secret_arn == null || can(regex("^arn:aws:secretsmanager:[a-z0-9-]+:\\d{12}:secret:.+$", var.entra_client_secret_arn))
+    error_message = "Entra client secret ARN must be a valid AWS Secrets Manager secret ARN."
   }
 }
 

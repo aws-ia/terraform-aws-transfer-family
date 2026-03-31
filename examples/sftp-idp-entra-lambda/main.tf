@@ -8,11 +8,6 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-# Get the existing Entra client secret from Secrets Manager
-data "aws_secretsmanager_secret" "entra_client_secret" {
-  name = var.entra_client_secret_name
-}
-
 resource "random_pet" "name" {
   prefix = "aws-ia"
   length = 1
@@ -93,7 +88,7 @@ resource "aws_dynamodb_table_item" "entra_provider" {
           S = var.entra_client_id
         }
         app_secret_arn = {
-          S = data.aws_secretsmanager_secret.entra_client_secret.arn
+          S = var.entra_client_secret_arn
         }
         authority_url = {
           S = var.entra_authority_url
@@ -217,7 +212,7 @@ resource "aws_iam_role_policy" "lambda_secrets_access" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = data.aws_secretsmanager_secret.entra_client_secret.arn
+        Resource = var.entra_client_secret_arn
       }
     ]
   })

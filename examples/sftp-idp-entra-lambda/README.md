@@ -152,7 +152,7 @@ entra_usernames    = ["user@example.onmicrosoft.com"]
 entra_provider_name = "example.onmicrosoft.com"
 entra_client_id    = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
 entra_authority_url = "https://login.microsoftonline.com/xyz"
-entra_client_secret_name = "entra-secret"
+entra_client_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:entra-secret-AbCdEf"
 
 tags = {
   Environment = "production"
@@ -225,7 +225,6 @@ terraform destroy
 | [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_lambda_function.identity_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lambda_function) | data source |
-| [aws_secretsmanager_secret.entra_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/secretsmanager_secret) | data source |
 
 ## Inputs
 
@@ -235,7 +234,7 @@ terraform destroy
 | <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `true` | no |
 | <a name="input_entra_authority_url"></a> [entra\_authority\_url](#input\_entra\_authority\_url) | Authority URL of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_client_id"></a> [entra\_client\_id](#input\_entra\_client\_id) | Client/Application ID of existing Entra ID enterprise application | `string` | `null` | no |
-| <a name="input_entra_client_secret_name"></a> [entra\_client\_secret\_name](#input\_entra\_client\_secret\_name) | Name of the AWS Secrets Manager secret containing the Entra ID client secret | `string` | `null` | no |
+| <a name="input_entra_client_secret_arn"></a> [entra\_client\_secret\_arn](#input\_entra\_client\_secret\_arn) | ARN of the AWS Secrets Manager secret containing the Entra ID client secret | `string` | `null` | no |
 | <a name="input_entra_provider_name"></a> [entra\_provider\_name](#input\_entra\_provider\_name) | Provider name of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_usernames"></a> [entra\_usernames](#input\_entra\_usernames) | Username for the Entra user | `list(string)` | <pre>[<br/>  "user1@example.onmicrosoft.com"<br/>]</pre> | no |
 | <a name="input_identity_providers_table_name"></a> [identity\_providers\_table\_name](#input\_identity\_providers\_table\_name) | Name of an existing DynamoDB table for identity providers. If not provided, a new table will be created. | `string` | `null` | no |
