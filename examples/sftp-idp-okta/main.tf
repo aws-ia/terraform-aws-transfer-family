@@ -2,34 +2,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-provider "okta" {
-  org_name  = var.okta_org_name
-  base_url  = var.okta_base_url
-
-  # Method 1: API Token (simpler, legacy) - only used if set
-  api_token = var.okta_api_token != "" && var.okta_api_token != null ? var.okta_api_token : null
-
-  # Method 2: OAuth2 (recommended, more secure) - only used if client_id is set
-  client_id      = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_client_id : null
-  private_key    = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_private_key : null
-  private_key_id = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_private_key_id : null
-  scopes         = var.okta_client_id != "" && var.okta_client_id != null ? var.okta_scopes : null
-}
-
-# Alternative: Use full org_url if above doesn't work
-# provider "okta" {
-#   org_url   = "https://${var.okta_domain}"
-#
-#   # Method 1: API Token
-#   api_token = var.okta_api_token
-#
-#   # Method 2: OAuth2
-#   client_id      = var.okta_client_id
-#   private_key    = var.okta_private_key
-#   private_key_id = var.okta_private_key_id
-#   scopes         = var.okta_scopes
-# }
-
 ######################################
 # Defaults and Locals
 ######################################
@@ -51,12 +23,12 @@ locals {
   # Okta configuration
   okta_domain           = var.okta_domain
   okta_app_client_id    = var.okta_app_client_id
-  okta_user_email       = data.okta_user.sftp_user.email
-  
+  okta_user_email       = var.okta_user_email
+
   # List of Transfer Family users with their entitlements
   transfer_users = [
     {
-      username              = data.okta_user.sftp_user.email
+      username              = var.okta_user_email
       identity_provider_key = local.okta_domain
       role_arn              = aws_iam_role.transfer_session.arn
       home_directory_mappings = [
@@ -148,7 +120,10 @@ resource "aws_dynamodb_table_item" "okta_provider" {
           S = "awstransfer:/callback"
         }
         mfa = {
-          BOOL = false
+          BOOL = var.okta_mfa_required
+        }
+        mfa_token_length = {
+          N = tostring(var.okta_mfa_token_length)
         }
       }
     }
@@ -207,24 +182,6 @@ resource "aws_dynamodb_table_item" "transfer_user_records" {
       }
     } : {}
   ))
-}
-
-###################################################################
-# Okta User Management
-###################################################################
-
-# Data source to retrieve existing Okta user
-data "okta_user" "sftp_user" {
-  user_id    = var.okta_user_id
-  skip_roles = true
-}
-
-# Assign user to the Okta SFTP application
-resource "okta_app_user" "sftp_app_user" {
-  count    = var.okta_app_id != "" ? 1 : 0
-  app_id   = var.okta_app_id
-  user_id  = data.okta_user.sftp_user.id
-  username = data.okta_user.sftp_user.email
 }
 
 ###################################################################

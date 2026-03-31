@@ -7,78 +7,29 @@ name_prefix = "sftp-okta-example"
 # ============================================================================
 # Okta Configuration
 # ============================================================================
-okta_org_name = "your-org-name"              # REQUIRED: Your Okta organization name (e.g., "dev-12345")
-okta_base_url = "okta.com"                    # okta.com or oktapreview.com (usually okta.com)
 okta_domain   = "your-org-name.okta.com"      # REQUIRED: Full Okta domain (e.g., "dev-12345.okta.com")
 
-# Required: Existing Okta user ID
-okta_user_id = "00u..."  # Your existing Okta user ID (find in Okta Admin Console → Directory → People → click user → copy ID from URL)
+# Required: Email address of the Okta user for SFTP access
+okta_user_email = "user@example.com"  # Your Okta user's email address
+
+# Optional: Okta application client ID for SFTP authentication
+# okta_app_client_id = "0oax..."
 
 # ============================================================================
-# CHOOSE ONE AUTHENTICATION METHOD:
+# MFA Configuration (Optional)
 # ============================================================================
 
-# ----------------------------------------------------------------------------
-# METHOD 1: API Token (Simpler - good for testing/development)
-# ----------------------------------------------------------------------------
-# To get an API token:
-# 1. Go to Okta Admin Console → Security → API → Tokens
-# 2. Click "Create Token"
-# 3. Give it a name and click "Create Token"
-# 4. Copy the token value (you won't be able to see it again)
+# Enable MFA for enhanced security
+# When enabled, users must append their 6-digit TOTP code to their password
+# Example: if password is "mypassword" and TOTP code is "123456", enter "mypassword123456"
+# okta_mfa_required = true
 
-okta_api_token = "00..."  # Your Okta API token (SSWS format)
-
-
-# ----------------------------------------------------------------------------
-# METHOD 2: OAuth2 with Private Key (Recommended for production)
-# ----------------------------------------------------------------------------
-# To set up OAuth2 authentication:
-# 1. Create OAuth2 Application:
-#    - Go to Applications → Create App Integration
-#    - Select "API Services"
-#    - Copy the Client ID
-#
-# 2. Grant Scopes:
-#    - Go to "Okta API Scopes" tab
-#    - Grant "okta.users.read" scope
-#
-# 3. Generate Key Pair:
-#    - In "General" tab → "Client Credentials"
-#    - Select "Public Key / Private Key"
-#    - Generate a new key and note the Key ID (kid)
-#    - Copy the private key in PKCS#1 format (begins with "<RSA PRIVATE KEY HEADER>")
-#
-# 4. Disable DPoP (CRITICAL):
-#    - In "General" tab, ensure "Require Demonstrating Proof of Possession (DPoP)" is DISABLED
-#
-# For detailed setup: https://developer.okta.com/docs/guides/terraform-enable-org-access/-/main/
-
-# okta_client_id      = "0oa..."  # Your Okta OAuth2 client ID
-# okta_private_key_id = "kid..."  # Your private key ID (kid from the key generation)
-
-# Private key in PKCS#1 format (must begin with "<RSA PRIVATE KEY HEADER>")
-# okta_private_key = <<-EOT
-# <RSA PRIVATE KEY HEADER>
-# [Your key content here]
-# <RSA PRIVATE KEY FOOTER>
-# EOT
-
-# Required scope for this example
-# okta_scopes = ["okta.users.read"]
-
+# MFA token length (default: 6 digits for Google Authenticator, Okta Verify, etc.)
+# okta_mfa_token_length = 6
 
 # ============================================================================
-# OPTIONAL VARIABLES:
-# ============================================================================
-
-# Optional: Okta application client ID (only needed for retrieving user profile attributes from Okta)
-# okta_app_client_id = ""
-
-# Optional: Okta application ID to assign user to
-# okta_app_id = "0oa..."
-
 # Infrastructure Configuration
+# ============================================================================
 # enable_deletion_protection = false  # Set to true in production
 # provision_api              = false  # Set to true to use API Gateway instead of Lambda
 

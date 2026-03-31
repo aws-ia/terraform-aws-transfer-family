@@ -7,11 +7,10 @@ This example demonstrates how to set up AWS Transfer Family SFTP server with a c
 This example creates a complete SFTP solution with Okta-based authentication:
 
 - **Transfer Server**: Public SFTP endpoint with Lambda-based custom identity provider
-- **Okta Integration**: OAuth 2.0 authentication against Okta
-- **Lambda Function**: Custom identity provider that validates Okta users and returns Transfer Family configuration
+- **Okta Integration**: User authentication against Okta with optional MFA support
+- **Lambda Function**: Custom identity provider that validates Okta credentials and returns Transfer Family configuration
 - **DynamoDB Tables**: Stores user configurations and identity provider settings
 - **S3 Bucket**: Secure file storage with user-specific directories
-- **Secrets Manager**: Securely stores generated user password
 
 ## Resources Created
 
@@ -20,12 +19,11 @@ This example creates a complete SFTP solution with Okta-based authentication:
 - DynamoDB tables for users and identity providers configuration
 - S3 bucket with versioning and encryption
 - IAM roles and policies for Transfer Family session access
-- AWS Secrets Manager secret for Okta user password
 
 ## How It Works
 
-1. **User Authentication**: Users authenticate via SFTP using their Okta email and password
-2. **Lambda Validation**: The Lambda function validates credentials against Okta OAuth 2.0
+1. **User Authentication**: Users authenticate via SFTP using their Okta email and password (with optional MFA)
+2. **Lambda Validation**: The Lambda function validates credentials against Okta
 3. **DynamoDB Lookup**: Lambda retrieves user configuration from DynamoDB (home directory, IAM role, IP allowlist)
 4. **Session Creation**: Transfer Family creates an SFTP session with the returned configuration
 5. **File Access**: Users access their dedicated S3 directory based on their username
@@ -35,89 +33,141 @@ This example creates a complete SFTP solution with Okta-based authentication:
 - AWS CLI configured with appropriate credentials
 - Terraform >= 1.5
 - An AWS account with permissions to create the required resources
-- Okta account with permissions to create applications and manage API tokens
+- Okta account with an existing user for SFTP access
 
-## Okta Configuration
+## Setting Up Okta Users and MFA
 
-This example supports **two authentication methods** for the Terraform Okta provider:
+### Step 1: Add Users in Okta
 
-1. **API Token** (simpler, legacy) - Good for testing
-2. **OAuth2 with Private Key JWT** (recommended, more secure) - Good for production
+1. **Log into Okta Admin Console**
+   - Navigate to your Okta admin console (e.g., `https://dev-xxxx-admin.okta.com/admin`)
 
-**Important**: The authentication method only affects how **Terraform authenticates to Okta** to manage resources. SFTP users authenticate separately using Okta's Authentication API with their username and password.
+2. **Create a new user:**
+   - Go to **Directory** → **People**
+   - Click **Add Person**
+   - Enter the user details:
+     - **Username:** User's email (e.g., `john@example.com`)
+     - **Email:** Same as username
+     - **Password:** Set a password (user can change on first login)
+   - Click **Save**
 
-### Option 1: API Token Authentication
+### Step 2: Create SFTP Group (Optional but Recommended)
 
-1. Log into **Okta Admin Console**
-2. Go to **Security** → **API** → **Tokens**
-3. Click **Create Token** and copy the value
+1. **Create a group for SFTP users:**
+   - Go to **Directory** → **Groups**
+   - Click **Add Group**
+   - **Group name:** `sftp`
+   - Click **Save**
 
-### Option 2: OAuth2 Authentication (Recommended)
+2. **Add user to the group:**
+   - Click on the `sftp` group
+   - Click **Assign people**
+   - Find your user and click the **+** icon next to their name
+   - Click **Done**
 
-1. **Create OAuth2 Application**:
-   - Go to **Applications** → **Create App Integration**
-   - Select **API Services**
-   - Note the **Client ID**
+### Step 3: Enable MFA Authenticator
 
-2. **Grant Scopes**:
-   - Go to **Okta API Scopes** tab
-   - Grant `okta.users.read` scope
+This example supports **TOTP-based MFA** (Time-based One-Time Password) authenticators supported by Okta.
 
-3. **Generate Key Pair**:
-   - In the application's **General** tab → **Client Credentials**
-   - Select **Public Key / Private Key**
-   - Generate a new key and note the **Key ID (kid)**
-   - Download the private key in PKCS#1 format (begins with `<RSA PRIVATE KEY HEADER>`)
+> [!NOTE]
+> Only TOTP-based authenticators are supported. Push-based authenticators cannot be used with AWS Transfer Family.
 
-4. **Disable DPoP** (Critical):
-   - In **General** tab, ensure "Require Demonstrating Proof of Possession (DPoP)" is **disabled**
+1. **Add authenticator:**
+   - Go to **Security** → **Authenticators**
+   - Under the **Setup** tab, click **Add authenticator**
+   - Choose your TOTP authenticator (e.g., **Google Authenticator** or **Okta Verify**)
+   - Follow the prompts to enable it
 
-5. **Get User ID**:
-   - Go to **Directory** → **People** → click your user
-   - Copy the user ID from the URL
+2. **Create MFA enrollment policy:**
+   - Go to the **Enrollment** tab
+   - Click **Add a Policy**
+   - **Policy name:** `SFTP Users MFA`
+   - **Assign to groups:** Select `sftp` group
+   - **Authenticators:** Change your authenticator (e.g., Google Authenticator) to **Required**
+   - Click **Create policy**
 
-For detailed setup instructions, see [Okta's Terraform Org Access guide](https://developer.okta.com/docs/guides/terraform-enable-org-access/-/main/).
+3. **Add enrollment rule:**
+   - In the **Add Rule** dialog that appears:
+   - **Rule name:** `SFTP Users MFA Enrollment`
+   - Click **Create rule**
+
+### Step 4: Enforce MFA for SFTP Sessions
+
+1. **Create global session policy:**
+   - Go to **Security** → **Global Session Policy**
+   - Click **Add Policy**
+   - **Policy name:** `sftp policy`
+   - **Assign to groups:** Add `sftp` group
+   - Click **Create policy** and **Add rule**
+
+2. **Configure MFA requirement:**
+   - **Rule name:** `sftp rule`
+   - **Multifactor authentication (MFA) is:** Select **Required**
+   - Click **Create rule**
+
+### Step 5: User Enrollment in MFA
+
+End users must enroll in MFA before they can use SFTP:
+
+1. **User logs into Okta:**
+   - Open a browser and navigate to your Okta organization URL (e.g., `https://dev-xxxx.okta.com`)
+   - Log in with username (email) and password
+
+2. **Enroll in authenticator:**
+   - User will be prompted to set up MFA
+   - Choose **Set up** under your authenticator (e.g., Google Authenticator or Okta Verify)
+   - Scan the QR code with the authenticator app on your phone
+   - Enter the verification code to complete setup
+   - Click **Continue** to finish sign-in
+
+### Using MFA for SFTP
+
+When MFA is enabled, users authenticate by **concatenating their password with the TOTP code**:
+
+```bash
+# If password is "MySecurePass123" and TOTP code is "456789"
+# Enter: MySecurePass123456789
+
+sftp user@example.com@server-endpoint
+Password: MySecurePass123456789
+```
+
+**Important:** There is no separator between the password and TOTP code—they are concatenated directly.
+
+### Enable MFA in Terraform
+
+After configuring MFA in Okta, enable it in your Terraform configuration:
+
+```hcl
+# In terraform.tfvars
+okta_mfa_required = true
+okta_mfa_token_length = 6  # Default: 6 digits
+```
+
+> [!TIP]
+> Most authenticator apps use 6-digit codes. If your organization uses a different length, adjust `okta_mfa_token_length` accordingly.
 
 ## Usage
 
 ### 1. Configure Terraform Variables
 
-Create a `terraform.tfvars` file with **ONE** of the following authentication methods:
-
-#### Option A: API Token
+Create a `terraform.tfvars` file:
 
 ```hcl
 aws_region     = "us-east-1"
 name_prefix    = "sftp-okta-example"
-okta_org_name  = "your-org-name"
-okta_base_url  = "okta.com"
-okta_domain    = "your-org-name.okta.com"
 
-okta_api_token = "your-okta-api-token-here"
-okta_user_id   = "00u..."  # Your existing Okta user ID
+# Okta Configuration
+okta_domain     = "your-org-name.okta.com"
+okta_user_email = "user@example.com"  # Email of Okta user for SFTP
+
+# Optional: Okta application client ID
+# okta_app_client_id = "0oax..."
+
+# Optional: Enable MFA (default: false)
+# okta_mfa_required      = true
+# okta_mfa_token_length  = 6
 ```
-
-#### Option B: OAuth2 (Recommended)
-
-```hcl
-aws_region     = "us-east-1"
-name_prefix    = "sftp-okta-example"
-okta_org_name  = "your-org-name"
-okta_base_url  = "okta.com"
-okta_domain    = "your-org-name.okta.com"
-
-okta_client_id      = "0oa..."  # Your OAuth2 client ID
-okta_private_key_id = "xxx..."  # Your key ID (kid)
-okta_private_key    = <<-EOT
-<RSA PRIVATE KEY HEADER>
-[Your PKCS#1 formatted key content]
-<RSA PRIVATE KEY FOOTER>
-EOT
-okta_scopes  = ["okta.users.read"]
-okta_user_id = "00u..."  # Your existing Okta user ID
-```
-
-**Note:** See [Okta Terraform Provider docs](https://registry.terraform.io/providers/okta/okta/latest/docs) for authentication configuration details. Do not configure both methods at once as they conflict.
 
 ### 2. Deploy the Infrastructure
 
@@ -136,7 +186,9 @@ SERVER_ENDPOINT=$(terraform output -raw server_endpoint)
 # Get the user email
 USER_EMAIL=$(terraform output -raw okta_user_email)
 
-# Connect via SFTP using your Okta password
+# Connect via SFTP
+# - Without MFA: Use your Okta password
+# - With MFA: Use your Okta password + TOTP code (e.g., MyPassword123456)
 sftp $USER_EMAIL@$SERVER_ENDPOINT
 
 # Once connected, you'll see the root of the S3 bucket
@@ -161,11 +213,12 @@ The example retrieves an existing Okta user and creates the following configurat
 
 ## Security Considerations
 
-- The Okta API token is marked as sensitive and should be stored securely
-- Uses existing Okta user password (no password generation or storage)
-- S3 bucket has public access blocked and encryption enabled
-- IAM roles follow least-privilege principles
-- All resources are tagged for tracking and management
+- **MFA Support**: Enable TOTP-based MFA for enhanced security
+- **Password Authentication**: Uses existing Okta user passwords (no password storage in AWS)
+- **S3 Security**: Bucket has public access blocked and encryption enabled
+- **IAM Roles**: Follow least-privilege principles
+- **Resource Tagging**: All resources are tagged for tracking and management
+- **IP Allowlisting**: Optionally configure IP restrictions per user in DynamoDB
 
 ## Cleanup
 
@@ -175,36 +228,38 @@ To destroy all resources:
 terraform destroy
 ```
 
+> [!IMPORTANT]
+> The S3 bucket must be empty before destruction. Remove all files first if needed.
+
 ## Troubleshooting
-
-### Terraform Provider Issues
-
-#### "empty access token" or OAuth2 Errors
-
-- **Cause:** DPoP (Demonstrating Proof of Possession) is enabled on your Okta OAuth2 application
-- **Fix:** Disable DPoP in Okta app settings → General tab → General Settings, then regenerate your private key
-
-#### "The access token provided does not contain the required scopes"
-
-- **Cause:** Missing `okta.users.read` scope
-- **Fix:** Grant `okta.users.read` scope in your Okta application's API Scopes tab
-
-#### "Conflicting configuration arguments" - api_token conflicts with scopes
-
-- **Cause:** Both API token and OAuth2 configured in `terraform.tfvars`
-- **Fix:** Choose ONE authentication method - comment out or remove the other
-
-#### Private Key Format Error
-
-- **Cause:** Private key is in PKCS#8 format instead of PKCS#1
-- **Fix:** Ensure your key begins with `<RSA PRIVATE KEY HEADER>` (not `<PRIVATE KEY HEADER>`)
 
 ### SFTP Authentication Failures
 
+#### Without MFA
 - Verify the Okta user password is correct
 - Ensure the user exists in Okta and is active
-- Check that the user is assigned to the application (if okta_app_id is provided)
+- Check that the user email matches the configured `okta_user_email`
 - Review CloudWatch logs for the Lambda function to see authentication details
+
+#### With MFA Enabled
+
+**"Authentication Failed" with MFA**
+- Ensure password and TOTP code are concatenated with no spaces or separators
+- Verify the TOTP code is current (codes expire every 30 seconds)
+- Check that the user has MFA enrolled in Okta
+- Confirm `okta_mfa_token_length` matches your authenticator app's code length
+
+**Example correct format:**
+```bash
+# Password: MyPass123
+# TOTP Code: 456789
+# Enter: MyPass123456789  (no spaces, no separators)
+```
+
+**Wrong formats:**
+- `MyPass123 456789` (space between password and code)
+- `MyPass123-456789` (dash separator)
+- `MyPass123` (missing TOTP code when MFA is enabled)
 
 ### Connection Issues
 
@@ -216,14 +271,17 @@ terraform destroy
 
 - `server_id`: The ID of the Transfer Family server
 - `server_endpoint`: The SFTP endpoint to connect to
-- `okta_user_id`: The Okta user ID
 - `okta_user_email`: Email address of the Okta user
+- `okta_domain`: Okta domain for identity provider
 - `s3_bucket_name`: Name of the S3 bucket for file storage
-- `connection_instructions`: Step-by-step connection instructions
+- `identity_providers_table_name`: DynamoDB identity providers table name (for testing/verification)
+- `users_table_name`: DynamoDB users table name (for testing/verification)
+- `lambda_function_name`: Custom identity provider Lambda function name (for debugging)
+- `connection_instructions`: Step-by-step connection instructions (adapts based on MFA setting)
 
 ## Additional Resources
 
-- [Okta Terraform Provider Documentation](https://registry.terraform.io/providers/okta/okta/latest/docs)
-- [Enable Terraform access for your Okta org](https://developer.okta.com/docs/guides/terraform-enable-org-access/-/main/)
+- [AWS Transfer Family Custom IDP Toolkit](https://github.com/aws-samples/toolkit-for-aws-transfer-family/tree/main/solutions/custom-idp#okta)
 - [AWS Transfer Family Documentation](https://docs.aws.amazon.com/transfer/)
-- [Okta OAuth 2.0 Documentation](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/)
+- [Okta Authentication API](https://developer.okta.com/docs/reference/api/authn/)
+- [Deploy Okta as a custom identity provider for AWS Transfer Family](https://aws.amazon.com/blogs/storage/deploy-okta-as-a-custom-identity-provider-for-aws-transfer-family/)
