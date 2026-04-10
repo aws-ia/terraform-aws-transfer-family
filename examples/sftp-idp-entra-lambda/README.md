@@ -111,7 +111,7 @@ The example demonstrates access with two types of users:
    - Authenticates via Microsoft Entra ID credentials
 
 2. **Default Fallback User** (`$default$`):
-   - IP allowlist: `0.0.0.0/0` (all IPs - restrict in production)
+   - IP allowlist: Configurable via `default_user_ipv4_allow_list` variable (defaults to `0.0.0.0/0` - restrict in production)
    - Home directory mapped to user-specific folder: `/home/users/<username>/`
    - Isolated access per authenticated user
    - Catches any authenticated Microsoft Entra ID user not explicitly configured
@@ -153,6 +153,7 @@ entra_provider_name = "example.onmicrosoft.com"
 entra_client_id    = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
 entra_authority_url = "https://login.microsoftonline.com/xyz"
 entra_client_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:entra-secret-AbCdEf"
+default_user_ipv4_allow_list = ["10.0.0.0/8"]
 
 tags = {
   Environment = "production"
@@ -223,7 +224,9 @@ terraform destroy
 | [aws_iam_role_policy.transfer_session_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [random_id.suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
 | [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_iam_policy_document.lambda_secrets_access](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.transfer_session_assume_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
+| [aws_iam_policy_document.transfer_session_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_lambda_function.identity_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/lambda_function) | data source |
 
 ## Inputs
@@ -231,17 +234,20 @@ terraform destroy
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
+| <a name="input_default_user_ipv4_allow_list"></a> [default\_user\_ipv4\_allow\_list](#input\_default\_user\_ipv4\_allow\_list) | List of IPv4 CIDR blocks allowed to connect as the default user. Restrict to specific IPs in production. | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `true` | no |
 | <a name="input_entra_authority_url"></a> [entra\_authority\_url](#input\_entra\_authority\_url) | Authority URL of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_client_id"></a> [entra\_client\_id](#input\_entra\_client\_id) | Client/Application ID of existing Entra ID enterprise application | `string` | `null` | no |
 | <a name="input_entra_client_secret_arn"></a> [entra\_client\_secret\_arn](#input\_entra\_client\_secret\_arn) | ARN of the AWS Secrets Manager secret containing the Entra ID client secret | `string` | `null` | no |
 | <a name="input_entra_provider_name"></a> [entra\_provider\_name](#input\_entra\_provider\_name) | Provider name of existing Entra ID enterprise application | `string` | `null` | no |
-| <a name="input_entra_usernames"></a> [entra\_usernames](#input\_entra\_usernames) | Username for the Entra user | `list(string)` | <pre>[<br/>  "user1@example.onmicrosoft.com"<br/>]</pre> | no |
-| <a name="input_identity_providers_table_name"></a> [identity\_providers\_table\_name](#input\_identity\_providers\_table\_name) | Name of an existing DynamoDB table for identity providers. If not provided, a new table will be created. | `string` | `null` | no |
+| <a name="input_entra_usernames"></a> [entra\_usernames](#input\_entra\_usernames) | Usernames for Entra users | `list(string)` | <pre>[<br/>  "user1@example.onmicrosoft.com"<br/>]</pre> | no |
+| <a name="input_identity_providers_table_name"></a> [identity\_providers\_table\_name](#input\_identity\_providers\_table\_name) | Name of an existing DynamoDB table for identity providers. If not provided, a new table will be created. | `string` | `""` | no |
 | <a name="input_name_prefix"></a> [name\_prefix](#input\_name\_prefix) | Prefix for resource names | `string` | `"sftp-entra-example"` | no |
 | <a name="input_provision_api"></a> [provision\_api](#input\_provision\_api) | Create API Gateway REST API | `bool` | `false` | no |
+| <a name="input_s3_kms_key_id"></a> [s3\_kms\_key\_id](#input\_s3\_kms\_key\_id) | ARN of the KMS key to use for S3 bucket encryption. Only used when s3\_sse\_algorithm is 'aws:kms'. If not provided, the AWS managed KMS key is used. | `string` | `null` | no |
+| <a name="input_s3_sse_algorithm"></a> [s3\_sse\_algorithm](#input\_s3\_sse\_algorithm) | Server-side encryption algorithm for the S3 bucket. Use 'AES256' for S3-managed keys or 'aws:kms' for KMS-managed keys. | `string` | `"AES256"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources | `map(string)` | <pre>{<br/>  "Environment": "demo",<br/>  "Project": "transfer-family-entra"<br/>}</pre> | no |
-| <a name="input_users_table_name"></a> [users\_table\_name](#input\_users\_table\_name) | Name of an existing DynamoDB table for users. If not provided, a new table will be created. | `string` | `null` | no |
+| <a name="input_users_table_name"></a> [users\_table\_name](#input\_users\_table\_name) | Name of an existing DynamoDB table for users. If not provided, a new table will be created. | `string` | `""` | no |
 
 ## Outputs
 

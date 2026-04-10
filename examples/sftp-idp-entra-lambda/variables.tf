@@ -20,7 +20,7 @@ variable "tags" {
 }
 
 variable "entra_usernames" {
-  description = "Username for the Entra user"
+  description = "Usernames for Entra users"
   type        = list(string)
   default     = ["user1@example.onmicrosoft.com"]
 
@@ -89,11 +89,39 @@ variable "provision_api" {
 variable "users_table_name" {
   description = "Name of an existing DynamoDB table for users. If not provided, a new table will be created."
   type        = string
-  default     = null
+  default     = ""
 }
 
 variable "identity_providers_table_name" {
   description = "Name of an existing DynamoDB table for identity providers. If not provided, a new table will be created."
+  type        = string
+  default     = ""
+}
+
+variable "default_user_ipv4_allow_list" {
+  description = "List of IPv4 CIDR blocks allowed to connect as the default user. Restrict to specific IPs in production."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+
+  validation {
+    condition     = length(var.default_user_ipv4_allow_list) > 0
+    error_message = "At least one CIDR block must be provided."
+  }
+}
+
+variable "s3_sse_algorithm" {
+  description = "Server-side encryption algorithm for the S3 bucket. Use 'AES256' for S3-managed keys or 'aws:kms' for KMS-managed keys."
+  type        = string
+  default     = "AES256"
+
+  validation {
+    condition     = contains(["AES256", "aws:kms"], var.s3_sse_algorithm)
+    error_message = "SSE algorithm must be either 'AES256' or 'aws:kms'."
+  }
+}
+
+variable "s3_kms_key_id" {
+  description = "ARN of the KMS key to use for S3 bucket encryption. Only used when s3_sse_algorithm is 'aws:kms'. If not provided, the AWS managed KMS key is used."
   type        = string
   default     = null
 }

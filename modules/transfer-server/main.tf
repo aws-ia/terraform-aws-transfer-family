@@ -142,6 +142,17 @@ resource "aws_transfer_server" "transfer_server" {
       Name = var.server_name
     }
   )
+
+  lifecycle {
+    precondition {
+      condition     = var.identity_provider != "AWS_LAMBDA" || var.lambda_function_arn != null
+      error_message = "lambda_function_arn is required when identity_provider is AWS_LAMBDA."
+    }
+    precondition {
+      condition     = var.identity_provider != "API_GATEWAY" || (var.api_gateway_url != null && var.api_gateway_invocation_role != null)
+      error_message = "api_gateway_url and api_gateway_invocation_role are required when identity_provider is API_GATEWAY."
+    }
+  }
 }
 
 ###########################################

@@ -6,8 +6,6 @@ provider "aws" {
 # Defaults and Locals
 ######################################
 
-data "aws_caller_identity" "current" {}
-
 resource "random_pet" "name" {
   prefix = "aws-ia"
   length = 1
@@ -31,8 +29,8 @@ module "custom_idp" {
   source = "../../modules/transfer-custom-idp-solution"
 
   name_prefix                   = var.name_prefix
-  users_table_name              = var.users_table_name != null ? var.users_table_name : ""
-  identity_providers_table_name = var.identity_providers_table_name != null ? var.identity_providers_table_name : ""
+  users_table_name              = var.users_table_name
+  identity_providers_table_name = var.identity_providers_table_name
   create_vpc                    = false
   use_vpc                       = false
   provision_api                 = var.provision_api
@@ -110,43 +108,41 @@ resource "aws_dynamodb_table_item" "transfer_user_records" {
 
   depends_on = [module.custom_idp]
 
-  item = jsonencode(merge(
-    {
-      user = {
-        S = "$default$"
-      }
-      identity_provider_key = {
-        S = var.entra_provider_name
-      }
-      config = {
-        M = {
-          HomeDirectoryDetails = {
-            L = [
-              {
-                M = {
-                  Entry = {
-                    S = "/home"
-                  }
-                  Target = {
-                    S = "/${module.s3_bucket.s3_bucket_id}/users/$${transfer:UserName}"
-                  }
+  item = jsonencode({
+    user = {
+      S = "$default$"
+    }
+    identity_provider_key = {
+      S = var.entra_provider_name
+    }
+    config = {
+      M = {
+        HomeDirectoryDetails = {
+          L = [
+            {
+              M = {
+                Entry = {
+                  S = "/home"
+                }
+                Target = {
+                  S = "/${module.s3_bucket.s3_bucket_id}/users/$${transfer:UserName}"
                 }
               }
-            ]
-          }
-          HomeDirectoryType = {
-            S = "LOGICAL"
-          }
-          Role = {
-            S = aws_iam_role.transfer_session.arn
-          }
+            }
+          ]
+        }
+        HomeDirectoryType = {
+          S = "LOGICAL"
+        }
+        Role = {
+          S = aws_iam_role.transfer_session.arn
         }
       }
-      ipv4_allow_list = {
-        SS = ["0.0.0.0/0"]
-      }
     }
-  ))
+    ipv4_allow_list = {
+      SS = var.default_user_ipv4_allow_list
+    }
+  })
 }
 
 # Create user records for the Entra users
@@ -200,22 +196,18 @@ data "aws_lambda_function" "identity_provider" {
 }
 
 # IAM policy to allow Lambda function to read the Entra client secret
-resource "aws_iam_role_policy" "lambda_secrets_access" {
-  name = "${var.name_prefix}-lambda-secrets-policy"
-  role = split("/", data.aws_lambda_function.identity_provider.role)[1]
+data "aws_iam_policy_document" "lambda_secrets_access" {
+  statement {
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [var.entra_client_secret_arn]
+  }
+}
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = var.entra_client_secret_arn
-      }
-    ]
-  })
+resource "aws_iam_role_policy" "lambda_secrets_access" {
+  name   = "${var.name_prefix}-lambda-secrets-policy"
+  role   = split("/", data.aws_lambda_function.identity_provider.role)[1]
+  policy = data.aws_iam_policy_document.lambda_secrets_access.json
 }
 
 ###################################################################
@@ -244,7 +236,8 @@ module "s3_bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        sse_algorithm = "AES256"
+        sse_algorithm     = var.s3_sse_algorithm
+        kms_master_key_id = var.s3_kms_key_id
       }
     }
   }
@@ -258,58 +251,57 @@ module "s3_bucket" {
 # permissions to list buckets and perform object operations (read, write,
 # delete) in user-specific S3 directories
 ###################################################################
-resource "aws_iam_role" "transfer_session" {
-  name = "${var.name_prefix}-transfer-session-role"
+data "aws_iam_policy_document" "transfer_session_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "transfer.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
+    principals {
+      type        = "Service"
+      identifiers = ["transfer.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "transfer_session" {
+  name               = "${var.name_prefix}-transfer-session-role"
+  assume_role_policy = data.aws_iam_policy_document.transfer_session_assume_role.json
 
   tags = var.tags
 }
 
-resource "aws_iam_role_policy" "transfer_session_s3" {
-  name = "transfer-session-s3-access"
-  role = aws_iam_role.transfer_session.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowListingOfUserFolder"
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketLocation"
-        ]
-        Resource = module.s3_bucket.s3_bucket_arn
-      },
-      {
-        Sid    = "HomeDirObjectAccess"
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:GetObjectTagging",
-          "s3:DeleteObject",
-          "s3:DeleteObjectVersion",
-          "s3:GetObjectVersion",
-          "s3:GetObjectVersionTagging",
-          "s3:GetObjectACL",
-          "s3:PutObjectACL"
-        ]
-        Resource = "${module.s3_bucket.s3_bucket_arn}/*"
-      }
+data "aws_iam_policy_document" "transfer_session_s3" {
+  statement {
+    sid     = "AllowListingOfUserFolder"
+    effect  = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation"
     ]
-  })
+    resources = [module.s3_bucket.s3_bucket_arn]
+  }
+
+  statement {
+    sid     = "HomeDirObjectAccess"
+    effect  = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:GetObjectTagging",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:GetObjectVersion",
+      "s3:GetObjectVersionTagging",
+      "s3:GetObjectACL",
+      "s3:PutObjectACL"
+    ]
+    resources = ["${module.s3_bucket.s3_bucket_arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "transfer_session_s3" {
+  name   = "transfer-session-s3-access"
+  role   = aws_iam_role.transfer_session.id
+  policy = data.aws_iam_policy_document.transfer_session_s3.json
 }
 
