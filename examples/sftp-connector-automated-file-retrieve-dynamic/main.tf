@@ -297,7 +297,7 @@ module "retrieve_s3_bucket" {
 ###################################################################
 resource "aws_signer_signing_profile" "lambda_signing_profile" {
   platform_id = "AWSLambda-SHA384-ECDSA"
-  name        = "lambdasigningprofile${replace(random_pet.name.id, "-", "")}"
+  name        = "lambdasigningprofile${replace(random_pet.name.id, "-", "")}${random_id.suffix.hex}"
 }
 
 resource "aws_lambda_code_signing_config" "lambda_code_signing" {
