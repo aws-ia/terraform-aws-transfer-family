@@ -118,32 +118,6 @@ run "malware_protection_apply" {
   }
 }
 
-run "web_app_plan" {
-  command = plan
-  module {
-    source = "./examples/sample-web-app"
-  }
-  variables {
-    create_identity_center_instance = true
-    create_test_users_and_groups = true
-    logo_file = "./examples/sample-web-app/anycompany-logo-small.png"
-    favicon_file = "./examples/sample-web-app/favicon.png"
-  }
-}
-
-run "web_app_apply" {
-  command = apply
-  module {
-    source = "./examples/sample-web-app"
-  }
-  variables {
-    create_identity_center_instance = true
-    create_test_users_and_groups = true
-    logo_file = "./examples/sample-web-app/anycompany-logo-small.png"
-    favicon_file = "./examples/sample-web-app/favicon.png"
-  }
-}
-
 run "entra_id_example_plan" {
   command = plan
   module {
@@ -175,3 +149,30 @@ run "entra_id_example_apply" {
     enable_deletion_protection = false
   }
 }
+
+#commenting the web apps test out due to persistent IdC throttling issue
+# run "web_app_plan" {
+#   command = plan
+#   module {
+#     source = "./examples/sample-web-app"
+#   }
+#   variables {
+#     create_identity_center_instance = true
+#     create_test_users_and_groups = true
+#     logo_file = "./examples/sample-web-app/anycompany-logo-small.png"
+#     favicon_file = "./examples/sample-web-app/favicon.png"
+#   }
+# }
+
+# run "web_app_apply" {
+#   command = apply
+#   module {
+#     source = "./examples/sample-web-app"
+#   }
+#   variables {
+#     create_identity_center_instance = true
+#     create_test_users_and_groups = true
+#     logo_file = "./examples/sample-web-app/anycompany-logo-small.png"
+#     favicon_file = "./examples/sample-web-app/favicon.png"
+#   }
+# }
