@@ -18,7 +18,6 @@ variable "name_prefix" {
 variable "okta_domain" {
   description = "Okta domain (e.g., integrator-7292670.okta.com)"
   type        = string
-  default     = "integrator-7292670.okta.com"
 
   validation {
     condition     = can(regex("^[a-z0-9-]+\\.okta(preview)?\\.com$", var.okta_domain))
@@ -64,6 +63,29 @@ variable "enable_deletion_protection" {
   description = "Enable deletion protection for DynamoDB tables"
   type        = bool
   default     = false
+}
+
+variable "default_user_ipv4_allow_list" {
+  description = "List of IPv4 CIDR blocks allowed for the default user"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "s3_encryption_algorithm" {
+  description = "S3 server-side encryption algorithm. Use 'AES256' for SSE-S3 or 'aws:kms' for SSE-KMS"
+  type        = string
+  default     = "AES256"
+
+  validation {
+    condition     = contains(["AES256", "aws:kms"], var.s3_encryption_algorithm)
+    error_message = "s3_encryption_algorithm must be either 'AES256' or 'aws:kms'"
+  }
+}
+
+variable "s3_kms_key_id" {
+  description = "KMS key ID for S3 encryption. Required when s3_encryption_algorithm is 'aws:kms'"
+  type        = string
+  default     = null
 }
 
 variable "tags" {

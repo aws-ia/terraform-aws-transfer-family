@@ -6,8 +6,6 @@ provider "aws" {
 # Defaults and Locals
 ######################################
 
-data "aws_caller_identity" "current" {}
-
 resource "random_pet" "name" {
   prefix = "aws-ia"
   length = 1
@@ -48,7 +46,7 @@ locals {
           target = "/${module.s3_bucket.s3_bucket_id}/users/$${transfer:UserName}"
         }
       ]
-      ipv4_allow_list = ["0.0.0.0/0"]
+      ipv4_allow_list = var.default_user_ipv4_allow_list
     }
   ]
 }
@@ -189,7 +187,7 @@ resource "aws_dynamodb_table_item" "transfer_user_records" {
 ###################################################################
 module "s3_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
-  version = "~> 4.0"
+  version = "~> 5.0"
 
   bucket = "${random_pet.name.id}-${random_id.suffix.hex}-transfer-files"
 
@@ -207,7 +205,8 @@ module "s3_bucket" {
   server_side_encryption_configuration = {
     rule = {
       apply_server_side_encryption_by_default = {
-        sse_algorithm = "AES256"
+        sse_algorithm     = var.s3_encryption_algorithm
+        kms_master_key_id = var.s3_kms_key_id
       }
     }
   }
@@ -218,57 +217,61 @@ module "s3_bucket" {
 ###################################################################
 # IAM Role for Transfer Family Session
 ###################################################################
-resource "aws_iam_role" "transfer_session" {
-  name = "${var.name_prefix}-transfer-session-role"
+data "aws_iam_policy_document" "transfer_session_assume_role" {
+  statement {
+    effect = "Allow"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "transfer.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
+    principals {
+      type        = "Service"
+      identifiers = ["transfer.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "transfer_session" {
+  name               = "${var.name_prefix}-transfer-session-role"
+  assume_role_policy = data.aws_iam_policy_document.transfer_session_assume_role.json
 
   tags = var.tags
 }
 
-resource "aws_iam_role_policy" "transfer_session_s3" {
-  name = "transfer-session-s3-access"
-  role = aws_iam_role.transfer_session.id
+data "aws_iam_policy_document" "transfer_session_s3" {
+  statement {
+    sid    = "AllowListingOfUserFolder"
+    effect = "Allow"
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowListingOfUserFolder"
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketLocation"
-        ]
-        Resource = module.s3_bucket.s3_bucket_arn
-      },
-      {
-        Sid    = "HomeDirObjectAccess"
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:GetObjectTagging",
-          "s3:DeleteObject",
-          "s3:DeleteObjectVersion",
-          "s3:GetObjectVersion",
-          "s3:GetObjectVersionTagging",
-          "s3:GetObjectACL",
-          "s3:PutObjectACL"
-        ]
-        Resource = "${module.s3_bucket.s3_bucket_arn}/*"
-      }
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketLocation"
     ]
-  })
+
+    resources = [module.s3_bucket.s3_bucket_arn]
+  }
+
+  statement {
+    sid    = "HomeDirObjectAccess"
+    effect = "Allow"
+
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:GetObjectTagging",
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion",
+      "s3:GetObjectVersion",
+      "s3:GetObjectVersionTagging",
+      "s3:GetObjectACL",
+      "s3:PutObjectACL"
+    ]
+
+    resources = ["${module.s3_bucket.s3_bucket_arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "transfer_session_s3" {
+  name   = "transfer-session-s3-access"
+  role   = aws_iam_role.transfer_session.id
+  policy = data.aws_iam_policy_document.transfer_session_s3.json
 }
