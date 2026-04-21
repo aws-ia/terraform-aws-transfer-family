@@ -118,6 +118,39 @@ run "malware_protection_apply" {
   }
 }
 
+# Commenting the Entra ID test out due to persistent timeouts
+# run "entra_id_example_plan" {
+#   command = plan
+#   module {
+#     source = "./examples/sftp-idp-entra-lambda"
+#   }
+#   variables {
+#     entra_usernames   = ["user@example.onmicrosoft.com"]
+#     entra_provider_name = "example.onmicrosoft.com"
+#     entra_client_id = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
+#     entra_authority_url = "https://login.microsoftonline.com/xyz"
+#     entra_client_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:entra_client_secret-AbCdEf"
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# run "entra_id_example_apply" {
+#   command = apply
+#   module {
+#     source = "./examples/sftp-idp-entra-lambda"
+#   }
+#   variables {
+#     entra_usernames   = ["user@example.onmicrosoft.com"]
+#     entra_provider_name = "example.onmicrosoft.com"
+#     entra_client_id = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
+#     entra_authority_url = "https://login.microsoftonline.com/xyz"
+#     entra_client_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:entra_client_secret-AbCdEf"
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
 #commenting the web apps test out due to persistent IdC throttling issue
 # run "web_app_plan" {
 #   command = plan
