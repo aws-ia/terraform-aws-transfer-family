@@ -259,6 +259,7 @@ terraform destroy
 ### SFTP Authentication Failures
 
 #### Without MFA
+
 - Verify the Okta user password is correct
 - Ensure the user exists in Okta and is active
 - Check that the user email matches the configured `okta_user_email`
@@ -267,12 +268,14 @@ terraform destroy
 #### With MFA Enabled
 
 **"Authentication Failed" with MFA**
+
 - Ensure password and TOTP code are concatenated with no spaces or separators
 - Verify the TOTP code is current (codes expire every 30 seconds)
 - Check that the user has MFA enrolled in Okta
 - Confirm `okta_mfa_token_length` matches your authenticator app's code length
 
 **Example correct format:**
+
 ```bash
 # Password: MyPass123
 # TOTP Code: 456789
@@ -280,9 +283,16 @@ terraform destroy
 ```
 
 **Wrong formats:**
+
 - `MyPass123 456789` (space between password and code)
 - `MyPass123-456789` (dash separator)
 - `MyPass123` (missing TOTP code when MFA is enabled)
+
+### Connection Issues
+
+- Verify the server endpoint is accessible
+- Check security groups and network ACLs if using VPC endpoint
+- Review CloudWatch logs for the Transfer Family server
 
 ## Outputs
 
