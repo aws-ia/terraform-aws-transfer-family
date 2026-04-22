@@ -89,7 +89,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          existing_pr=$(gh pr list --state open --search "Version bump to" --json number,headRefName --jq '.[0] // empty')
+          existing_pr=$(gh pr list --state open --json number,headRefName,title --jq '[.[] | select(.title | startswith("Version bump to"))][0] | del(.title) // empty') 
           if [ -n "$existing_pr" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
             echo "branch=$(echo "$existing_pr" | jq -r '.headRefName')" >> $GITHUB_OUTPUT
