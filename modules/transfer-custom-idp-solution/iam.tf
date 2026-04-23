@@ -54,6 +54,25 @@ resource "aws_iam_role_policy" "dynamodb_access" {
   })
 }
 
+# Transfer server Describe policy
+resource "aws_iam_role_policy" "transfer_server_describe" {
+  name = "${var.name_prefix}-transfer-server-policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "transfer:DescribeServer"
+        ]
+        Resource = "arn:aws:transfer:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:server/*"
+      }
+    ]
+  })
+}
+
 # Secrets Manager access (if enabled)
 resource "aws_iam_role_policy" "secrets_manager" {
   count = var.secrets_manager_permissions ? 1 : 0
