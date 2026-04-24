@@ -141,6 +141,35 @@ run "malware_protection_apply" {
 #   }
 # }
 
+# Commenting the Okta IDP test out due to persistent timeouts
+# run "okta_idp_plan" {
+#   command = plan
+#   module {
+#     source = "./examples/sftp-idp-okta"
+#   }
+#   variables {
+#     okta_domain             = "example.okta.com"
+#     okta_user_email         = "testuser@example.com"
+#     okta_app_client_id      = "0oa1a1a1a1a1a1a1a1a1"
+#     provision_api           = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# run "okta_idp_apply" {
+#   command = apply
+#   module {
+#     source = "./examples/sftp-idp-okta"
+#   }
+#   variables {
+#     okta_domain             = "example.okta.com"
+#     okta_user_email         = "testuser@example.com"
+#     okta_app_client_id      = "0oa1a1a1a1a1a1a1a1a1"
+#     provision_api           = false
+#     enable_deletion_protection = false
+#   }
+# }
+
 # Commenting the Entra ID test out due to persistent timeouts
 # run "entra_id_example_plan" {
 #   command = plan
