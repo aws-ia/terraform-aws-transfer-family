@@ -118,6 +118,29 @@ run "malware_protection_apply" {
   }
 }
 
+# Commenting the Custom IDP module tests out due to persistent timeouts
+# run "custom_idp_module_plan" {
+#   command = plan
+#   module {
+#     source = "./modules/transfer-custom-idp-solution"
+#   }
+#   variables {
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# run "custom_idp_module_apply" {
+#   command = apply
+#   module {
+#     source = "./modules/transfer-custom-idp-solution"
+#   }
+#   variables {
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
 run "okta_idp_plan" {
   command = plan
   module {
