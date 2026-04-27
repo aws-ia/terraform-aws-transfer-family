@@ -286,7 +286,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
     condition {
       test     = "ArnEquals"
       variable = "s3:AccessGrantsInstanceArn"
-      values   = ["arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
+      values   = ["arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
     }
   }
 
@@ -312,7 +312,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
     condition {
       test     = "ArnEquals"
       variable = "s3:AccessGrantsInstanceArn"
-      values   = ["arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
+      values   = ["arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
     }
   }
 
@@ -333,7 +333,7 @@ data "aws_iam_policy_document" "access_grants_location_policy" {
     condition {
       test     = "ArnEquals"
       variable = "s3:AccessGrantsInstanceArn"
-      values   = ["arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
+      values   = ["arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-grants/${local.access_grants_instance_id}"]
     }
   }
 
