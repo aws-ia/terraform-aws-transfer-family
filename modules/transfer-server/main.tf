@@ -85,25 +85,12 @@ check "vpc_endpoint_requirements" {
   }
 }
 
-check "lambda_integration_requirements" {
-  assert {
-    condition     = var.identity_provider != "AWS_LAMBDA" || var.lambda_function_arn != null
-    error_message = "lambda_function_arn is required when identity_provider is AWS_LAMBDA."
-  }
-}
-
-check "api_gateway_integration_requirements" {
-  assert {
-    condition     = var.identity_provider != "API_GATEWAY" || (var.api_gateway_url != null && var.api_gateway_invocation_role != null)
-    error_message = "api_gateway_url and api_gateway_invocation_role are required when identity_provider is API_GATEWAY."
-  }
-}
-
 ######################################
 # Transfer Module
 ######################################
 
 resource "aws_transfer_server" "transfer_server" {
+  #checkov:skip=CKV_AWS_380: "At the moment the default security policy must be TransferSecurityPolicy-2024-01 but will be updated to TransferSecurityPolicy-2025-03"
   #checkov:skip=CKV_AWS_164: "Transfer server can intentionally be public facing for SFTP access"
   identity_provider_type      = var.identity_provider
   domain                      = var.domain
@@ -155,6 +142,17 @@ resource "aws_transfer_server" "transfer_server" {
       Name = var.server_name
     }
   )
+
+  lifecycle {
+    precondition {
+      condition     = var.identity_provider != "AWS_LAMBDA" || var.lambda_function_arn != null
+      error_message = "lambda_function_arn is required when identity_provider is AWS_LAMBDA."
+    }
+    precondition {
+      condition     = var.identity_provider != "API_GATEWAY" || (var.api_gateway_url != null && var.api_gateway_invocation_role != null)
+      error_message = "api_gateway_url and api_gateway_invocation_role are required when identity_provider is API_GATEWAY."
+    }
+  }
 }
 
 ###########################################

@@ -254,3 +254,84 @@ terraform destroy
 
 > [!IMPORTANT]
 > The S3 bucket must be empty before destruction. Remove all files first if needed.
+
+<!-- BEGIN_TF_DOCS -->
+## Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.95.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.6.0 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.22.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
+
+## Modules
+
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_custom_idp"></a> [custom\_idp](#module\_custom\_idp) | ../../modules/transfer-custom-idp-solution | n/a |
+| <a name="module_s3_bucket"></a> [s3\_bucket](#module\_s3\_bucket) | terraform-aws-modules/s3-bucket/aws | ~> 4.0 |
+| <a name="module_transfer_server"></a> [transfer\_server](#module\_transfer\_server) | ../../modules/transfer-server | n/a |
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [aws_cognito_user.transfer_user](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user) | resource |
+| [aws_cognito_user.transfer_user_default](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user) | resource |
+| [aws_cognito_user_pool.transfer_users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool) | resource |
+| [aws_cognito_user_pool_client.transfer_client](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
+| [aws_dynamodb_table_item.cognito_demo_user](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
+| [aws_dynamodb_table_item.cognito_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
+| [aws_dynamodb_table_item.transfer_user_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
+| [aws_iam_role.transfer_session](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.transfer_session_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_secretsmanager_secret.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
+| [aws_secretsmanager_secret_version.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
+| [random_id.suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
+| [random_password.cognito_user](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.cognito_user_default](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_pet.name](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
+| <a name="input_cognito_user_email"></a> [cognito\_user\_email](#input\_cognito\_user\_email) | Email address for the Cognito user | `string` | `"user1@example.com"` | no |
+| <a name="input_cognito_username"></a> [cognito\_username](#input\_cognito\_username) | Username for the Cognito user | `string` | `"user1"` | no |
+| <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `true` | no |
+| <a name="input_existing_cognito_user_pool_client_id"></a> [existing\_cognito\_user\_pool\_client\_id](#input\_existing\_cognito\_user\_pool\_client\_id) | ID of existing Cognito User Pool Client to use (required if existing\_cognito\_user\_pool\_id is provided) | `string` | `null` | no |
+| <a name="input_existing_cognito_user_pool_id"></a> [existing\_cognito\_user\_pool\_id](#input\_existing\_cognito\_user\_pool\_id) | ID of existing Cognito User Pool to use (if not provided, a new pool will be created) | `string` | `null` | no |
+| <a name="input_existing_cognito_user_pool_region"></a> [existing\_cognito\_user\_pool\_region](#input\_existing\_cognito\_user\_pool\_region) | Region of existing Cognito User Pool (required if existing\_cognito\_user\_pool\_id is provided) | `string` | `null` | no |
+| <a name="input_name_prefix"></a> [name\_prefix](#input\_name\_prefix) | Prefix for resource names | `string` | `"sftp-cognito-example"` | no |
+| <a name="input_provision_api"></a> [provision\_api](#input\_provision\_api) | Create API Gateway REST API | `bool` | `false` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources | `map(string)` | <pre>{<br/>  "Environment": "demo",<br/>  "Project": "transfer-family-cognito"<br/>}</pre> | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_cognito_user_password_secret_arn"></a> [cognito\_user\_password\_secret\_arn](#output\_cognito\_user\_password\_secret\_arn) | ARN of the Secrets Manager secret containing the Cognito user password (only when pool is created) |
+| <a name="output_cognito_user_password_secret_name"></a> [cognito\_user\_password\_secret\_name](#output\_cognito\_user\_password\_secret\_name) | Name of the Secrets Manager secret containing the Cognito user password (only when pool is created) |
+| <a name="output_cognito_user_pool_client_id"></a> [cognito\_user\_pool\_client\_id](#output\_cognito\_user\_pool\_client\_id) | ID of the Cognito user pool client (created or existing) |
+| <a name="output_cognito_user_pool_id"></a> [cognito\_user\_pool\_id](#output\_cognito\_user\_pool\_id) | ID of the Cognito user pool (created or existing) |
+| <a name="output_cognito_user_pool_name"></a> [cognito\_user\_pool\_name](#output\_cognito\_user\_pool\_name) | Name of the Cognito user pool (only available when created by this module) |
+| <a name="output_cognito_username"></a> [cognito\_username](#output\_cognito\_username) | Username of the created Cognito user (only when pool is created) |
+| <a name="output_identity_providers_table_name"></a> [identity\_providers\_table\_name](#output\_identity\_providers\_table\_name) | DynamoDB identity providers table name |
+| <a name="output_lambda_function_arn"></a> [lambda\_function\_arn](#output\_lambda\_function\_arn) | Custom IDP Lambda function ARN |
+| <a name="output_lambda_function_name"></a> [lambda\_function\_name](#output\_lambda\_function\_name) | Custom IDP Lambda function name |
+| <a name="output_s3_bucket_arn"></a> [s3\_bucket\_arn](#output\_s3\_bucket\_arn) | ARN of the S3 bucket used for Transfer Family |
+| <a name="output_s3_bucket_name"></a> [s3\_bucket\_name](#output\_s3\_bucket\_name) | Name of the S3 bucket used for Transfer Family |
+| <a name="output_server_endpoint"></a> [server\_endpoint](#output\_server\_endpoint) | The endpoint of the created Transfer Family server |
+| <a name="output_server_id"></a> [server\_id](#output\_server\_id) | The ID of the created Transfer Family server |
+| <a name="output_transfer_session_role_arn"></a> [transfer\_session\_role\_arn](#output\_transfer\_session\_role\_arn) | ARN of the Transfer Family session role |
+| <a name="output_users_table_name"></a> [users\_table\_name](#output\_users\_table\_name) | DynamoDB users table name |
+<!-- END_TF_DOCS -->

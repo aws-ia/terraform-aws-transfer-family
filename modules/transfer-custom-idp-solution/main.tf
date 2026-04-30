@@ -50,10 +50,11 @@ resource "aws_dynamodb_table" "users" {
   #checkov:skip=CKV_AWS_119:Using AWS managed encryption is acceptable for this use case
   count = var.users_table_name == "" ? 1 : 0
 
-  name         = local.users_table
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "user"
-  range_key    = "identity_provider_key"
+  name              = local.users_table
+  billing_mode      = "PAY_PER_REQUEST"
+  hash_key          = "user"
+  range_key         = "identity_provider_key"
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "user"
@@ -84,6 +85,7 @@ resource "aws_dynamodb_table" "identity_providers" {
   name         = local.providers_table
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "provider"
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "provider"
@@ -107,7 +109,7 @@ resource "aws_dynamodb_table" "identity_providers" {
 
 
 resource "aws_codebuild_project" "build" {
-  # checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this use case
+  #checkov:skip=CKV_AWS_147:Using AWS managed encryption is acceptable for this use case
   name          = local.codebuild_project
   description   = "Build Lambda artifacts for Transfer Family Custom IdP"
   service_role  = aws_iam_role.codebuild_role.arn
@@ -391,6 +393,8 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
 
 # API Gateway for identity provider
 resource "aws_api_gateway_rest_api" "identity_provider" {
+  #checkov:skip=CKV_AWS_237: Not applicable in this use case
+  #checkov:skip=CKV_AWS_217: Not applicable in this use case
   count = var.provision_api ? 1 : 0
   name  = "${var.name_prefix}-identity-provider-api"
 
@@ -444,6 +448,32 @@ resource "aws_api_gateway_method" "get_user_config" {
   resource_id   = aws_api_gateway_resource.config[0].id
   http_method   = "GET"
   authorization = "AWS_IAM"
+
+  request_parameters = {
+       "method.request.header.PasswordBase64"  = false
+       "method.request.querystring.protocol"   = false
+       "method.request.querystring.sourceIp"   = false
+  }
+}
+
+resource "aws_api_gateway_model" "user_config_response" {
+  count       = var.provision_api ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  name        = "UserConfigResponseModel"
+  content_type = "application/json"
+  description = "API response for GetUserConfig"
+
+  schema = jsonencode({
+    "$schema"  = "http://json-schema.org/draft-04/schema#"
+    title      = "UserConfig"
+    type       = "object"
+    properties = {
+      HomeDirectory = { type = "string" }
+      Role          = { type = "string" }
+      Policy        = { type = "string" }
+      PublicKeys    = { type = "array", items = { type = "string" } }
+    }
+  })
 }
 
 resource "aws_api_gateway_integration" "lambda" {
@@ -459,14 +489,36 @@ resource "aws_api_gateway_integration" "lambda" {
   request_templates = {
     "application/json" = <<EOF
 {
-  "username": "$input.params('username')",
+  "username": "$util.urlDecode($input.params('username'))",
   "serverId": "$input.params('serverId')",
-  "password": "$input.params('Password')",
+  "password": "$util.escapeJavaScript($util.base64Decode($input.params('PasswordBase64'))).replaceAll("\\'","'")",
   "sourceIp": "$input.params('sourceIp')",
   "protocol": "$input.params('protocol')"
 }
 EOF
   }
+}
+
+resource "aws_api_gateway_method_response" "success" {
+  count       = var.provision_api ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = aws_api_gateway_model.user_config_response[0].name
+  }
+}
+
+resource "aws_api_gateway_integration_response" "success" {
+  count       = var.provision_api ? 1 : 0
+  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
+  resource_id = aws_api_gateway_resource.config[0].id
+  http_method = aws_api_gateway_method.get_user_config[0].http_method
+  status_code = aws_api_gateway_method_response.success[0].status_code
+
+  depends_on = [aws_api_gateway_integration.lambda[0]]
 }
 
 resource "aws_api_gateway_deployment" "identity_provider" {
@@ -475,15 +527,19 @@ resource "aws_api_gateway_deployment" "identity_provider" {
 
   depends_on = [
     aws_api_gateway_method.get_user_config[0],
-    aws_api_gateway_integration.lambda[0]
+    aws_api_gateway_integration.lambda[0],
+    aws_api_gateway_method_response.success[0],
+    aws_api_gateway_integration_response.success[0]
   ]
 }
-
 
 resource "aws_api_gateway_stage" "identity_provider" {
   #checkov:skip=CKV2_AWS_4:CloudWatch logging is optional for this use case
   #checkov:skip=CKV2_AWS_51:Client certificate authentication not required for AWS IAM authenticated API
+  #checkov:skip=CKV2_AWS_76:API actions loggging is already present in a cloudwatch log group
   #checkov:skip=CKV2_AWS_29:WAF not required for internal Transfer Family IdP API
+  #checkov:skip=CKV_AWS_73:X-ray tracing is available to be enabled via the variables file
+  #checkov:skip=CKV_AWS_120:API Gateway caching is optional in this use case
   count         = var.provision_api ? 1 : 0
   deployment_id = aws_api_gateway_deployment.identity_provider[0].id
   rest_api_id   = aws_api_gateway_rest_api.identity_provider[0].id

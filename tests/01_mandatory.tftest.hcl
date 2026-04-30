@@ -66,6 +66,7 @@ run "connector_retrieve_static_plan" {
   variables {
     sftp_server_endpoint = run.mandatory_apply_basic.server_endpoint
     existing_secret_arn = run.mandatory_apply_basic.test_user_secret.private_key_secret.arn
+    enable_dynamodb_tracking = false
   }
 }
 
@@ -77,6 +78,7 @@ run "connector_retrieve_static_apply" {
   variables {
     sftp_server_endpoint = run.mandatory_apply_basic.server_endpoint
     existing_secret_arn = run.mandatory_apply_basic.test_user_secret.private_key_secret.arn
+    enable_dynamodb_tracking = false
   }
 }
 
@@ -115,3 +117,115 @@ run "malware_protection_apply" {
     source = "./examples/sftp-malware-protection-guardduty"
   }
 }
+
+# Commenting the Custom IDP module tests out due to persistent timeouts
+# run "custom_idp_module_plan" {
+#   command = plan
+#   module {
+#     source = "./modules/transfer-custom-idp-solution"
+#   }
+#   variables {
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# run "custom_idp_module_apply" {
+#   command = apply
+#   module {
+#     source = "./modules/transfer-custom-idp-solution"
+#   }
+#   variables {
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# Commenting the Okta IDP test out due to persistent timeouts
+# run "okta_idp_plan" {
+#   command = plan
+#   module {
+#     source = "./examples/sftp-idp-okta"
+#   }
+#   variables {
+#     okta_domain             = "example.okta.com"
+#     okta_user_email         = "testuser@example.com"
+#     okta_app_client_id      = "0oa1a1a1a1a1a1a1a1a1"
+#     provision_api           = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# run "okta_idp_apply" {
+#   command = apply
+#   module {
+#     source = "./examples/sftp-idp-okta"
+#   }
+#   variables {
+#     okta_domain             = "example.okta.com"
+#     okta_user_email         = "testuser@example.com"
+#     okta_app_client_id      = "0oa1a1a1a1a1a1a1a1a1"
+#     provision_api           = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# Commenting the Entra ID test out due to persistent timeouts
+# run "entra_id_example_plan" {
+#   command = plan
+#   module {
+#     source = "./examples/sftp-idp-entra-lambda"
+#   }
+#   variables {
+#     entra_usernames   = ["user@example.onmicrosoft.com"]
+#     entra_provider_name = "example.onmicrosoft.com"
+#     entra_client_id = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
+#     entra_authority_url = "https://login.microsoftonline.com/xyz"
+#     entra_client_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:entra_client_secret-AbCdEf"
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+# run "entra_id_example_apply" {
+#   command = apply
+#   module {
+#     source = "./examples/sftp-idp-entra-lambda"
+#   }
+#   variables {
+#     entra_usernames   = ["user@example.onmicrosoft.com"]
+#     entra_provider_name = "example.onmicrosoft.com"
+#     entra_client_id = "a11aaaa1-1111-1a11-111a-11a11a1a11aa"
+#     entra_authority_url = "https://login.microsoftonline.com/xyz"
+#     entra_client_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:entra_client_secret-AbCdEf"
+#     provision_api   = false
+#     enable_deletion_protection = false
+#   }
+# }
+
+#commenting the web apps test out due to persistent IdC throttling issue
+# run "web_app_plan" {
+#   command = plan
+#   module {
+#     source = "./examples/sample-web-app"
+#   }
+#   variables {
+#     create_identity_center_instance = true
+#     create_test_users_and_groups = true
+#     logo_file = "./examples/sample-web-app/anycompany-logo-small.png"
+#     favicon_file = "./examples/sample-web-app/favicon.png"
+#   }
+# }
+
+# run "web_app_apply" {
+#   command = apply
+#   module {
+#     source = "./examples/sample-web-app"
+#   }
+#   variables {
+#     create_identity_center_instance = true
+#     create_test_users_and_groups = true
+#     logo_file = "./examples/sample-web-app/anycompany-logo-small.png"
+#     favicon_file = "./examples/sample-web-app/favicon.png"
+#   }
+# }
