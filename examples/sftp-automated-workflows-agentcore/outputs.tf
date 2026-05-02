@@ -79,14 +79,9 @@ output "malware_errors_bucket_name" {
 }
 
 # Stage 3: Agentcore outputs
-output "agentcore_workflow_agent_runtime_id" {
-  description = "ID of the workflow agent runtime"
-  value       = var.enable_agentcore ? module.agentcore[0].workflow_agent_runtime_id : null
-}
-
 output "agentcore_claims_table_name" {
   description = "Name of the DynamoDB table for claims data"
-  value       = var.enable_agentcore ? module.agentcore[0].claims_table_name : null
+  value       = var.enable_agentcore ? aws_dynamodb_table.claims[0].name : null
 }
 
 # Stage 4: Web App outputs

@@ -1,0 +1,19 @@
+Analyze this image for signs of digital manipulation or fraud. Focus on:
+
+1. **Lighting mismatches** — inconsistent shadows, light direction, or exposure between regions
+2. **Copy-paste artifacts** — repeated patterns, cloned regions, or unnatural duplication
+3. **Resolution inconsistencies** — areas with different sharpness, pixel density, or scaling
+4. **Compression artifacts** — re-save indicators, JPEG ghosting around edited regions
+5. **Stock photo indicators** — watermarks, generic/staged composition, metadata hints
+6. **Compositing signs** — unnatural edges, color temperature shifts between regions
+
+Respond ONLY with a JSON object:
+{{
+  "manipulation_detected": true/false,
+  "confidence": 0.0 to 1.0,
+  "detail": "description of findings or 'No manipulation artifacts detected'",
+  "artifacts_found": ["list", "of", "specific", "artifacts"] or []
+}}
+
+If the image is unclear or low quality, set confidence low and note it in detail.
+Do NOT claim manipulation unless you see specific evidence.

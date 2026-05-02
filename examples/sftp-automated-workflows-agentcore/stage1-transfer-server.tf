@@ -28,14 +28,14 @@ resource "random_pet" "transfer" {
 # Custom IDP Solution Module
 module "transfer_custom_idp" {
   count  = var.enable_custom_idp ? 1 : 0
-  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution?ref=v0.4.1"
+  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution?ref=v0.6.0"
 
   # All provisioned resources will use this prefix
-  name_prefix = "transferidp" 
+  name_prefix = "transferidp"
 
   # The Custom IdP Lambda can be attached to a VPC to connect with private ***
   # identity providers such as Active Directory
-  use_vpc       = false
+  use_vpc = false
 
   # Optionally, deploy an API Gateway API to use with Transfer Family instead of
   # Lambda. This is useful for using AWS Web Application Firewall (WAF) to filter
@@ -56,21 +56,21 @@ module "transfer_custom_idp" {
 module "transfer_server" {
   count = var.enable_transfer_server && var.enable_custom_idp ? 1 : 0
 
-  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-server?ref=v0.4.0"
+  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-server?ref=v0.6.0"
 
   # Server Configuration
-  server_name   = "anycompany-insurance-sftp"
+  server_name = "anycompany-insurance-sftp"
 
   # Transfer Family supports "S3" and "EFS" storage domains 
-  domain        = "S3"
+  domain = "S3"
 
   # The Transfer Family server endpoint can be public or VPC-attached ***
   endpoint_type = "PUBLIC"
   protocols     = ["SFTP"]
 
   # These attributes configure the server to use the Custom IdP solution
-  identity_provider      = "AWS_LAMBDA"
-  lambda_function_arn    = module.transfer_custom_idp[0].lambda_function_arn
+  identity_provider   = "AWS_LAMBDA"
+  lambda_function_arn = module.transfer_custom_idp[0].lambda_function_arn
 
   # Tags
   tags = var.tags
@@ -190,8 +190,8 @@ module "s3_bucket_transfer" {
   count  = var.enable_transfer_server ? 1 : 0
   source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
 
-  bucket        = "${random_pet.transfer[0].id}-claims-files"
-  force_destroy = true
+  bucket                   = "${random_pet.transfer[0].id}-claims-files"
+  force_destroy            = true
   control_object_ownership = true
   object_ownership         = "BucketOwnerEnforced"
   block_public_acls        = true

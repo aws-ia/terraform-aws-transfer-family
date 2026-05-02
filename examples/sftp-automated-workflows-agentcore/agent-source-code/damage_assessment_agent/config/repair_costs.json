@@ -1,0 +1,39 @@
+{
+  "source": "Industry average repair cost estimates (2025)",
+  "categories": {
+    "water_damage": {
+      "floor_repair_per_sqft": {"low": 8, "high": 25, "unit": "USD/sqft"},
+      "floor_replacement_per_sqft": {"low": 6, "high": 12, "unit": "USD/sqft"},
+      "subfloor_treatment": {"low": 500, "high": 1500, "unit": "USD flat"},
+      "drywall_repair_per_sqft": {"low": 5, "high": 15, "unit": "USD/sqft"},
+      "mold_remediation_per_sqft": {"low": 10, "high": 30, "unit": "USD/sqft"},
+      "water_extraction": {"low": 300, "high": 800, "unit": "USD flat"}
+    },
+    "fire_damage": {
+      "smoke_cleanup_per_sqft": {"low": 3, "high": 10, "unit": "USD/sqft"},
+      "structural_repair_per_sqft": {"low": 20, "high": 60, "unit": "USD/sqft"},
+      "painting_per_sqft": {"low": 2, "high": 6, "unit": "USD/sqft"},
+      "electrical_repair": {"low": 500, "high": 3000, "unit": "USD flat"}
+    },
+    "wind_damage": {
+      "roof_repair_per_sqft": {"low": 5, "high": 15, "unit": "USD/sqft"},
+      "roof_replacement_per_sqft": {"low": 8, "high": 25, "unit": "USD/sqft"},
+      "siding_repair_per_sqft": {"low": 4, "high": 12, "unit": "USD/sqft"},
+      "window_replacement_per_unit": {"low": 300, "high": 1000, "unit": "USD/unit"},
+      "tree_removal": {"low": 400, "high": 2000, "unit": "USD flat"}
+    },
+    "collision": {
+      "bumper_repair": {"low": 500, "high": 1500, "unit": "USD flat"},
+      "bumper_replacement": {"low": 800, "high": 2500, "unit": "USD flat"},
+      "paint_work_per_panel": {"low": 300, "high": 800, "unit": "USD/panel"},
+      "dent_repair_per_panel": {"low": 150, "high": 500, "unit": "USD/panel"},
+      "frame_repair": {"low": 1000, "high": 5000, "unit": "USD flat"},
+      "glass_replacement": {"low": 200, "high": 600, "unit": "USD flat"}
+    },
+    "general": {
+      "labor_rate_per_hour": {"low": 50, "high": 150, "unit": "USD/hr"},
+      "inspection_fee": {"low": 100, "high": 300, "unit": "USD flat"},
+      "debris_removal": {"low": 200, "high": 800, "unit": "USD flat"}
+    }
+  }
+}

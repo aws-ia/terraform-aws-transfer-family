@@ -166,6 +166,11 @@ resource "aws_cloudfront_origin_access_control" "landing_page" {
 
 # CloudFront Distribution (optional)
 resource "aws_cloudfront_distribution" "landing_page" {
+  #checkov:skip=CKV_AWS_86: "Landing page is a public static redirect target for the Cognito hosted UI; it serves no user-specific or sensitive content. CloudFront access logging adds an S3 bucket with no auditable signal for this use case."
+  #checkov:skip=CKV_AWS_68: "WAF protection is not required for a public, static Cognito hosted-UI landing page that serves only a single HTML redirect. Adding WAF would incur monthly cost with no real attack surface to defend."
+  #checkov:skip=CKV_AWS_174: "Uses cloudfront_default_certificate which pins to TLSv1 for *.cloudfront.net domains. A custom TLS 1.2+ policy requires an ACM certificate bound to a custom domain, which is out of scope for this example."
+  #checkov:skip=CKV_AWS_310: "Origin failover requires a second S3 origin; the landing page is single-origin static content where failover adds complexity with no reliability benefit for this example."
+  #checkov:skip=CKV_AWS_374: "Geo restriction is intentionally disabled to allow global access to the public Cognito hosted UI landing page; adding restrictions would break legitimate users."
   count = var.create_landing_page ? 1 : 0
 
   enabled             = true
