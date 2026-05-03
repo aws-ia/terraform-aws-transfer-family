@@ -17,7 +17,7 @@ from urllib.parse import unquote_plus
 
 import boto3
 
-from stages import document_extraction, damage_assessment, fraud_detection, classification
+from stages import document_extraction, damage_assessment, fraud_detection, classification, summary
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -34,6 +34,7 @@ PIPELINE = [
     {"name": "damage_assessment", "stage": damage_assessment},
     {"name": "fraud_detection", "stage": fraud_detection},
     {"name": "classification", "stage": classification},
+    {"name": "summary", "stage": summary},
 ]
 
 

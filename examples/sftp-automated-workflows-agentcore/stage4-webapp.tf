@@ -29,11 +29,7 @@ module "transfer_webapp" {
       group_name = "Claims Reviewers"
       access_grants = [
         {
-          s3_path    = "${module.s3_bucket_clean[0].s3_bucket_id}/submitted-claims/*"
-          permission = "READ"
-        },
-        {
-          s3_path    = "${module.s3_bucket_clean[0].s3_bucket_id}/processed-claims/*"
+          s3_path    = "${module.s3_bucket_clean[0].s3_bucket_id}/*"
           permission = "READ"
         }
       ]
