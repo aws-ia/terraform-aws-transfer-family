@@ -1,36 +1,22 @@
 ################################################################################
-# Stage 3: AI Claims Processing
-# Components: AgentCore agents with direct code deployment (S3) + MCP Gateway
+# Stage 3: Claims Processing Pipeline
+# Components: MCP Gateway + Claims Reader Lambda + DynamoDB + Orchestrator
+#
+# The AgentCore agent runtimes themselves are created in stage 0
+# (see stage0-agentcore-agents.tf). This stage wires them into the data plane:
+#
+#   - DynamoDB table for claim records
+#   - MCP gateway + Lambda backend that gives 3 of the 4 agents access to
+#     get_claim_data / get_claim_photos tools
+#   - Orchestrator Lambda that watches the clean bucket for claim zips and
+#     runs the agents through their pipeline stages
+#
+# Applying this stage with enable_agentcore = true will also update the 4
+# agent runtimes (via the stage 0 module calls, whose inputs now resolve
+# to non-empty values): data-bucket IAM + CLAIMS_BUCKET env var for all 4,
+# and invoke-gateway IAM + AGENTCORE_GATEWAY_URL env var for the 3 gateway
+# users. Each agent bumps from runtime v1 to v2 as a result.
 ################################################################################
-
-locals {
-  agentcore_name_prefix = "tf-demo"
-}
-
-resource "random_id" "agentcore" {
-  count       = var.enable_agentcore ? 1 : 0
-  byte_length = 4
-}
-
-# ── S3 bucket for agent code packages ────────────────────────────────────────
-
-module "agent_code_bucket" {
-  count  = var.enable_agentcore ? 1 : 0
-  source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
-
-  bucket                   = lower("${local.agentcore_name_prefix}-agent-code-${random_id.agentcore[0].hex}")
-  control_object_ownership = true
-  object_ownership         = "BucketOwnerEnforced"
-  block_public_acls        = true
-  block_public_policy      = true
-  ignore_public_acls       = true
-  restrict_public_buckets  = true
-  force_destroy            = true
-
-  versioning = {
-    enabled = true
-  }
-}
 
 # ── DynamoDB table for claim records ─────────────────────────────────────────
 
@@ -334,107 +320,6 @@ resource "aws_lambda_function" "claims_reader" {
       CLAIMS_BUCKET = module.s3_bucket_clean[0].s3_bucket_id
       CLAIMS_TABLE  = aws_dynamodb_table.claims[0].name
     }
-  }
-
-  tags = var.tags
-}
-
-# ── Document Extraction Agent (no gateway — reads S3 directly) ───────────────
-
-module "document_extraction_agent" {
-  count  = var.enable_agentcore ? 1 : 0
-  source = "./modules/agentcore-agent"
-
-  name_prefix      = local.agentcore_name_prefix
-  agent_name       = "document-extraction-agent"
-  agent_source_dir = "${path.module}/agent-source-code/document_extraction_agent"
-  entry_point      = ["main.py"]
-
-  code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
-  code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn
-
-  data_bucket_arns = [module.s3_bucket_clean[0].s3_bucket_arn]
-
-  environment_variables = {
-    CLAIMS_BUCKET = module.s3_bucket_clean[0].s3_bucket_id
-    AWS_REGION    = var.aws_region
-  }
-
-  tags = var.tags
-}
-
-# ── Damage Assessment Agent (uses gateway) ───────────────────────────────────
-
-module "damage_assessment_agent" {
-  count  = var.enable_agentcore ? 1 : 0
-  source = "./modules/agentcore-agent"
-
-  name_prefix      = local.agentcore_name_prefix
-  agent_name       = "damage-assessment-agent"
-  agent_source_dir = "${path.module}/agent-source-code/damage_assessment_agent"
-  entry_point      = ["main.py"]
-
-  code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
-  code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn
-
-  enable_gateway = true
-  gateway_arn    = aws_bedrockagentcore_gateway.claims_reader[0].gateway_arn
-
-  environment_variables = {
-    AGENTCORE_GATEWAY_URL = aws_bedrockagentcore_gateway.claims_reader[0].gateway_url
-    CLAIMS_BUCKET         = module.s3_bucket_clean[0].s3_bucket_id
-    AWS_REGION            = var.aws_region
-  }
-
-  tags = var.tags
-}
-
-# ── Fraud Detection Agent (uses gateway) ─────────────────────────────────────
-
-module "fraud_detection_agent" {
-  count  = var.enable_agentcore ? 1 : 0
-  source = "./modules/agentcore-agent"
-
-  name_prefix      = local.agentcore_name_prefix
-  agent_name       = "fraud-detection-agent"
-  agent_source_dir = "${path.module}/agent-source-code/fraud_detection_agent"
-  entry_point      = ["main.py"]
-
-  code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
-  code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn
-
-  enable_gateway = true
-  gateway_arn    = aws_bedrockagentcore_gateway.claims_reader[0].gateway_arn
-
-  environment_variables = {
-    AGENTCORE_GATEWAY_URL = aws_bedrockagentcore_gateway.claims_reader[0].gateway_url
-    CLAIMS_BUCKET         = module.s3_bucket_clean[0].s3_bucket_id
-    AWS_REGION            = var.aws_region
-  }
-
-  tags = var.tags
-}
-
-# ── Classification Agent (uses gateway) ──────────────────────────────────────
-
-module "classification_agent" {
-  count  = var.enable_agentcore ? 1 : 0
-  source = "./modules/agentcore-agent"
-
-  name_prefix      = local.agentcore_name_prefix
-  agent_name       = "classification-agent"
-  agent_source_dir = "${path.module}/agent-source-code/classification_agent"
-  entry_point      = ["main.py"]
-
-  code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
-  code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn
-
-  enable_gateway = true
-  gateway_arn    = aws_bedrockagentcore_gateway.claims_reader[0].gateway_arn
-
-  environment_variables = {
-    AGENTCORE_GATEWAY_URL = aws_bedrockagentcore_gateway.claims_reader[0].gateway_url
-    AWS_REGION            = var.aws_region
   }
 
   tags = var.tags

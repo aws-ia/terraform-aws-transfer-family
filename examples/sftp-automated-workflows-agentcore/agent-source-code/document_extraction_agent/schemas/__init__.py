@@ -9,6 +9,7 @@ from .base import (
     PolicyDocumentExtraction,
     RepairEstimateExtraction,
     RepairLineItem,
+    SubmissionFormExtraction,
 )
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "PhotoExtraction",
     "RepairEstimateExtraction",
     "RepairLineItem",
+    "SubmissionFormExtraction",
     "ClaimDocument",
     "ClaimRecord",
 ]

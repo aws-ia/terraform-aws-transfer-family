@@ -41,10 +41,21 @@ variable "enable_malware_protection" {
   default     = false
 }
 
+variable "enable_agentcore_agents" {
+  type        = bool
+  description = "Enable AgentCore agent runtimes (created in stage 0). These are the AI agents themselves; they are created early so their build step runs as part of the foundation stage. The gateway wiring and orchestrator Lambda that actually invoke them are gated separately by enable_agentcore."
+  default     = false
+}
+
 variable "enable_agentcore" {
   type        = bool
-  description = "Enable AI claims processing with Bedrock"
+  description = "Enable the AgentCore orchestration layer (gateway + gateway targets + claims_reader Lambda + DynamoDB + claims_orchestrator). Requires enable_agentcore_agents = true since the orchestrator invokes agent runtimes created by that flag."
   default     = false
+
+  validation {
+    condition     = var.enable_agentcore == false || var.enable_agentcore_agents == true
+    error_message = "enable_agentcore requires enable_agentcore_agents = true — the orchestrator can only run once the agent runtimes exist."
+  }
 }
 
 variable "enable_webapp" {

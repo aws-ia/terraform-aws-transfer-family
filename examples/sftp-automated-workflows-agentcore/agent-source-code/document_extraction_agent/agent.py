@@ -11,6 +11,7 @@ from schemas import (
     PhotoExtraction,
     PolicyDocumentExtraction,
     RepairEstimateExtraction,
+    SubmissionFormExtraction,
 )
 from tools import list_claim_documents, read_document
 
@@ -20,6 +21,7 @@ GUARDRAIL_VERSION = os.environ.get("GUARDRAIL_VERSION", "")
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 EXTRACTION_SCHEMAS = {
+    DocumentType.SUBMISSION_FORM: SubmissionFormExtraction,
     DocumentType.POLICY_DOCUMENT: PolicyDocumentExtraction,
     DocumentType.PHOTO: PhotoExtraction,
     DocumentType.REPAIR_ESTIMATE: RepairEstimateExtraction,

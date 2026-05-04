@@ -1,12 +1,15 @@
 ################################################################################
-# Stage 0: Identity Foundation + AgentCore ECR
-# Components: IAM Identity Center, S3 Access Grants, Cognito, ECR Repos
+# Stage 0: Identity Foundation + AgentCore Agent Runtimes
+# Components: IAM Identity Center, S3 Access Grants, Cognito, AgentCore Agents
 #
-# This stage establishes the identity and authentication foundation:
+# This stage establishes the identity and authentication foundation plus the
+# AgentCore agent runtimes themselves:
 # - IAM Identity Center for internal users (claims team)
 # - S3 Access Grants for fine-grained file access control
 # - Cognito User Pool for external users (repair shops)
-# - ECR repositories and Docker images for AgentCore agents
+# - 4 AgentCore agent runtimes (document extraction, damage assessment,
+#   fraud detection, classification) created with minimal config. Their
+#   gateway and data-bucket wiring is attached later in stage 3.
 ################################################################################
 
 ################################################################################
@@ -16,6 +19,7 @@
 enable_identity_center  = true # IAM Identity Center for internal user management
 enable_s3_access_grants = true # S3 Access Grants for granular permissions
 enable_cognito          = true # Cognito User Pool for external authentication
+enable_agentcore_agents = true # AgentCore agent runtimes (builds + registers 4 agents)
 
 ################################################################################
 # Future Stages (Disabled)
@@ -24,7 +28,7 @@ enable_cognito          = true # Cognito User Pool for external authentication
 enable_custom_idp         = true  # Stage 1: Custom IDP for Transfer Family
 enable_transfer_server    = false # Stage 1: SFTP server for file uploads
 enable_malware_protection = false # Stage 2: GuardDuty malware scanning
-enable_agentcore          = false # Stage 3: AI claims processing (agent deployment)
+enable_agentcore          = false # Stage 3: AI claims orchestration (gateway + orchestrator)
 enable_webapp             = false # Stage 4: Web app for internal users
 
 ################################################################################

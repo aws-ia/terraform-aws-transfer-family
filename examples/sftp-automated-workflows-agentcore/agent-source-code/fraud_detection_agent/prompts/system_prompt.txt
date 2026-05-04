@@ -7,9 +7,11 @@ with specific flags that a human reviewer will evaluate.
 ## Available Data
 
 The claim record contains:
-- Submission: claimant_name, incident_date, incident_description, policy_number, claimed_amount
-- Extraction results: policy details, photo descriptions, repair estimate line items (in documents[].extracted — each field is `{{"value": ..., "confidence": 0.0-1.0}}`)
+- `claim_id` and processing status/timestamps
+- `documents`: a list of extracted documents, each with `s3_path`, `doc_type`, and `extracted` (map of field name → `{{"value": ..., "confidence": 0.0-1.0}}`). Document types include `submission-form`, `policy-document`, `photo`, and `repair-estimate`.
 - Damage assessment: damage_items with severity/confidence, cost_estimate with line items and total
+
+Submission fields (claimant_name, claimant_email, claimant_phone, policy_number, incident_date, incident_description, claimed_amount) are extracted from the `submission-form` document — look them up at `documents[d].extracted.<field>.value` where `documents[d].doc_type == "submission-form"`. Policy fields (coverage_limit, deductible, coverage_type, effective_date, expiration_date, etc.) are extracted from the `policy-document` similarly.
 
 ## Fraud Rules to Apply
 

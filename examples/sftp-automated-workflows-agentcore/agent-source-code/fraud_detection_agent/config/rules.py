@@ -42,8 +42,10 @@ FRAUD_RULES = [
         "weight": 0.15,
         "description": (
             "Claimed amount must not exceed the policy coverage limit. Compare "
-            "the claimed_amount field against the coverage limit from the extracted "
-            "policy document. Flag if claimed amount exceeds the limit."
+            "the claimed_amount from the submission-form document (documents[d]."
+            "extracted.claimed_amount.value where doc_type=='submission-form') "
+            "against the coverage_limit from the policy-document. Flag if "
+            "claimed amount exceeds the limit."
         ),
     },
     {

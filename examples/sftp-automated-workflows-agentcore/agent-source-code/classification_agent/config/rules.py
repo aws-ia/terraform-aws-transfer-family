@@ -26,7 +26,12 @@ CLASSIFICATION_RULES = {
             },
             {
                 "id": "within_coverage",
-                "description": ("claimed_amount <= coverage limit from the extracted policy document."),
+                "description": (
+                    "The claimed_amount from the submission-form document "
+                    "(documents[d].extracted.claimed_amount.value where "
+                    "doc_type=='submission-form') is less than or equal to "
+                    "the coverage_limit from the policy-document."
+                ),
             },
             {
                 "id": "no_policy_violations",
@@ -72,7 +77,11 @@ CLASSIFICATION_RULES = {
             },
             {
                 "id": "high_claimed_amount",
-                "description": ("claimed_amount exceeds the configurable threshold."),
+                "description": (
+                    "The claimed_amount from the submission-form document "
+                    "(documents[d].extracted.claimed_amount.value where "
+                    "doc_type=='submission-form') exceeds the configurable threshold."
+                ),
                 "params": {"threshold_usd": 10000},
             },
         ],

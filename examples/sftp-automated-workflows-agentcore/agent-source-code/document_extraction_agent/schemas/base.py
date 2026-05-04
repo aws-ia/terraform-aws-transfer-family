@@ -9,6 +9,7 @@ class DocumentType(StrEnum):
     PHOTO = "photo"
     POLICY_DOCUMENT = "policy-document"
     REPAIR_ESTIMATE = "repair-estimate"
+    SUBMISSION_FORM = "submission-form"
 
 
 # Maps each document type to a human-readable description for the agent prompt.
@@ -18,6 +19,11 @@ DOCUMENT_TYPE_DESCRIPTIONS: dict[str, str] = {
         "Insurance policy documents containing coverage details, limits, and beneficiary info."
     ),
     DocumentType.REPAIR_ESTIMATE: ("Cost assessments from repair shops with itemized repairs and totals."),
+    DocumentType.SUBMISSION_FORM: (
+        "Claim submission forms filled out by the claimant describing the incident, "
+        "identifying the claimant and policy, and stating the claimed amount. "
+        "Typically a signed one- or two-page form that accompanies the supporting documents."
+    ),
 }
 
 
@@ -42,6 +48,18 @@ class DamageSeverity(StrEnum):
 
 
 # --- Extraction models per document type ---
+
+
+class SubmissionFormExtraction(BaseModel):
+    claimant_name: str = Field(description="Full name of the person filing the claim")
+    claimant_email: str | None = Field(default=None, description="Claimant contact email, if provided on the form")
+    claimant_phone: str | None = Field(default=None, description="Claimant contact phone, if provided on the form")
+    policy_number: str = Field(description="Policy number referenced on the submission form")
+    incident_date: str = Field(description="Date the incident occurred in YYYY-MM-DD format")
+    incident_description: str = Field(
+        description="Claimant's narrative description of what happened during the incident"
+    )
+    claimed_amount: Decimal = Field(description="Total dollar amount the claimant is requesting")
 
 
 class PolicyDocumentExtraction(BaseModel):
