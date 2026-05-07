@@ -1,15 +1,17 @@
 ################################################################################
-# Stage 0: Identity Foundation + AgentCore Agent Runtimes
-# Components: IAM Identity Center, S3 Access Grants, Cognito, AgentCore Agents
+# Stage 0: Identity Foundation + Custom IDP + AgentCore Agent Runtimes
+# Components: IAM Identity Center, S3 Access Grants, Cognito, Transfer Custom
+#             IDP, AgentCore Agents
 #
 # This stage establishes the identity and authentication foundation plus the
 # AgentCore agent runtimes themselves:
 # - IAM Identity Center for internal users (claims team)
 # - S3 Access Grants for fine-grained file access control
 # - Cognito User Pool for external users (repair shops)
+# - Transfer Custom IDP Lambda (built with CodeBuild; used by stage 1)
 # - 4 AgentCore agent runtimes (document extraction, damage assessment,
-#   fraud detection, classification) created with minimal config. Their
-#   gateway and data-bucket wiring is attached later in stage 3.
+#   fraud detection, classification) created with minimal config. Data-bucket
+#   wiring is attached in stage 2, gateway wiring in stage 3.
 ################################################################################
 
 ################################################################################
@@ -20,12 +22,12 @@ enable_identity_center  = true # IAM Identity Center for internal user managemen
 enable_s3_access_grants = true # S3 Access Grants for granular permissions
 enable_cognito          = true # Cognito User Pool for external authentication
 enable_agentcore_agents = true # AgentCore agent runtimes (builds + registers 4 agents)
+enable_custom_idp       = true # Custom IDP for Transfer Family
 
 ################################################################################
 # Future Stages (Disabled)
 ################################################################################
 
-enable_custom_idp         = true  # Stage 1: Custom IDP for Transfer Family
 enable_transfer_server    = false # Stage 1: SFTP server for file uploads
 enable_malware_protection = false # Stage 2: GuardDuty malware scanning
 enable_agentcore          = false # Stage 3: AI claims orchestration (gateway + orchestrator)

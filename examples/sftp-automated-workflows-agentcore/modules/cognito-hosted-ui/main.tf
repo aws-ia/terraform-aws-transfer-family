@@ -1,3 +1,28 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cognito Hosted UI module
+#
+# Creates a Cognito user pool with admin-only user creation, an app client with
+# OAuth 2.0 authorization-code flow, a Cognito-managed domain with Managed
+# Login v2 enabled, and (optionally) custom branding loaded from a JSON
+# settings file.
+#
+# When `create_landing_page = true` (default), also provisions a private S3
+# bucket hosting a templated `index.html`, a CloudFront distribution that
+# fronts the bucket via an Origin Access Control, an S3 bucket policy granting
+# CloudFront read access, and wires the CloudFront domain into the app
+# client's callback_urls and logout_urls.
+#
+# Components created below:
+#   • aws_cognito_user_pool                       — user directory
+#   • aws_cognito_user_pool_domain                — Cognito-managed login URL
+#   • aws_cognito_user_pool_client                — OAuth app client
+#   • aws_cognito_managed_login_branding          — optional, JSON-driven theme
+#   • aws_s3_bucket (+ PAB, versioning, policy)   — optional landing page host
+#   • aws_s3_object.landing_page                  — optional templated HTML
+#   • aws_cloudfront_origin_access_control        — optional, S3 origin auth
+#   • aws_cloudfront_distribution                 — optional, public HTTPS edge
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Cognito User Pool
 resource "aws_cognito_user_pool" "main" {
   name = var.user_pool_name

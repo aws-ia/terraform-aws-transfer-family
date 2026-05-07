@@ -1,3 +1,8 @@
+# Bedrock AgentCore Agent Runtime — loads the packaged Python code from the
+# shared S3 code bucket, runs it under the IAM execution role from iam.tf, and
+# exposes the configured server protocol (HTTP/MCP/A2A). Redeploys are
+# triggered by the SOURCE_CONTENT_HASH environment variable, which changes
+# whenever the agent source files change (see locals in build.tf).
 resource "aws_bedrockagentcore_agent_runtime" "agentcore_runtime" {
   agent_runtime_name = local.runtime_name
   role_arn           = aws_iam_role.execution.arn

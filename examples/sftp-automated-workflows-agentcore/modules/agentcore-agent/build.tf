@@ -1,3 +1,10 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Build pipeline — produces the deployable agent zip consumed by s3.tf.
+# Computes a content hash over all *.py and *.txt files in the agent source
+# directory; changes to this hash drive both the rebuild (terraform_data) and
+# the runtime's SOURCE_CONTENT_HASH env var (agentcore.tf) to force redeploy.
+# ─────────────────────────────────────────────────────────────────────────────
+
 locals {
   resource_name = "${var.name_prefix}-${var.agent_name}"
   runtime_name  = replace(local.resource_name, "-", "_")

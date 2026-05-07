@@ -36,6 +36,32 @@ output "cloudfront_url" {
   value       = var.enable_cognito ? module.cognito[0].cloudfront_url : null
 }
 
+# Stage 0: AgentCore agent runtime outputs
+output "agentcore_agent_code_bucket" {
+  description = "Name of the S3 bucket holding packaged agent code"
+  value       = var.enable_agentcore_agents ? module.agent_code_bucket[0].s3_bucket_id : null
+}
+
+output "agentcore_document_extraction_agent_arn" {
+  description = "ARN of the document extraction AgentCore runtime"
+  value       = var.enable_agentcore_agents ? module.document_extraction_agent[0].agent_runtime_arn : null
+}
+
+output "agentcore_damage_assessment_agent_arn" {
+  description = "ARN of the damage assessment AgentCore runtime"
+  value       = var.enable_agentcore_agents ? module.damage_assessment_agent[0].agent_runtime_arn : null
+}
+
+output "agentcore_fraud_detection_agent_arn" {
+  description = "ARN of the fraud detection AgentCore runtime"
+  value       = var.enable_agentcore_agents ? module.fraud_detection_agent[0].agent_runtime_arn : null
+}
+
+output "agentcore_classification_agent_arn" {
+  description = "ARN of the classification AgentCore runtime"
+  value       = var.enable_agentcore_agents ? module.classification_agent[0].agent_runtime_arn : null
+}
+
 # Stage 1: Transfer Server outputs
 output "transfer_server_id" {
   description = "ID of the Transfer Family server"
@@ -82,32 +108,6 @@ output "malware_errors_bucket_name" {
 output "agentcore_claims_table_name" {
   description = "Name of the DynamoDB table for claims data"
   value       = var.enable_agentcore ? aws_dynamodb_table.claims[0].name : null
-}
-
-# Stage 0: AgentCore agent runtime outputs
-output "agentcore_agent_code_bucket" {
-  description = "Name of the S3 bucket holding packaged agent code"
-  value       = var.enable_agentcore_agents ? module.agent_code_bucket[0].s3_bucket_id : null
-}
-
-output "agentcore_document_extraction_agent_arn" {
-  description = "ARN of the document extraction AgentCore runtime"
-  value       = var.enable_agentcore_agents ? module.document_extraction_agent[0].agent_runtime_arn : null
-}
-
-output "agentcore_damage_assessment_agent_arn" {
-  description = "ARN of the damage assessment AgentCore runtime"
-  value       = var.enable_agentcore_agents ? module.damage_assessment_agent[0].agent_runtime_arn : null
-}
-
-output "agentcore_fraud_detection_agent_arn" {
-  description = "ARN of the fraud detection AgentCore runtime"
-  value       = var.enable_agentcore_agents ? module.fraud_detection_agent[0].agent_runtime_arn : null
-}
-
-output "agentcore_classification_agent_arn" {
-  description = "ARN of the classification AgentCore runtime"
-  value       = var.enable_agentcore_agents ? module.classification_agent[0].agent_runtime_arn : null
 }
 
 # Stage 4: Web App outputs

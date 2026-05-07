@@ -11,11 +11,13 @@
 #   - Orchestrator Lambda that watches the clean bucket for claim zips and
 #     runs the agents through their pipeline stages
 #
-# Applying this stage with enable_agentcore = true will also update the 4
-# agent runtimes (via the stage 0 module calls, whose inputs now resolve
-# to non-empty values): data-bucket IAM + CLAIMS_BUCKET env var for all 4,
-# and invoke-gateway IAM + AGENTCORE_GATEWAY_URL env var for the 3 gateway
-# users. Each agent bumps from runtime v1 to v2 as a result.
+# Applying this stage with enable_agentcore = true only adds the gateway
+# wiring to the 3 gateway-using agents (damage_assessment, fraud_detection,
+# classification): invoke-gateway IAM + AGENTCORE_GATEWAY_URL env var, in
+# place. The data-bucket IAM and CLAIMS_BUCKET env var were already attached
+# to all 4 agents back in stage 2 (gated by enable_malware_protection, once
+# module.s3_bucket_clean came online). document_extraction_agent is
+# unchanged by this stage — it reads S3 directly via boto3.
 ################################################################################
 
 # ── DynamoDB table for claim records ─────────────────────────────────────────
@@ -169,7 +171,7 @@ resource "aws_bedrockagentcore_gateway_target" "get_claim_photos" {
   }
 }
 
-# ── Claims Reader Lambda (gateway backend) ───────────────────────────────────
+# ── Claims Reader Lambda (exposed through AgentCore gateway backend) ───────────────────────────────────
 
 resource "aws_iam_role" "claims_reader_lambda" {
   count = var.enable_agentcore ? 1 : 0

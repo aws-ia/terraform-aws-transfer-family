@@ -4,19 +4,28 @@
 #
 # The agents themselves are created in stage 0 so their (slow) build step runs
 # as part of the foundation stage rather than during the AI-processing stage.
-# Data-bucket permissions and gateway wiring are attached later in stage 3
-# (see stage3-agentcore.tf) — in stage 0 the agents exist but have no access
-# to the clean bucket or the MCP gateway.
+# Data-bucket permissions and gateway wiring are attached later, each as its
+# prerequisite comes online:
+#   - Data-bucket access (the clean bucket) lands in stage 2 once
+#     enable_malware_protection creates module.s3_bucket_clean.
+#   - Gateway invoke permission lands in stage 3 once enable_agentcore creates
+#     the MCP gateway in stage3-agentcore.tf.
+# In stage 0 the agents exist but have no access to the clean bucket or the
+# MCP gateway.
 #
 # Stage 0 apply:
-#   - 4 agent runtimes at version 1 (minimal env vars, no gateway, no data IAM)
+#   - 4 agent runtimes (base env: AWS_REGION only; no gateway, no data IAM)
 #   - agent_code_bucket holding the zipped agent code for each runtime
 #
-# Stage 3 apply (when enable_agentcore = true) will:
+# Stage 2 apply (when enable_malware_protection = true) will:
 #   - Attach data_bucket_arns = [s3_bucket_clean.arn] → creates data-bucket IAM
-#     policy + bumps runtimes to version 2 with CLAIMS_BUCKET env var
-#   - For the 3 gateway-using agents, flip enable_gateway = true → creates
-#     invoke-gateway IAM policy + adds AGENTCORE_GATEWAY_URL env var
+#     policy + adds CLAIMS_BUCKET env var on all 4 agents (in-place update)
+#
+# Stage 3 apply (when enable_agentcore = true) will:
+#   - For the 3 gateway-using agents (damage_assessment, fraud_detection,
+#     classification), flip enable_gateway = true → creates invoke-gateway IAM
+#     policy + adds AGENTCORE_GATEWAY_URL env var (in-place update).
+#     document_extraction_agent is unchanged — it reads S3 directly via boto3.
 ################################################################################
 
 locals {

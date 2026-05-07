@@ -2,11 +2,12 @@
 # Stage 3: Add AI Claims Processing
 # Components: Stage 0 + Stage 1 + Stage 2 + Agentcore with Bedrock
 #
-# This stage adds AI-powered claims processing:
-# - Amazon Bedrock agents for intelligent document processing
-# - Automated entity extraction from claims documents
-# - Fraud validation and summary generation
-# - DynamoDB storage for processed claims data
+# This stage adds the AI orchestration layer that drives the pre-built
+# AgentCore agents (created in stage 0):
+# - MCP gateway + claims_reader Lambda (tool backend for 3 agents)
+# - Claims orchestrator Lambda (S3 event → agent pipeline)
+# - DynamoDB table for claim records
+# - In-place update: 3 agents gain invoke-gateway IAM + AGENTCORE_GATEWAY_URL
 ################################################################################
 
 ################################################################################

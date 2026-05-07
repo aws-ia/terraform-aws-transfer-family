@@ -1,3 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Claims Orchestrator module
+#
+# Wires an S3 → EventBridge → Lambda pipeline that processes claim ZIP uploads
+# by invoking four Bedrock AgentCore agents sequentially (document extraction,
+# damage assessment, fraud detection, classification). Python source is
+# provided via `source_dir` and packaged with archive_file. Failures are sent
+# to a dedicated SQS dead-letter queue; X-Ray tracing is enabled.
+#
+# Components created below:
+#   • aws_sqs_queue.orchestrator_dlq        — dead-letter queue for Lambda
+#   • aws_lambda_function.orchestrator      — python3.13 pipeline handler
+#   • aws_iam_role.orchestrator (+ policy)  — S3, DynamoDB, AgentCore, X-Ray,
+#                                             SQS, and CloudWatch Logs perms
+#   • aws_s3_bucket_notification.claims     — enables EventBridge on the bucket
+#   • aws_cloudwatch_event_rule.claim_uploaded — matches *.zip Object Created
+#   • aws_cloudwatch_event_target.orchestrator — routes matches to Lambda
+#   • aws_lambda_permission.eventbridge     — allows EventBridge to invoke it
+# ─────────────────────────────────────────────────────────────────────────────
+
 terraform {
   required_version = ">= 1.0"
 
@@ -16,9 +36,6 @@ locals {
   function_name = "${var.name_prefix}-claims-orchestrator"
 }
 
-# ── DynamoDB ─────────────────────────────────────────────────────────────────
-# Table is created externally and passed in to avoid circular dependencies
-# with the gateway Lambda that also needs the table reference.
 
 # ── Lambda ───────────────────────────────────────────────────────────────────
 

@@ -1,10 +1,9 @@
 ################################################################################
 # Stage 1: Transfer Server with External Users
-# Components: Stage 0 + Transfer Family Server + Custom IDP
+# Components: Stage 0 + Transfer Family Server
 #
 # This stage adds SFTP file upload capability:
 # - Transfer Family SFTP server for secure file uploads
-# - Custom Lambda IDP integrating Cognito authentication
 # - S3 bucket for uploaded files
 ################################################################################
 

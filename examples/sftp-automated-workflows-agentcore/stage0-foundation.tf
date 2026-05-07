@@ -1,7 +1,14 @@
 ################################################################################
-# Stage 0: Identity Foundation
-# Components: IAM Identity Center, S3 Access Grants, Cognito
+# Stage 0: Identity Foundation + Custom IDP
+# Components: IAM Identity Center, S3 Access Grants, Cognito, Transfer Custom IDP
 ################################################################################
+
+################################################################################
+# Data Sources (shared across stages)
+################################################################################
+
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
 
 ################################################################################
 # Cognito Variables
@@ -224,5 +231,77 @@ resource "aws_secretsmanager_secret_version" "cognito_user_password" {
   secret_string = jsonencode({
     username = var.cognito_username
     password = random_password.cognito_user[0].result
+  })
+}
+
+################################################################################
+# Custom IDP Solution
+################################################################################
+
+# Custom IDP Solution Module
+module "transfer_custom_idp" {
+  count  = var.enable_custom_idp ? 1 : 0
+  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution?ref=v0.6.0"
+
+  # All provisioned resources will use this prefix
+  name_prefix = "transferidp"
+
+  # The Custom IdP Lambda can be attached to a VPC to connect with private ***
+  # identity providers such as Active Directory
+  use_vpc = false
+
+  # Optionally, deploy an API Gateway API to use with Transfer Family instead of
+  # Lambda. This is useful for using AWS Web Application Firewall (WAF) to filter
+  # filter authentication requests.
+  provision_api = false
+
+  # The module automatically builds the Lambda function dependencies with
+  # CodeBuild. The default compute type is BUILD_GENERAL1_SMALL
+  codebuild_compute_type = "BUILD_GENERAL1_LARGE"
+
+}
+
+################################################################################
+# Cognito → Custom IDP Provider Record
+################################################################################
+
+# Populate identity providers table with Cognito user pool details.
+resource "aws_dynamodb_table_item" "cognito_provider" {
+  count = var.enable_custom_idp && var.enable_cognito ? 1 : 0
+
+  table_name = module.transfer_custom_idp[0].identity_providers_table_name
+  hash_key   = "provider"
+
+  depends_on = [module.transfer_custom_idp]
+
+  item = jsonencode({
+    provider = {
+      # The provider name is referenced in the users table, to assign users. ***
+      S = "cognito_pool"
+    }
+    public_key_support = {
+      BOOL = false
+    }
+    # Identity providers have specific configuration attributes. In this case,
+    # The cognito user pool's app client ID and region are required.
+    config = {
+      M = {
+        cognito_client_id = {
+          S = module.cognito[0].app_client_id
+        }
+        cognito_user_pool_region = {
+          S = data.aws_region.current.id
+        }
+        mfa = {
+          # Multi-factor authentication is supported with some providers
+          BOOL = false
+        }
+      }
+    }
+    # The module field defines which identity provider module will be used
+    # to handle authentication requests.
+    module = {
+      S = "cognito"
+    }
   })
 }

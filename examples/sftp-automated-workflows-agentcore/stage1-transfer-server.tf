@@ -1,14 +1,12 @@
 ################################################################################
-# Stage 1: Transfer Server with Custom IDP
-# Components: Transfer Family Server, Custom IDP Solution, S3 Bucket
+# Stage 1: Transfer Server
+# Components: Transfer Family Server, S3 Bucket, User → IDP DynamoDB record
+#
+# The Custom IDP Lambda (module.transfer_custom_idp) and the Cognito → IDP
+# provider record (aws_dynamodb_table_item.cognito_provider) are declared in
+# stage0-foundation.tf. This file wires the Transfer Family Server to that
+# pre-existing IDP when enable_transfer_server = true.
 ################################################################################
-
-################################################################################
-# Data Sources
-################################################################################
-
-data "aws_region" "current" {}
-data "aws_caller_identity" "current" {}
 
 ################################################################################
 # Random Naming
@@ -22,34 +20,7 @@ resource "random_pet" "transfer" {
 }
 
 ################################################################################
-# Step 1: Deploy Custom IDP Solution
-################################################################################
-
-# Custom IDP Solution Module
-module "transfer_custom_idp" {
-  count  = var.enable_custom_idp ? 1 : 0
-  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution?ref=v0.6.0"
-
-  # All provisioned resources will use this prefix
-  name_prefix = "transferidp"
-
-  # The Custom IdP Lambda can be attached to a VPC to connect with private ***
-  # identity providers such as Active Directory
-  use_vpc = false
-
-  # Optionally, deploy an API Gateway API to use with Transfer Family instead of
-  # Lambda. This is useful for using AWS Web Application Firewall (WAF) to filter
-  # filter authentication requests.
-  provision_api = false
-
-  # The module automatically builds the Lambda function dependencies with 
-  # CodeBuild. The default compute type is BUILD_GENERAL1_SMALL
-  codebuild_compute_type = "BUILD_GENERAL1_LARGE"
-
-}
-
-################################################################################
-# Step 2: Transfer Family Server
+# Step 1: Transfer Family Server
 ################################################################################
 
 # Transfer Family Server Module
@@ -77,49 +48,8 @@ module "transfer_server" {
 }
 
 ################################################################################
-# Step 3: Configure User and Identity Provider Records
+# Step 2: Assign User to Identity Provider
 ################################################################################
-
-# Populate identity providers table with Cognito user pool details.
-resource "aws_dynamodb_table_item" "cognito_provider" {
-  count = var.enable_custom_idp && var.enable_cognito ? 1 : 0
-
-  table_name = module.transfer_custom_idp[0].identity_providers_table_name
-  hash_key   = "provider"
-
-  depends_on = [module.transfer_custom_idp]
-
-  item = jsonencode({
-    provider = {
-      # The provider name is referenced in the users table, to assign users. ***
-      S = "cognito_pool"
-    }
-    public_key_support = {
-      BOOL = false
-    }
-    # Identity providers have specific configuration attributes. In this case,
-    # The cognito user pool's app client ID and region are required.
-    config = {
-      M = {
-        cognito_client_id = {
-          S = module.cognito[0].app_client_id
-        }
-        cognito_user_pool_region = {
-          S = data.aws_region.current.id
-        }
-        mfa = {
-          # Multi-factor authentication is supported with some providers
-          BOOL = false
-        }
-      }
-    }
-    # The module field defines which identity provider module will be used
-    # to handle authentication requests. 
-    module = {
-      S = "cognito"
-    }
-  })
-}
 
 # Create user record for AnyCompany Auto Repair and assign to the "cognito_pool" provider
 resource "aws_dynamodb_table_item" "anycompany_repair_record" {
@@ -182,7 +112,7 @@ resource "aws_dynamodb_table_item" "anycompany_repair_record" {
 }
 
 ################################################################################
-# Step 4: S3 Bucket for Transfer Family
+# Step 3: S3 Bucket for Transfer Family
 ################################################################################
 
 # Create S3 bucket for SFTP file uploads using the s3-bucket module

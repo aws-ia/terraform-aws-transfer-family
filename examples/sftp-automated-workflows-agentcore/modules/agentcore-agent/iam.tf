@@ -1,3 +1,16 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# IAM execution role assumed by the AgentCore runtime, plus inline policies:
+#   • bedrock_invoke     — call the configured Bedrock model (inference profile
+#                          + foundation models)
+#   • cloudwatch_logs    — write to /aws/bedrock-agentcore/* log groups
+#   • s3_read            — read the agent zip from the code bucket
+#   • data_bucket_read   — (optional) list/read additional data buckets passed
+#                          via data_bucket_arns
+#   • xray_traces        — publish X-Ray segments and telemetry
+#   • invoke_gateway     — (optional) call an AgentCore Gateway when
+#                          enable_gateway = true
+# ─────────────────────────────────────────────────────────────────────────────
+
 resource "aws_iam_role" "execution" {
   name = "${local.resource_name}-execution-role"
 
