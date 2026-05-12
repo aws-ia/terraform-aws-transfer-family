@@ -9,6 +9,12 @@
 #   • xray_traces        — publish X-Ray segments and telemetry
 #   • invoke_gateway     — (optional) call an AgentCore Gateway when
 #                          enable_gateway = true
+#   • marketplace_subscribe — allow Bedrock to complete the Marketplace
+#                          subscribe-on-invoke flow for third-party models
+#                          (required since Bedrock retired the Model access
+#                          page; without this, the first ConverseStream call
+#                          fails with AccessDeniedException on
+#                          aws-marketplace:Subscribe / ViewSubscriptions)
 # ─────────────────────────────────────────────────────────────────────────────
 
 resource "aws_iam_role" "execution" {
@@ -140,6 +146,23 @@ resource "aws_iam_role_policy" "invoke_gateway" {
       Effect   = "Allow"
       Action   = ["bedrock-agentcore:InvokeGateway"]
       Resource = var.gateway_arn
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "marketplace_subscribe" {
+  name = "${local.resource_name}-marketplace-subscribe"
+  role = aws_iam_role.execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "aws-marketplace:Subscribe",
+        "aws-marketplace:ViewSubscriptions"
+      ]
+      Resource = "*"
     }]
   })
 }
