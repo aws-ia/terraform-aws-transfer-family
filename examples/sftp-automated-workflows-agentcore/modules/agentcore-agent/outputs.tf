@@ -22,3 +22,8 @@ output "execution_role_name" {
   description = "Name of the agent execution IAM role (for attaching additional policies)"
   value       = aws_iam_role.execution.name
 }
+
+output "bedrock_model_id" {
+  description = "Bedrock model ID configured for this agent"
+  value       = var.bedrock_model_id
+}

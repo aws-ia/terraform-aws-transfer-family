@@ -175,40 +175,36 @@ else
 fi
 
 echo ""
-echo -e "${YELLOW}Checking ECR repositories...${NC}"
+echo -e "${YELLOW}Checking AgentCore agent runtimes...${NC}"
 echo ""
 
-# Check if ECR repositories exist for agentcore agents
-ECR_REPOS=(
-    "claims-processing-demo-workflow-agent"
-    "claims-processing-demo-entity-extraction-agent"
-    "claims-processing-demo-fraud-validation-agent"
-    "claims-processing-demo-database-insertion-agent"
-    "claims-processing-demo-summary-generation-agent"
-)
-
-ECR_REPOS_FOUND=0
-for REPO in "${ECR_REPOS[@]}"; do
-    REPO_URI=$(aws ecr describe-repositories --repository-names "$REPO" --query 'repositories[0].repositoryUri' --output text 2>/dev/null || echo "")
-    if [ -n "$REPO_URI" ] && [ "$REPO_URI" != "None" ]; then
-        # Check if repository has images
-        IMAGE_COUNT=$(aws ecr list-images --repository-name "$REPO" --query 'length(imageIds)' --output text 2>/dev/null || echo "0")
-        if [ "$IMAGE_COUNT" -gt 0 ]; then
-            check_result "pass" "ECR repository '$REPO' exists with $IMAGE_COUNT image(s)"
-        else
-            check_result "warn" "ECR repository '$REPO' exists but has no images"
-        fi
-        ECR_REPOS_FOUND=$((ECR_REPOS_FOUND + 1))
-    fi
-done
-
-if [ $ECR_REPOS_FOUND -eq 0 ]; then
-    check_result "warn" "No ECR repositories found - Stage 3 (AgentCore) will not be available"
-    echo -e "  ${BLUE}→${NC} Deploy ECR repositories with: terraform apply -var-file=stage0.tfvars -var enable_agentcore_ecr=true"
-elif [ $ECR_REPOS_FOUND -lt 5 ]; then
-    check_result "warn" "Only $ECR_REPOS_FOUND of 5 ECR repositories found"
+# Check if agent runtimes exist using Terraform outputs
+EXTRACTION_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_document_extraction_agent_arn 2>/dev/null || echo "")
+if [ -n "$EXTRACTION_ARN" ] && [ "$EXTRACTION_ARN" != "null" ]; then
+    check_result "pass" "Document extraction agent runtime exists"
 else
-    check_result "pass" "All 5 ECR repositories found"
+    check_result "fail" "Document extraction agent runtime not found"
+fi
+
+DAMAGE_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_damage_assessment_agent_arn 2>/dev/null || echo "")
+if [ -n "$DAMAGE_ARN" ] && [ "$DAMAGE_ARN" != "null" ]; then
+    check_result "pass" "Damage assessment agent runtime exists"
+else
+    check_result "fail" "Damage assessment agent runtime not found"
+fi
+
+FRAUD_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_fraud_detection_agent_arn 2>/dev/null || echo "")
+if [ -n "$FRAUD_ARN" ] && [ "$FRAUD_ARN" != "null" ]; then
+    check_result "pass" "Fraud detection agent runtime exists"
+else
+    check_result "fail" "Fraud detection agent runtime not found"
+fi
+
+CLASSIFICATION_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_classification_agent_arn 2>/dev/null || echo "")
+if [ -n "$CLASSIFICATION_ARN" ] && [ "$CLASSIFICATION_ARN" != "null" ]; then
+    check_result "pass" "Classification agent runtime exists"
+else
+    check_result "fail" "Classification agent runtime not found"
 fi
 
 echo ""
@@ -218,52 +214,30 @@ echo ""
 # Check Bedrock model access
 AWS_REGION=$(aws configure get region || echo "us-east-1")
 
-# Required models for agentcore
-REQUIRED_HAIKU="anthropic.claude-3-haiku-20240307-v1:0"
-REQUIRED_SONNET="anthropic.claude-3-5-sonnet-20240620-v1:0"
-
-# Check Claude 3 Haiku
-HAIKU_STATUS=$(aws bedrock list-foundation-models --region "$AWS_REGION" --query "modelSummaries[?modelId=='$REQUIRED_HAIKU'].modelId" --output text 2>/dev/null || echo "")
-if [ -n "$HAIKU_STATUS" ]; then
-    check_result "pass" "Claude 3 Haiku model accessible"
-    
-    # Test model invocation
-    TEST_RESPONSE=$(aws bedrock-runtime invoke-model \
-        --region "$AWS_REGION" \
-        --model-id "$REQUIRED_HAIKU" \
-        --body '{"anthropic_version":"bedrock-2023-05-31","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}' \
-        --cli-binary-format raw-in-base64-out \
-        /dev/stdout 2>/dev/null | jq -r '.content[0].text' 2>/dev/null || echo "")
-    
-    if [ -n "$TEST_RESPONSE" ]; then
-        check_result "pass" "Claude 3 Haiku invocation successful"
-    else
-        check_result "fail" "Claude 3 Haiku invocation failed - check model access permissions"
-    fi
+# Required inference profile for agentcore (from Terraform config)
+REQUIRED_MODEL=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_bedrock_model_id 2>/dev/null || echo "")
+if [ -z "$REQUIRED_MODEL" ]; then
+    check_result "fail" "Cannot determine Bedrock model ID from Terraform outputs"
 else
-    check_result "fail" "Claude 3 Haiku not accessible - enable in Bedrock console"
-fi
-
-# Check Claude 3.5 Sonnet
-SONNET_STATUS=$(aws bedrock list-foundation-models --region "$AWS_REGION" --query "modelSummaries[?modelId=='$REQUIRED_SONNET'].modelId" --output text 2>/dev/null || echo "")
-if [ -n "$SONNET_STATUS" ]; then
-    check_result "pass" "Claude 3.5 Sonnet model accessible"
-    
-    # Test model invocation
-    TEST_RESPONSE=$(aws bedrock-runtime invoke-model \
-        --region "$AWS_REGION" \
-        --model-id "$REQUIRED_SONNET" \
-        --body '{"anthropic_version":"bedrock-2023-05-31","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}' \
-        --cli-binary-format raw-in-base64-out \
-        /dev/stdout 2>/dev/null | jq -r '.content[0].text' 2>/dev/null || echo "")
-    
-    if [ -n "$TEST_RESPONSE" ]; then
-        check_result "pass" "Claude 3.5 Sonnet invocation successful"
+    # Check model via get-inference-profile (cross-region inference profile)
+    PROFILE_STATUS=$(aws bedrock get-inference-profile --inference-profile-identifier "$REQUIRED_MODEL" --query "status" --output text 2>/dev/null || echo "")
+    if [ "$PROFILE_STATUS" = "ACTIVE" ]; then
+        check_result "pass" "Bedrock inference profile active ($REQUIRED_MODEL)"
     else
-        check_result "fail" "Claude 3.5 Sonnet invocation failed - check model access permissions"
+        # Profile status not available — try invoking the model to confirm access
+        echo -e "  ${BLUE}ℹ${NC} Inference profile status unavailable, testing model invocation..."
+        CONVERSE_OUTPUT=$(aws bedrock-runtime converse \
+            --model-id "$REQUIRED_MODEL" \
+            --messages '[{"role":"user","content":[{"text":"Hi"}]}]' \
+            --inference-config '{"maxTokens":1}' 2>&1)
+        CONVERSE_RESULT=$(echo "$CONVERSE_OUTPUT" | jq -r '.output.message.role' 2>/dev/null || echo "")
+        if [ "$CONVERSE_RESULT" = "assistant" ]; then
+            check_result "pass" "Bedrock model accessible via converse ($REQUIRED_MODEL)"
+        else
+            check_result "fail" "Bedrock model not accessible — verify model access for $REQUIRED_MODEL in Bedrock console"
+            echo -e "  ${RED}CLI output:${NC} $CONVERSE_OUTPUT"
+        fi
     fi
-else
-    check_result "fail" "Claude 3.5 Sonnet not accessible - enable in Bedrock console"
 fi
 
 echo ""
@@ -281,8 +255,8 @@ echo ""
 echo -e "  ${YELLOW}3.${NC} Claims Administrator password reset"
 echo -e "     ${BLUE}→${NC} https://console.aws.amazon.com/singlesignon/home?region=$AWS_REGION#/users"
 echo ""
-echo -e "  ${YELLOW}4.${NC} Bedrock model access enabled and use case form completed"
-echo -e "     ${BLUE}→${NC} https://console.aws.amazon.com/bedrock/home?region=$AWS_REGION#/modelaccess"
+echo -e "  ${YELLOW}4.${NC} Bedrock cross-region inference profile accessible (${REQUIRED_MODEL:-unknown})"
+echo -e "     ${BLUE}→${NC} Cross-region inference profiles are available by default — no manual enablement required"
 echo ""
 
 # Summary

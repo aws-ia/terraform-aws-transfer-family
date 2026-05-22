@@ -303,17 +303,15 @@ cd code-talk
   - `claim-3-repair-estimate.pdf` — repair estimate
   - Exercises all 4 agents end-to-end: document extraction (across 3 distinct document types), damage assessment, fraud detection, and classification
 
-### Monitoring Agent Activity [wip]
+### Monitoring Agent Activity
 
 The `stage3-test.sh` script provides real-time monitoring of agent logs with color-coded output.
 
-> **Note**: The prefixes below reflect the current state of `stage3-test.sh`, which predates the 4-agent refactor. The agent names and pipeline shown in the **AI Agent Architecture** section below are the source of truth for what actually runs — the test script is scheduled for a separate update to match.
-
-- 🟣 **[WORKFLOW]** — orchestration output
-- 🔵 **[ENTITY]** — extraction activity
-- 🔴 **[FRAUD]** — fraud/damage checks
-- 🟡 **[DATABASE]** — DynamoDB writes
-- 🟢 **[SUMMARY]** — summary generation
+- 🔵 **[EXTRACTION]** — document extraction
+- 🟣 **[DAMAGE]** — damage assessment
+- 🔴 **[FRAUD]** — fraud detection
+- 🟡 **[CLASSIFICATION]** — claim routing
+- 🟢 **[ORCHESTRATOR]** — pipeline coordination
 
 Press **Ctrl+C** during monitoring to skip to the next step.
 
@@ -478,7 +476,8 @@ Key outputs include:
 - Cognito username and password (in Secrets Manager)
 - Web app endpoint
 - S3 bucket names
-- AgentCore workflow agent ID
+- AgentCore agent runtime ARNs
+- Orchestrator Lambda name
 - DynamoDB table name
 
 ## License

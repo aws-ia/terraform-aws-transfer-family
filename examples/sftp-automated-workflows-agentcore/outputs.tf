@@ -62,6 +62,11 @@ output "agentcore_classification_agent_arn" {
   value       = var.enable_agentcore_agents ? module.classification_agent[0].agent_runtime_arn : null
 }
 
+output "agentcore_bedrock_model_id" {
+  description = "Bedrock model ID used by AgentCore agents"
+  value       = var.enable_agentcore_agents ? module.document_extraction_agent[0].bedrock_model_id : null
+}
+
 # Stage 1: Transfer Server outputs
 output "transfer_server_id" {
   description = "ID of the Transfer Family server"

@@ -40,11 +40,10 @@ TRANSFER_SERVER_ENDPOINT=$(terraform -chdir="$SCRIPT_DIR" output -raw transfer_s
 UPLOAD_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_upload_bucket_name 2>/dev/null || echo "")
 CLEAN_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_clean_bucket_name 2>/dev/null || echo "")
 QUARANTINE_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_quarantine_bucket_name 2>/dev/null || echo "")
-WORKFLOW_AGENT_ID=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_workflow_agent_runtime_id 2>/dev/null || echo "")
 CLAIMS_TABLE=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_claims_table_name 2>/dev/null || echo "")
 
 # Validate outputs
-if [ -z "$COGNITO_USERNAME" ] || [ -z "$COGNITO_PASSWORD_SECRET_ARN" ] || [ -z "$TRANSFER_SERVER_ENDPOINT" ] || [ -z "$UPLOAD_BUCKET" ] || [ -z "$CLEAN_BUCKET" ] || [ -z "$WORKFLOW_AGENT_ID" ]; then
+if [ -z "$COGNITO_USERNAME" ] || [ -z "$COGNITO_PASSWORD_SECRET_ARN" ] || [ -z "$TRANSFER_SERVER_ENDPOINT" ] || [ -z "$UPLOAD_BUCKET" ] || [ -z "$CLEAN_BUCKET" ]; then
     echo -e "${RED}Error: Unable to retrieve required connection information.${NC}"
     echo -e "${RED}Please ensure Stage 3 has been deployed successfully.${NC}"
     exit 1
@@ -53,8 +52,6 @@ fi
 echo -e "${GREEN}✓ Connection information retrieved${NC}"
 echo ""
 
-# Display workflow agent information
-echo -e "${BLUE}Workflow Agent ID:${NC} $WORKFLOW_AGENT_ID"
 echo -e "${BLUE}Claims Table:${NC} $CLAIMS_TABLE"
 echo ""
 
@@ -153,7 +150,6 @@ echo -e "${GREEN}Monitoring AI Claims Processing${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-echo -e "${BLUE}Workflow Agent:${NC} $WORKFLOW_AGENT_ID"
 echo -e "${BLUE}Claims Table:${NC} $CLAIMS_TABLE"
 echo ""
 
@@ -183,10 +179,13 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MON
         --query 'logGroups[].logGroupName' \
         --output text 2>/dev/null || echo "")
     
-    # Fetch recent log events from all log groups
+    # Also monitor orchestrator Lambda log group
+    ORCHESTRATOR_LOG_GROUP="/aws/lambda/tf-demo-claims-orchestrator"
+    
+    # Fetch recent log events from all agent log groups
     for LOG_GROUP in $LOG_GROUPS; do
-        # Extract agent name from log group path
-        AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||' | cut -d'-' -f1)
+        # Extract agent name from log group path (full runtime name)
+        AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||')
         
         # Use JSON output and parse with jq to properly handle newlines
         aws logs filter-log-events \
@@ -198,28 +197,37 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MON
                 if [ -n "$line" ]; then
                     # Color code by agent type
                     case "$AGENT_NAME" in
-                        *workflow*)
-                            echo -e "${MAGENTA}[WORKFLOW]${NC} $line"
+                        *document_extraction*|*document-extraction*)
+                            echo -e "${BLUE}[EXTRACTION]${NC} $line"
                             ;;
-                        *entity*)
-                            echo -e "${BLUE}[ENTITY]${NC} $line"
+                        *damage_assessment*|*damage-assessment*)
+                            echo -e "${MAGENTA}[DAMAGE]${NC} $line"
                             ;;
-                        *validation*|*fraud*)
+                        *fraud_detection*|*fraud-detection*)
                             echo -e "${RED}[FRAUD]${NC} $line"
                             ;;
-                        *database*)
-                            echo -e "${YELLOW}[DATABASE]${NC} $line"
-                            ;;
-                        *summary*)
-                            echo -e "${GREEN}[SUMMARY]${NC} $line"
+                        *classification*)
+                            echo -e "${YELLOW}[CLASSIFICATION]${NC} $line"
                             ;;
                         *)
-                            echo -e "${CYAN}[AGENT]${NC} $line"
+                            echo -e "${GREEN}[AGENT]${NC} $line"
                             ;;
                     esac
                 fi
             done
     done
+    
+    # Fetch recent log events from orchestrator Lambda
+    aws logs filter-log-events \
+        --log-group-name "$ORCHESTRATOR_LOG_GROUP" \
+        --start-time $START_TIME \
+        --output json 2>/dev/null | \
+        jq -r '.events[]?.message // empty' 2>/dev/null | \
+        while IFS= read -r line; do
+            if [ -n "$line" ]; then
+                echo -e "${CYAN}[ORCHESTRATOR]${NC} $line"
+            fi
+        done
     
     START_TIME=$(($(date +%s) * 1000))
     sleep 3
@@ -316,10 +324,13 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MON
         --query 'logGroups[].logGroupName' \
         --output text 2>/dev/null || echo "")
     
-    # Fetch recent log events from all log groups
+    # Also monitor orchestrator Lambda log group
+    ORCHESTRATOR_LOG_GROUP="/aws/lambda/tf-demo-claims-orchestrator"
+    
+    # Fetch recent log events from all agent log groups
     for LOG_GROUP in $LOG_GROUPS; do
-        # Extract agent name from log group path
-        AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||' | cut -d'-' -f1)
+        # Extract agent name from log group path (full runtime name)
+        AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||')
         
         # Use JSON output and parse with jq to properly handle newlines
         aws logs filter-log-events \
@@ -331,28 +342,37 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MON
                 if [ -n "$line" ]; then
                     # Color code by agent type
                     case "$AGENT_NAME" in
-                        *workflow*)
-                            echo -e "${MAGENTA}[WORKFLOW]${NC} $line"
+                        *document_extraction*|*document-extraction*)
+                            echo -e "${BLUE}[EXTRACTION]${NC} $line"
                             ;;
-                        *entity*)
-                            echo -e "${BLUE}[ENTITY]${NC} $line"
+                        *damage_assessment*|*damage-assessment*)
+                            echo -e "${MAGENTA}[DAMAGE]${NC} $line"
                             ;;
-                        *validation*|*fraud*)
+                        *fraud_detection*|*fraud-detection*)
                             echo -e "${RED}[FRAUD]${NC} $line"
                             ;;
-                        *database*)
-                            echo -e "${YELLOW}[DATABASE]${NC} $line"
-                            ;;
-                        *summary*)
-                            echo -e "${GREEN}[SUMMARY]${NC} $line"
+                        *classification*)
+                            echo -e "${YELLOW}[CLASSIFICATION]${NC} $line"
                             ;;
                         *)
-                            echo -e "${CYAN}[AGENT]${NC} $line"
+                            echo -e "${GREEN}[AGENT]${NC} $line"
                             ;;
                     esac
                 fi
             done
     done
+    
+    # Fetch recent log events from orchestrator Lambda
+    aws logs filter-log-events \
+        --log-group-name "$ORCHESTRATOR_LOG_GROUP" \
+        --start-time $START_TIME \
+        --output json 2>/dev/null | \
+        jq -r '.events[]?.message // empty' 2>/dev/null | \
+        while IFS= read -r line; do
+            if [ -n "$line" ]; then
+                echo -e "${CYAN}[ORCHESTRATOR]${NC} $line"
+            fi
+        done
     
     START_TIME=$(($(date +%s) * 1000))
     sleep 3

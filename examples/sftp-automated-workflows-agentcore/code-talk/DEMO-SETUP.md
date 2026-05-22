@@ -19,13 +19,13 @@ This guide walks through the setup process for the SFTP Automated Workflows demo
   - Linux: `xclip` or `xsel` (`sudo apt-get install xclip`)
   - WSL: `clip.exe` (built-in)
 
-## Stage 0: Identity Foundation + AgentCore ECR
+## Stage 0: Identity Foundation + AgentCore Agents
 
-Stage 0 deploys the identity and authentication infrastructure plus Docker images:
+Stage 0 deploys the identity and authentication infrastructure plus agent runtimes:
 - IAM Identity Center for internal users
 - S3 Access Grants for fine-grained permissions
 - Cognito User Pool for external users (SFTP)
-- **ECR repositories and Docker images for AgentCore agents (~2 min build time)**
+- **4 AgentCore agent runtimes (packaged with uv pip install + zip, uploaded to S3)**
 
 ### Step 1: Deploy Infrastructure
 
@@ -38,7 +38,7 @@ The script will:
 1. Initialize Terraform
 2. Show the deployment command
 3. Wait for confirmation
-4. Deploy all Stage 0 resources (including Docker builds)
+4. Deploy all Stage 0 resources
 5. Display deployment information with console links
 
 ### Step 2: Verify Deployment
@@ -67,11 +67,10 @@ The following steps may need to be completed manually in the AWS Console. **Chec
    - Navigate to: https://console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess
    - Or: AWS Console → Amazon Bedrock → Model access
 
-2. **Enable Required Claude Models**:
+2. **Enable Required Claude Model**:
    - Click "Manage model access"
-   - Enable these specific models:
-     - ✓ **Anthropic Claude 3 Haiku** (required for entity extraction, database, summary agents)
-     - ✓ **Anthropic Claude 3.5 Sonnet** (required for fraud validation with vision)
+   - Enable this model:
+     - ✓ **Anthropic Claude Sonnet 4.6** (`global.anthropic.claude-sonnet-4-6`)
    - Click "Save changes"
 
 3. **Complete Use Case Form** (if prompted):
@@ -84,7 +83,6 @@ The following steps may need to be completed manually in the AWS Console. **Chec
    ./stage0-verify.sh
    ```
    - Bedrock checks should now pass
-   - Model invocation tests should succeed
 
 #### B. Configure IAM Identity Center (Required)
 
@@ -143,12 +141,11 @@ Your demo environment is now configured and ready to use. You can deploy and tes
 ./stage2-test.sh    # Test malware scan and routing
 ```
 
-**Stage 3: AI Claims Processing (Agent Deployment)**
+**Stage 3: AI Claims Processing (MCP Gateway + Orchestrator)**
 ```bash
-./stage3-deploy.sh  # Deploy Bedrock agents (uses Docker images from Stage 0)
+./stage3-deploy.sh  # Deploy MCP gateway + claims_reader Lambda + orchestrator Lambda + DynamoDB
 ./stage3-test.sh    # Test AI processing pipeline
 ```
-**Note**: Stage 3 deploys the Bedrock agents only. Docker images were already built in Stage 0, saving ~2 minutes.
 
 **Stage 4: Web Application**
 ```bash
@@ -182,7 +179,7 @@ Each test script will:
 - **Solution**: Either use the existing instance or delete it first
 
 **Issue**: Bedrock model access denied
-- **Solution**: Complete Step 3A above to enable Claude models
+- **Solution**: Complete Step 3A above to enable `global.anthropic.claude-sonnet-4-6`
 - **Solution**: Ensure use case form is submitted and approved
 
 **Issue**: SFTP connection fails

@@ -14,13 +14,47 @@ echo -e "${CYAN}========================================${NC}"
 echo -e "${CYAN}  Claims Processing Agents Monitor${NC}"
 echo -e "${CYAN}========================================${NC}\n"
 
-# Agent log groups
-WORKFLOW="/aws/bedrock-agentcore/runtimes/alnv_workflow_agent-9GGo5c9pDK-alnv_workflow_agent_endpoint"
-ENTITY="/aws/bedrock-agentcore/runtimes/eeld_entity_extraction_agent-x2eFhXF84K-eeld_entity_extraction_agent_endpoint"
-FRAUD="/aws/bedrock-agentcore/runtimes/dmxj_validation_agent-2LnCup3MaZ-dmxj_validation_agent_endpoint"
-DATABASE="/aws/bedrock-agentcore/runtimes/zpkv_database_insertion_agent-UtHw0HEl0k-zpkv_database_insertion_agent_endpoint"
-SUMMARY="/aws/bedrock-agentcore/runtimes/ioxo_summary_generation_agent-5TqRkCCQ37-ioxo_summary_generation_agent_endpoint"
-CLAIMS_LAMBDA="/aws/lambda/claims-processor-trigger"
+# Resolve script directory for Terraform output lookups
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Retrieve agent runtime ARNs from Terraform outputs
+EXTRACTION_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_document_extraction_agent_arn 2>/dev/null || echo "")
+DAMAGE_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_damage_assessment_agent_arn 2>/dev/null || echo "")
+FRAUD_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_fraud_detection_agent_arn 2>/dev/null || echo "")
+CLASSIFICATION_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_classification_agent_arn 2>/dev/null || echo "")
+
+# Derive log group from agent runtime ARN
+# ARN format: arn:aws:bedrock-agentcore:region:account:runtime/RUNTIME_NAME
+# Log group pattern: /aws/bedrock-agentcore/runtimes/{runtime_name}
+get_agent_log_group() {
+    local arn=$1
+    if [ -z "$arn" ]; then
+        echo ""
+        return
+    fi
+    local runtime_name
+    runtime_name=$(echo "$arn" | awk -F'/' '{print $NF}')
+    local log_group
+    log_group=$(aws logs describe-log-groups \
+        --log-group-name-prefix "/aws/bedrock-agentcore/runtimes/$runtime_name" \
+        --query 'logGroups[0].logGroupName' --output text 2>/dev/null || echo "")
+    if [ "$log_group" = "None" ]; then
+        echo ""
+    else
+        echo "$log_group"
+    fi
+}
+
+# Discover agent log groups dynamically
+EXTRACTION_LOG_GROUP=$(get_agent_log_group "$EXTRACTION_ARN")
+DAMAGE_LOG_GROUP=$(get_agent_log_group "$DAMAGE_ARN")
+FRAUD_LOG_GROUP=$(get_agent_log_group "$FRAUD_ARN")
+CLASSIFICATION_LOG_GROUP=$(get_agent_log_group "$CLASSIFICATION_ARN")
+
+# Orchestrator Lambda log group
+ORCHESTRATOR_LAMBDA="/aws/lambda/tf-demo-claims-orchestrator"
+
+# Malware scanner Lambda log group
 MALWARE_LAMBDA="/aws/lambda/mp-aws-ia-mutual-adder-file-transfer-function"
 
 tail_logs() {
@@ -48,23 +82,20 @@ tail_logs() {
 }
 
 case "$1" in
-    "workflow")
-        tail_logs "$WORKFLOW" "WORKFLOW" "$MAGENTA"
+    "extraction")
+        tail_logs "$EXTRACTION_LOG_GROUP" "EXTRACTION" "$BLUE"
         ;;
-    "entity")
-        tail_logs "$ENTITY" "ENTITY" "$BLUE"
+    "damage")
+        tail_logs "$DAMAGE_LOG_GROUP" "DAMAGE" "$MAGENTA"
         ;;
     "fraud")
-        tail_logs "$FRAUD" "FRAUD" "$RED"
+        tail_logs "$FRAUD_LOG_GROUP" "FRAUD" "$RED"
         ;;
-    "database")
-        tail_logs "$DATABASE" "DATABASE" "$YELLOW"
+    "classification")
+        tail_logs "$CLASSIFICATION_LOG_GROUP" "CLASSIFICATION" "$YELLOW"
         ;;
-    "summary")
-        tail_logs "$SUMMARY" "SUMMARY" "$GREEN"
-        ;;
-    "claims")
-        tail_logs "$CLAIMS_LAMBDA" "CLAIMS" "$CYAN"
+    "orchestrator")
+        tail_logs "$ORCHESTRATOR_LAMBDA" "ORCHESTRATOR" "$CYAN"
         ;;
     "malware")
         tail_logs "$MALWARE_LAMBDA" "MALWARE" "$YELLOW"
@@ -72,29 +103,27 @@ case "$1" in
     "all")
         echo -e "${WHITE}Starting all agent monitors...${NC}\n"
         echo -e "${WHITE}Open separate terminals and run:${NC}"
-        echo -e "  ${CYAN}Terminal 1:${NC} /tmp/monitor_agents.sh claims"
-        echo -e "  ${YELLOW}Terminal 2:${NC} /tmp/monitor_agents.sh malware"
-        echo -e "  ${MAGENTA}Terminal 3:${NC} /tmp/monitor_agents.sh workflow"
-        echo -e "  ${BLUE}Terminal 4:${NC} /tmp/monitor_agents.sh entity"
-        echo -e "  ${RED}Terminal 5:${NC} /tmp/monitor_agents.sh fraud"
-        echo -e "  ${YELLOW}Terminal 6:${NC} /tmp/monitor_agents.sh database"
-        echo -e "  ${GREEN}Terminal 7:${NC} /tmp/monitor_agents.sh summary"
+        echo -e "  ${BLUE}Terminal 1:${NC} $0 extraction"
+        echo -e "  ${MAGENTA}Terminal 2:${NC} $0 damage"
+        echo -e "  ${RED}Terminal 3:${NC} $0 fraud"
+        echo -e "  ${YELLOW}Terminal 4:${NC} $0 classification"
+        echo -e "  ${CYAN}Terminal 5:${NC} $0 orchestrator"
+        echo -e "  ${YELLOW}Terminal 6:${NC} $0 malware"
         ;;
     *)
-        echo "Usage: $0 {workflow|entity|fraud|database|summary|claims|malware|all}"
+        echo "Usage: $0 {extraction|damage|fraud|classification|orchestrator|malware|all}"
         echo ""
         echo "Agents:"
-        echo "  workflow  - Orchestration agent (coordinates all agents)"
-        echo "  entity    - Entity extraction agent (reads PDF)"
-        echo "  fraud     - Fraud validation agent (compares image to description)"
-        echo "  database  - Database insertion agent (saves to DynamoDB)"
-        echo "  summary   - Summary generation agent (creates report)"
+        echo "  extraction      - Document extraction agent (reads PDF)"
+        echo "  damage          - Damage assessment agent (analyzes damage)"
+        echo "  fraud           - Fraud detection agent (checks for fraud)"
+        echo "  classification  - Classification agent (routes claims)"
         echo ""
         echo "Infrastructure:"
-        echo "  claims    - Claims processor Lambda (triggers workflow)"
-        echo "  malware   - Malware scanner Lambda (GuardDuty integration)"
+        echo "  orchestrator  - Claims orchestrator Lambda (coordinates pipeline)"
+        echo "  malware       - Malware scanner Lambda (GuardDuty integration)"
         echo ""
-        echo "  all       - Show commands for all monitors"
+        echo "  all           - Show commands for all monitors"
         exit 1
         ;;
 esac

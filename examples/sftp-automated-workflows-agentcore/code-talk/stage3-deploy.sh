@@ -2,8 +2,8 @@
 
 ################################################################################
 # Stage 3 Deployment Script
-# Deploys AI Claims Processing with Amazon Bedrock (Agent Deployment Only)
-# Note: Docker images were built in Stage 0
+# Deploys AI Claims Processing with Amazon Bedrock
+# (MCP Gateway + Orchestrator Lambda + DynamoDB)
 ################################################################################
 
 set -e  # Exit on error
@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
-echo -e "${BLUE}Stage 3: AI Claims Processing (Agent Deployment)${NC}"
+echo -e "${BLUE}Stage 3: AI Claims Processing (MCP Gateway + Orchestrator Lambda + DynamoDB)${NC}"
 echo -e "${BLUE}=================================${NC}"
 echo ""
 
@@ -54,10 +54,10 @@ if [ $? -eq 0 ]; then
     echo -e "${BLUE}Retrieving deployment information...${NC}"
     echo ""
     
-    WORKFLOW_AGENT_ID=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_workflow_agent_runtime_id 2>/dev/null || echo "")
     CLAIMS_TABLE=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_claims_table_name 2>/dev/null || echo "")
     CLEAN_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_clean_bucket_name 2>/dev/null || echo "")
     TRANSFER_SERVER_ENDPOINT=$(terraform -chdir="$SCRIPT_DIR" output -raw transfer_server_endpoint 2>/dev/null || echo "")
+    ORCHESTRATOR_LAMBDA=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_orchestrator_lambda_name 2>/dev/null || echo "")
     
     # Display connection information
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -71,9 +71,9 @@ if [ $? -eq 0 ]; then
         echo ""
     fi
     
-    if [ -n "$WORKFLOW_AGENT_ID" ]; then
-        echo -e "${BLUE}Workflow Agent Runtime ID:${NC}"
-        echo "  $WORKFLOW_AGENT_ID"
+    if [ -n "$ORCHESTRATOR_LAMBDA" ]; then
+        echo -e "${BLUE}Orchestrator Lambda:${NC}"
+        echo "  $ORCHESTRATOR_LAMBDA"
         echo ""
     fi
     
