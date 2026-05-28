@@ -16,8 +16,8 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Script directory (parent of walkthrough folder)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Script directory (two levels above scripts folder (the example root))
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
 echo -e "${BLUE}Stage 3: AI Claims Processing Test${NC}"
@@ -97,7 +97,7 @@ echo ""
 
 # Always re-zip claims to ensure latest files
 echo -e "${YELLOW}Creating ZIP files for claims...${NC}"
-"$SCRIPT_DIR/walkthrough/zip-claims.sh"
+"$SCRIPT_DIR/walkthrough/scripts/zip-claims.sh"
 echo ""
 
 ZIPPED_DIR="$SCRIPT_DIR/data/zipped"

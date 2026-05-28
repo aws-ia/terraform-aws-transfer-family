@@ -6,7 +6,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # Resolve the parent directory (Terraform root)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Retrieve SFTP connection details from Terraform outputs
 TRANSFER_SERVER_ENDPOINT=$(terraform -chdir="$SCRIPT_DIR" output -raw transfer_server_endpoint 2>/dev/null || echo "")
@@ -33,16 +33,16 @@ echo -e "  7. Fraud detection"
 echo -e "  8. Classification and summary generation\n"
 
 echo -e "${CYAN}🔍 Monitoring Options:${NC}"
-echo -e "  Single agent:  ./walkthrough/monitor_agents.sh {extraction|damage|fraud|classification|orchestrator}"
-echo -e "  Infrastructure: ./walkthrough/monitor_agents.sh {claims|malware}"
-echo -e "  All commands:  ./walkthrough/monitor_agents.sh all\n"
+echo -e "  Single agent:  ./walkthrough/scripts/monitor_agents.sh {extraction|damage|fraud|classification|orchestrator}"
+echo -e "  Infrastructure: ./walkthrough/scripts/monitor_agents.sh {claims|malware}"
+echo -e "  All commands:  ./walkthrough/scripts/monitor_agents.sh all\n"
 
 echo -e "${GREEN}📁 Test Files:${NC}"
 echo -e "  Location: data/claim-3/"
 echo -e "  Files: car_damage_claim_report.pdf, claim-3.png\n"
 
 echo -e "${YELLOW}🚀 Ready to start demo!${NC}"
-echo -e "Run: ${CYAN}./walkthrough/monitor_agents.sh claims${NC} in another terminal, then upload files via SFTP\n"
+echo -e "Run: ${CYAN}./walkthrough/scripts/monitor_agents.sh claims${NC} in another terminal, then upload files via SFTP\n"
 
 echo -e "${CYAN}SFTP Upload Command:${NC}"
 echo -e "  sftp ${COGNITO_USERNAME}@${TRANSFER_SERVER_ENDPOINT}"

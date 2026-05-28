@@ -29,7 +29,11 @@ See [`DEMO-SETUP.md`](./DEMO-SETUP.md) for the full prerequisites checklist:
 
 ## Stages
 
-All scripts run from this folder (`examples/sftp-automated-workflows-agentcore/walkthrough/`). Each `terraform` invocation operates against the example root via `terraform -chdir=..`.
+All scripts live in `walkthrough/scripts/` and are invoked from there. Each `terraform` invocation runs against the example root (two levels up) via `terraform -chdir=../..`.
+
+```bash
+cd examples/sftp-automated-workflows-agentcore/walkthrough/scripts
+```
 
 ### Stage 0 — Foundation
 

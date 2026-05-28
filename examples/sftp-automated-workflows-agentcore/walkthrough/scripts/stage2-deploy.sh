@@ -1,8 +1,8 @@
 #!/bin/bash
 
 ################################################################################
-# Stage 1 Deployment Script
-# Deploys Transfer Family Server with Custom IDP and Cognito authentication
+# Stage 2 Deployment Script
+# Deploys GuardDuty Malware Protection with S3 Routing
 ################################################################################
 
 set -e  # Exit on error
@@ -14,11 +14,11 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory (parent of walkthrough folder)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Script directory (two levels above scripts folder (the example root))
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
-echo -e "${BLUE}Stage 1: Transfer Server Deployment${NC}"
+echo -e "${BLUE}Stage 2: Malware Protection Deployment${NC}"
 echo -e "${BLUE}=================================${NC}"
 echo ""
 
@@ -29,17 +29,17 @@ if [ ! -d "$SCRIPT_DIR/.terraform" ]; then
     echo ""
 fi
 
-# Deploy Stage 1
-echo -e "${YELLOW}Ready to deploy Stage 1 infrastructure${NC}"
+# Deploy Stage 2
+echo -e "${YELLOW}Ready to deploy Stage 2 infrastructure${NC}"
 echo ""
-echo -e "${BLUE}Command:${NC} terraform apply -var-file=walkthrough/stage1.tfvars -auto-approve -compact-warnings"
+echo -e "${BLUE}Command:${NC} terraform apply -var-file=walkthrough/stage2.tfvars -auto-approve -compact-warnings"
 echo ""
 echo -e "${YELLOW}Press Enter to deploy...${NC}"
 read -r
 
 echo ""
-echo -e "${YELLOW}Deploying Stage 1 infrastructure...${NC}"
-terraform -chdir="$SCRIPT_DIR" apply -var-file="walkthrough/stage1.tfvars" -auto-approve -compact-warnings
+echo -e "${YELLOW}Deploying Stage 2 infrastructure...${NC}"
+terraform -chdir="$SCRIPT_DIR" apply -var-file="walkthrough/stage2.tfvars" -auto-approve -compact-warnings
 
 # Check if deployment was successful
 if [ $? -eq 0 ]; then
@@ -53,35 +53,16 @@ if [ $? -eq 0 ]; then
     echo -e "${BLUE}Retrieving deployment information...${NC}"
     echo ""
     
-    COGNITO_USER_POOL_ID=$(terraform -chdir="$SCRIPT_DIR" output -raw cognito_user_pool_id 2>/dev/null || echo "")
-    COGNITO_USERNAME=$(terraform -chdir="$SCRIPT_DIR" output -raw cognito_username 2>/dev/null || echo "")
+    UPLOAD_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_upload_bucket_name 2>/dev/null || echo "")
+    CLEAN_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_clean_bucket_name 2>/dev/null || echo "")
+    QUARANTINE_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw malware_quarantine_bucket_name 2>/dev/null || echo "")
     TRANSFER_SERVER_ENDPOINT=$(terraform -chdir="$SCRIPT_DIR" output -raw transfer_server_endpoint 2>/dev/null || echo "")
-    TRANSFER_S3_BUCKET=$(terraform -chdir="$SCRIPT_DIR" output -raw transfer_s3_bucket_name 2>/dev/null || echo "")
-    CLOUDFRONT_URL=$(terraform -chdir="$SCRIPT_DIR" output -raw cloudfront_url 2>/dev/null || echo "")
     
     # Display connection information
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}Connection Information${NC}"
+    echo -e "${GREEN}Malware Protection Information${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    
-    if [ -n "$COGNITO_USER_POOL_ID" ]; then
-        echo -e "${BLUE}Cognito User Pool ID:${NC}"
-        echo "  $COGNITO_USER_POOL_ID"
-        echo ""
-    fi
-    
-    if [ -n "$COGNITO_USERNAME" ]; then
-        echo -e "${BLUE}Cognito Username:${NC}"
-        echo "  $COGNITO_USERNAME"
-        echo ""
-    fi
-    
-    if [ -n "$CLOUDFRONT_URL" ]; then
-        echo -e "${BLUE}Cognito Hosted UI:${NC}"
-        echo "  $CLOUDFRONT_URL"
-        echo ""
-    fi
     
     if [ -n "$TRANSFER_SERVER_ENDPOINT" ]; then
         echo -e "${BLUE}Transfer Server Endpoint:${NC}"
@@ -89,9 +70,21 @@ if [ $? -eq 0 ]; then
         echo ""
     fi
     
-    if [ -n "$TRANSFER_S3_BUCKET" ]; then
-        echo -e "${BLUE}S3 Bucket:${NC}"
-        echo "  $TRANSFER_S3_BUCKET"
+    if [ -n "$UPLOAD_BUCKET" ]; then
+        echo -e "${BLUE}Upload Bucket (Scanned):${NC}"
+        echo "  $UPLOAD_BUCKET"
+        echo ""
+    fi
+    
+    if [ -n "$CLEAN_BUCKET" ]; then
+        echo -e "${BLUE}Clean Files Bucket:${NC}"
+        echo "  $CLEAN_BUCKET"
+        echo ""
+    fi
+    
+    if [ -n "$QUARANTINE_BUCKET" ]; then
+        echo -e "${BLUE}Quarantine Bucket:${NC}"
+        echo "  $QUARANTINE_BUCKET"
         echo ""
     fi
     

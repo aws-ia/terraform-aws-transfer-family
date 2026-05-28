@@ -15,7 +15,7 @@ echo -e "${CYAN}  Claims Processing Agents Monitor${NC}"
 echo -e "${CYAN}========================================${NC}\n"
 
 # Resolve script directory for Terraform output lookups
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Retrieve agent runtime ARNs from Terraform outputs
 EXTRACTION_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw agentcore_document_extraction_agent_arn 2>/dev/null || echo "")
