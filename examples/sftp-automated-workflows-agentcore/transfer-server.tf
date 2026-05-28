@@ -1,10 +1,10 @@
 ################################################################################
-# Stage 1: Transfer Server
+# Transfer Server
 # Components: Transfer Family Server, S3 Bucket, User → IDP DynamoDB record
 #
 # The Custom IDP Lambda (module.transfer_custom_idp) and the Cognito → IDP
 # provider record (aws_dynamodb_table_item.cognito_provider) are declared in
-# stage0-foundation.tf. This file wires the Transfer Family Server to that
+# foundation.tf. This file wires the Transfer Family Server to that
 # pre-existing IDP when enable_transfer_server = true.
 ################################################################################
 

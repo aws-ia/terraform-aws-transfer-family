@@ -1,15 +1,15 @@
 ################################################################################
-# Stage 0: AgentCore Agent Runtimes
+# AgentCore Agent Runtimes
 # Components: Agent code bucket + 4 AgentCore agent runtimes
 #
-# The agents themselves are created in stage 0 so their (slow) build step runs
-# as part of the foundation stage rather than during the AI-processing stage.
-# Data-bucket permissions and gateway wiring are attached later, each as its
-# prerequisite comes online:
-#   - Data-bucket access (the clean bucket) lands in stage 2 once
-#     enable_malware_protection creates module.s3_bucket_clean.
-#   - Gateway invoke permission lands in stage 3 once enable_agentcore creates
-#     the MCP gateway in stage3-agentcore.tf.
+# The agents themselves are created here so their (slow) build step runs as
+# part of the foundation. Data-bucket permissions and gateway wiring are
+# attached later, each as its prerequisite comes online:
+#   - Data-bucket access (the clean bucket) lands once
+#     enable_malware_protection creates module.s3_bucket_clean (in
+#     malware-protection.tf).
+#   - Gateway invoke permission lands once enable_agentcore creates the MCP
+#     gateway (in ai-orchestration.tf).
 # In stage 0 the agents exist but have no access to the clean bucket or the
 # MCP gateway.
 #

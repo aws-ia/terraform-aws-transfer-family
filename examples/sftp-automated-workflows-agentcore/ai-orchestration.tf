@@ -1,9 +1,9 @@
 ################################################################################
-# Stage 3: Claims Processing Pipeline
+# AI Claims Orchestration
 # Components: MCP Gateway + Claims Reader Lambda + DynamoDB + Orchestrator
 #
-# The AgentCore agent runtimes themselves are created in stage 0
-# (see stage0-agentcore-agents.tf). This stage wires them into the data plane:
+# The AgentCore agent runtimes themselves are created in agentcore-agents.tf.
+# This file wires them into the data plane:
 #
 #   - DynamoDB table for claim records
 #   - MCP gateway + Lambda backend that gives 3 of the 4 agents access to
@@ -11,13 +11,13 @@
 #   - Orchestrator Lambda that watches the clean bucket for claim zips and
 #     runs the agents through their pipeline stages
 #
-# Applying this stage with enable_agentcore = true only adds the gateway
-# wiring to the 3 gateway-using agents (damage_assessment, fraud_detection,
-# classification): invoke-gateway IAM + AGENTCORE_GATEWAY_URL env var, in
-# place. The data-bucket IAM and CLAIMS_BUCKET env var were already attached
-# to all 4 agents back in stage 2 (gated by enable_malware_protection, once
-# module.s3_bucket_clean came online). document_extraction_agent is
-# unchanged by this stage — it reads S3 directly via boto3.
+# When enable_agentcore = true, this file also adds the gateway wiring to the
+# 3 gateway-using agents (damage_assessment, fraud_detection, classification):
+# invoke-gateway IAM + AGENTCORE_GATEWAY_URL env var, in place. The
+# data-bucket IAM and CLAIMS_BUCKET env var were already attached to all 4
+# agents in malware-protection.tf (gated by enable_malware_protection, once
+# module.s3_bucket_clean came online). document_extraction_agent is unchanged
+# by this file — it reads S3 directly via boto3.
 ################################################################################
 
 # ── DynamoDB table for claim records ─────────────────────────────────────────

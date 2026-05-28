@@ -1,10 +1,10 @@
 ################################################################################
-# Stage 0: Identity Foundation + Custom IDP
+# Identity Foundation + Custom IDP
 # Components: IAM Identity Center, S3 Access Grants, Cognito, Transfer Custom IDP
 ################################################################################
 
 ################################################################################
-# Data Sources (shared across stages)
+# Data Sources (shared across files)
 ################################################################################
 
 data "aws_region" "current" {}

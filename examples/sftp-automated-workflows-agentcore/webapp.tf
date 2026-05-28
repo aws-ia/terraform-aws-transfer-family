@@ -1,5 +1,5 @@
 ################################################################################
-# Stage 4: Web Application for Internal Users
+# Web Application for Internal Users
 # Components: Transfer Family Web App with S3 Access Grants
 ################################################################################
 
