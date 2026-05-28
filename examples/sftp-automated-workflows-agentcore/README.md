@@ -1,3 +1,4 @@
+<!-- BEGIN_TF_DOCS -->
 # SFTP Automated Workflows with AI Claims Processing
 
 This example demonstrates a complete end-to-end solution for secure file transfer, automated malware protection, and AI-powered document processing using AWS Transfer Family, Amazon GuardDuty, and Amazon Bedrock AgentCore.
@@ -10,17 +11,16 @@ The flow mirrors how P&C carriers process a claim:
 
 1. **Intake**: a partner agent uploads a claim ZIP via SFTP using custom (Cognito-backed) authentication — the typical bulk-submission channel for repair-network partners.
 2. **Malware scan**: GuardDuty scans every upload and routes clean files to a processing bucket before any AI runs — no untrusted attachment ever reaches the extraction agents.
-3. **Document understanding**: the Document Extraction agent classifies each artifact (`submission-form`, `policy-document`, `photo`, `repair-estimate`) and extracts structured fields (claimant details, policy number, coverage limit, deductible, incident description, line items) with per-field confidence scores.
-4. **Independent damage assessment**: a vision-capable agent classifies damage type and severity from each photo, then produces its own cost estimate from a static repair-cost reference (`agent-source-code/damage_assessment_agent/config/repair_costs.json`). It deliberately does **not** trust the body shop's estimate, so inflation can be quantified.
-5. **Fraud risk profile**: the Fraud Detection agent emits a `risk_score`, `risk_level`, and per-rule flags covering coverage-limit breaches, deductible checks, policy validity (effective/expiration dates), estimate deviations vs. the independent assessment, and photo-manipulation signals (Bedrock vision). Each flag quotes the specific claim-data values that triggered it, giving SIU reviewable evidence.
-6. **Straight-through routing (STP)**: the Classification agent routes each claim to `approved`, `requires_review`, or `rejected` using threshold-based rules — clean low-risk claims can be auto-settled, ambiguous ones land in the adjuster queue, and clear policy violations or high-risk patterns are rejected for investigation. The agent does not re-weight the fraud score; it only applies the routing thresholds.
-7. **Adjuster and SIU review**: Claims Reviewers (adjusters, read access to processed claims) and Claims Administrators (SIU / claims management, full access) access processed claims through a Transfer Family web app backed by role-separated S3 Access Grants. Each claim carries a self-contained HTML summary for quick triage.
+3. **Document understanding**: the Document Extraction agent classifies each artifact and extracts structured fields (claimant details, policy number, coverage limit, deductible, incident description, line items) with per-field confidence scores.
+4. **Independent damage assessment**: a vision-capable agent classifies damage type and severity from each photo, then produces its own cost estimate from a static repair-cost reference. It deliberately does **not** trust the body shop's estimate, so inflation can be quantified.
+5. **Fraud risk profile**: the Fraud Detection agent emits a `risk_score`, `risk_level`, and per-rule flags covering coverage-limit breaches, deductible checks, policy validity, estimate deviations vs. the independent assessment, and photo-manipulation signals (Bedrock vision). Each flag quotes the specific claim-data values that triggered it.
+6. **Straight-through routing**: the Classification agent routes each claim to `approved`, `requires_review`, or `rejected` using threshold-based rules. The agent does not re-weight the fraud score; it only applies the routing thresholds.
+7. **Adjuster and SIU review**: Claims Reviewers (adjusters, read access) and Claims Administrators (SIU / claims management, full access) access processed claims through a Transfer Family web app backed by role-separated S3 Access Grants. Each claim carries a self-contained HTML summary for quick triage.
 
-**Built with Terraform and AWS Transfer Family modules**, this proof-of-concept provides infrastructure-as-code that can be deployed incrementally across 5 stages for learning and evaluation purposes. The modular Terraform architecture uses the official AWS Transfer Family modules to provision secure file transfer infrastructure, making it easy to adapt to a specific carrier's intake channels, policy administration system, and claim-handling workflow.
+> **Note**: This is demonstration code intended for learning and evaluation. Production use in a regulated P&C context requires additional work on security hardening, PII handling and encryption in transit/at rest, audit logging, state-level regulatory compliance (e.g. NAIC model laws on data retention and unfair claims settlement practices), and integration with existing policy administration, claims management, and SIU systems.
 
-> **Note**: This is demonstration code intended for learning and evaluation. Production use in a regulated P&C context requires additional work on security hardening, PII handling and encryption in transit/at rest, audit logging for claim-handling actions, state-level regulatory compliance (e.g. prompt-payment laws, NAIC model laws on data retention and unfair claims settlement practices), and integration with existing policy administration, claims management, and SIU case-management systems.
+## Key Capabilities
 
-**Key capabilities demonstrated**:
 - Secure bulk FNOL intake via SFTP from contractors and partner agents
 - Automated malware scanning on every submission before it touches the AI pipeline
 - Structured extraction from P&C claim artifacts: submission forms, policy documents, damage photos, repair estimates
@@ -31,455 +31,293 @@ The flow mirrors how P&C carriers process a claim:
 - Self-contained HTML claim summary per claim for adjuster and SIU triage
 - Role-separated web access for Claims Reviewers (adjusters) and Claims Administrators (SIU / claims management)
 
-**Technologies used**:
-- **Terraform** for infrastructure-as-code deployment
-- **AWS Transfer Family modules** (SFTP server, web app, custom IDP)
-- Amazon GuardDuty Malware Protection
-- Amazon Bedrock AgentCore with Claude models
-- AWS Lambda for event-driven processing
-- Amazon Cognito for external user authentication
-- IAM Identity Center for internal user access
-- S3 Access Grants for fine-grained permissions
-- Amazon DynamoDB for claims storage
-
 ## Project Structure
 
 ```
 .
-├── README.md                        # This file
-├── code-talk/                       # Automated deployment and test scripts
-│   ├── stage0-deploy.sh            # Deploy identity foundation + Custom IDP + agent runtimes
-│   ├── stage0-verify.sh            # Verify environment setup
-│   ├── stage1-deploy.sh            # Deploy Transfer server
-│   ├── stage1-test.sh              # Test SFTP upload
-│   ├── stage2-deploy.sh            # Deploy malware protection
-│   ├── stage2-test.sh              # Test malware scanning
-│   ├── stage3-deploy.sh            # Deploy AI orchestration layer
-│   ├── stage3-test.sh              # Test claims processing
-│   ├── stage4-deploy.sh            # Deploy web application
-│   ├── zip-claims.sh               # Utility to zip claim files
-│   ├── cleanup.sh                  # Cleanup all resources
-│   └── DEMO-SETUP.md               # Detailed setup guide
-├── data/                            # Sample claim files
-│   ├── claim-1/                    # Fraudulent claim (mismatched damage)
-│   ├── claim-2/                    # Legitimate claim
-│   ├── claim-3/                    # Additional sample claim
-│   └── zipped/                     # Generated claim-N.zip files for testing
-├── agent-source-code/               # Python source for agents and orchestrator
-│   ├── classification_agent/       # AgentCore — threshold-based routing
-│   ├── damage_assessment_agent/    # AgentCore — photo-based damage scoring
-│   ├── document_extraction_agent/  # AgentCore — structured PDF/image extraction
-│   ├── fraud_detection_agent/      # AgentCore — LLM-driven fraud analysis
-│   └── claims-orchestrator/        # Lambda — drives the 4 agents through pipeline stages
-├── stage0-foundation.tf             # Identity Center, S3 Access Grants, Cognito, Custom IDP
-├── stage0-agentcore-agents.tf       # 4 AgentCore agent runtimes (packaged via uv pip + zip → S3)
-├── stage1-transfer-server.tf        # Transfer Family SFTP server + S3 upload bucket
-├── stage2-malware-protection.tf     # GuardDuty malware scanning + routing buckets
-├── stage3-agentcore.tf              # AI orchestration: MCP gateway + claims_reader Lambda + orchestrator Lambda + DynamoDB
-├── stage4-webapp.tf                 # Web application
-├── stage0.tfvars                    # Stage 0 configuration
-├── stage1.tfvars                    # Stage 1 configuration
-├── stage2.tfvars                    # Stage 2 configuration
-├── stage3.tfvars                    # Stage 3 configuration
-├── stage4.tfvars                    # Stage 4 configuration
-└── modules/                         # Reusable Terraform modules
-    ├── agentcore-agent/            # Per-agent runtime + IAM + build + S3 upload
-    ├── claims-orchestrator/        # Orchestrator Lambda + IAM + EventBridge trigger
-    └── cognito-hosted-ui/          # Cognito user pool + Managed Login + optional landing page
+├── README.md                         # This file (generated by terraform-docs)
+├── .header.md                        # Source for the prose part of README.md
+├── main.tf                           # Directory header + layer-file pointer
+├── variables.tf                      # Inputs (enable_* flags default to true)
+├── outputs.tf                        # Top-level outputs
+├── versions.tf                       # Required Terraform/provider versions
+├── providers.tf                      # Concrete provider blocks
+├── foundation.tf                     # Identity Center, Cognito, S3 Access Grants, Custom IDP
+├── agentcore-agents.tf               # 4 Bedrock AgentCore agent runtimes
+├── transfer-server.tf                # Transfer Family SFTP server + upload bucket
+├── malware-protection.tf             # GuardDuty Malware Protection + bucket routing
+├── ai-orchestration.tf               # MCP gateway + claims_reader Lambda + DynamoDB + orchestrator
+├── webapp.tf                         # Transfer Family Web App + S3 Access Grants
+├── modules/                          # Reusable Terraform submodules
+│   ├── agentcore-agent/              # Per-agent runtime + IAM + build + S3 upload
+│   ├── claims-orchestrator/          # Orchestrator Lambda + IAM + EventBridge trigger
+│   └── cognito-hosted-ui/            # Cognito user pool + Managed Login + landing page
+├── walkthrough/                      # Optional staged-deployment learning path
+│   ├── README.md                     # Walkthrough entry point
+│   ├── DEMO-SETUP.md                 # Detailed setup guide
+│   ├── stage{0,1,2,3,4}-deploy.sh    # Staged deploy scripts
+│   ├── stage{0,1,2,3,4}.tfvars       # Per-stage feature-flag overrides
+│   ├── cleanup.sh                    # Full cleanup
+│   └── ...                           # Test scripts, demo helpers
+├── data/                             # Sample claim ZIPs (5 claims)
+└── agent-source-code/                # Python source for the 4 agents and orchestrator Lambda
 ```
 
-## Architecture Overview
+## Architecture
 
-The solution consists of 5 incremental stages that build upon each other:
+The solution provisions five logical layers in a single dependency-ordered `terraform apply`:
 
-### Stage 0: Identity Foundation + Custom IDP + AgentCore Agents
-**"Identity and authentication foundation, plus the agent runtimes themselves"**
-- IAM Identity Center with users and groups
+### Foundation (`foundation.tf`)
+
+- IAM Identity Center with users (`claims-reviewer`, `claims-administrator`) and groups
 - S3 Access Grants instance
-- Cognito user pool for external authentication
-- Custom IDP Lambda (built with CodeBuild; consumed by the stage 1 Transfer Server)
-- 4 AgentCore agent runtimes (document extraction, damage assessment, fraud detection, classification) — packaged with `uv pip install` + zip, uploaded to S3, and registered. No gateway wiring yet, no clean-bucket access yet.
+- Cognito user pool for external SFTP authentication
+- Custom IDP Lambda (built via CodeBuild; consumed by the Transfer Server)
 
-### Stage 1: Transfer Server with External Users
-**"Secure file transfer with custom authentication"**
-- Transfer Family SFTP server
-- S3 bucket for uploaded files
-- DynamoDB user record wiring the `anycompany-repairs` Cognito user to the Custom IDP (Custom IDP itself is built in stage 0)
+### Agent Runtimes (`agentcore-agents.tf`)
 
-### Stage 2: Malware Protection
-**"Automated malware scanning on upload"**
-- GuardDuty Malware Protection
-- Automatic scanning of uploaded files
-- Clean and quarantine buckets
-- File routing based on scan results
+- 4 Bedrock AgentCore agent runtimes (document extraction, damage assessment, fraud detection, classification) packaged with `uv pip install` + zip and uploaded to S3
+- Data-bucket IAM and gateway-invoke IAM are attached in later layers as their prerequisites come online
 
-### Stage 3: AI Claims Processing
-**"Orchestration layer that drives the stage 0 agents"**
-- MCP gateway + `claims_reader` Lambda — tool backend for 3 of the 4 agents (damage assessment, fraud detection, classification)
-- Claims orchestrator Lambda — triggered by `Object Created` on the clean bucket, runs the 4 agents and generate the summary (in HTML) through a 5-stage pipeline
+### Transfer Server (`transfer-server.tf`)
+
+- Transfer Family SFTP server wired to the Custom IDP from the Foundation layer
+- S3 upload bucket
+- DynamoDB user record wiring the external Cognito user to the IDP
+
+### Malware Protection (`malware-protection.tf`)
+
+- GuardDuty Malware Protection plan with automatic file scanning on upload
+- Clean / quarantine / errors S3 buckets
+- File routing based on scan results (`NO_THREATS_FOUND` → clean, `THREATS_FOUND` → quarantine)
+- Adds clean-bucket IAM and the `CLAIMS_BUCKET` env var to the 4 agents
+
+### AI Orchestration (`ai-orchestration.tf`)
+
 - DynamoDB table for claim records
-- Self-contained HTML summary per claim, written by the orchestrator's final stage to `s3://<clean-bucket>/<claim_id>/summary.html` (inline CSS, no external assets) — ready for adjuster/SIU review in stage 4
-- In-place update to the 3 gateway-using agents: `invoke-gateway` IAM + `AGENTCORE_GATEWAY_URL` env var
-- Consumes the 4 AgentCore agent runtimes that were packaged and registered in stage 0 — no new agent deployment happens here
+- MCP gateway + 2 gateway targets backed by the `claims_reader` Lambda
+- Claims orchestrator Lambda — triggered by `Object Created` on the clean bucket, drives the 4 agents through a 5-stage pipeline (extraction → damage → fraud → classification → summary)
+- Adds gateway-invoke IAM and the `AGENTCORE_GATEWAY_URL` env var to 3 of the 4 agents
+- Generates a self-contained HTML summary per claim at `s3://<clean-bucket>/<claim_id>/summary.html`
 
-### Stage 4: Web Access for Internal Users
-**"Complete solution with web-based file access"**
-- AWS Transfer Family Web Apps
-- S3 Access Grants for fine-grained permissions
-- Internal users (claims-reviewer, claims-administrator)
-- Role-based access to processed claims
-- Browser-based viewing of each claim's artifacts, including opening `{claim_id}/summary.html` directly in the web app for adjuster or SIU triage — no separate reporting tool needed
+### Web App (`webapp.tf`)
 
-### How It All Works Together
+- Transfer Family Web App with role-separated S3 Access Grants
+- Reviewer role: read access to processed claims
+- Administrator role: full read/write access
+- CORS configuration on the clean bucket
+- Browser access to each claim's artifacts plus its `summary.html`
 
-**Automated File Processing Pipeline**:
+## How It All Works Together
+
 1. **Upload**: Body shop or partner agent uploads a claim ZIP to the SFTP upload bucket via Transfer Family
 2. **Scan**: GuardDuty Malware Protection scans the upload in place
-3. **Route**: Clean ZIPs are moved to the processing (clean) bucket; infected files go to the quarantine bucket; errors go to the errors bucket
-4. **Trigger**: `Object Created` on the clean bucket (filtered to `*.zip`) fires an EventBridge rule that invokes the claims orchestrator Lambda
-5. **Unzip + index**: Orchestrator unzips the archive, lays out files under a `claim-{id}/` prefix in the clean bucket, and creates the initial DynamoDB record
-6. **Process**: Orchestrator runs the 4 AgentCore agents sequentially — document extraction → damage assessment → fraud detection → classification — persisting each stage's output to DynamoDB
+3. **Route**: Clean ZIPs move to the processing (clean) bucket; infected files go to quarantine; errors to errors
+4. **Trigger**: `Object Created` on the clean bucket (filtered to `*.zip`) fires an EventBridge rule that invokes the orchestrator Lambda
+5. **Unzip + index**: Orchestrator unzips the archive, lays out files under `claim-{id}/` in the clean bucket, creates the DynamoDB record
+6. **Process**: Orchestrator runs the 4 AgentCore agents sequentially — extraction → damage assessment → fraud detection → classification — persisting each stage's output to DynamoDB
 7. **Summarize**: Final orchestrator stage renders a self-contained HTML report from the DynamoDB record and writes it to `s3://<clean-bucket>/<claim_id>/summary.html`
-8. **Route outcome**: Claim is marked `approved`, `requires_review`, or `rejected` by the Classification agent and the status is set to `completed` in DynamoDB
-9. **Review**: Claims Reviewers (adjusters) and Claims Administrators (SIU / claims management) browse to the claim in the Transfer Family web app, view the artifacts, and open `summary.html` directly in the browser
-
-**Idempotency**: Uses EventBridge event IDs to prevent duplicate processing while allowing re-uploads for demo purposes.
+8. **Route outcome**: Claim is marked `approved`, `requires_review`, or `rejected`; status is set to `completed` in DynamoDB
+9. **Review**: Claims Reviewers and Administrators browse the claim in the Transfer Family web app and open `summary.html` directly in the browser
 
 ## Quick Start
 
 ### Prerequisites
 
-1. **Required Tools**:
-   - AWS CLI configured with appropriate credentials
-   - Terraform >= 1.0
-   - jq (for JSON parsing)
-   - SFTP client
-   - zip utility
+- AWS CLI configured with administrator credentials
+- Terraform ≥ 1.5
+- `jq`, `zip`, an SFTP client
+- No existing IAM Identity Center instance (or adjust the configuration accordingly)
+- Bedrock Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`) model access enabled in your account
 
-2. **AWS Account Requirements**:
-   - Administrator access
-   - No existing IAM Identity Center instance (or adjust configuration)
+### One-shot Deploy
 
-### Automated Deployment and Testing
-
-All deployment and testing scripts are located in the `code-talk/` directory. These scripts automate the entire process with built-in validation and helpful output.
-
-#### Step 1: Deploy and Verify Stage 0 (Identity Foundation)
+The example root deploys everything in a single run. Every `enable_*` flag in `variables.tf` defaults to `true`, so a fresh apply provisions the full pipeline.
 
 ```bash
-cd code-talk
-
-# Deploy identity infrastructure, Custom IDP, and AgentCore agent runtimes
-./stage0-deploy.sh
-
-# Verify environment setup
-./stage0-verify.sh
-```
-
-**What this does**:
-- Deploys IAM Identity Center, Cognito, S3 Access Grants
-- Builds the Custom IDP Lambda via CodeBuild
-- Packages the 4 AgentCore agents (`uv pip install` + zip), uploads them to S3, and registers the runtimes
-- Verifies prerequisites and Bedrock model access
-
-**Manual steps** (if verification fails):
-- Reset passwords for internal users
-
-#### Step 2: Deploy and Test Stage 1 (Transfer Server)
-
-```bash
-# Deploy Transfer Family server
-./stage1-deploy.sh
-
-# Test SFTP upload
-./stage1-test.sh
-```
-
-**What this does**:
-- Deploys Transfer Family SFTP server with custom authentication
-- Tests file upload via SFTP
-- Automatically zips claim files and uploads them
-- Cleans up test files after verification
-
-#### Step 3: Deploy and Test Stage 2 (Malware Protection)
-
-```bash
-# Deploy GuardDuty malware scanning
-./stage2-deploy.sh
-
-# Test malware detection and file routing
-./stage2-test.sh
-```
-
-**What this does**:
-- Deploys GuardDuty Malware Protection with automatic file routing
-- Tests with clean claim file and EICAR malware test file
-- Monitors scan status tags in real-time
-- Shows files routed to clean and quarantine buckets
-- Cleans up test files
-
-#### Step 4: Deploy and Test Stage 3 (AI Claims Processing)
-
-```bash
-# Deploy Bedrock AgentCore workflow
-./stage3-deploy.sh
-
-# Test AI claims processing
-./stage3-test.sh
-```
-
-**What this does**:
-- Deploys the AI orchestration layer: MCP gateway, `claims_reader` Lambda, orchestrator Lambda, and DynamoDB table
-- Wires the 4 pre-built AgentCore agents (stage 0) into an S3-event-driven pipeline (orchestrator is triggered by `Object Created` on the clean bucket)
-- Tests with claim-3 submission
-- Monitors orchestrator and agent logs in real-time (color-coded)
-- Shows processed claims in DynamoDB
-- Generates a self-contained HTML summary per claim at `s3://<clean-bucket>/<claim_id>/summary.html` (inline CSS, no external assets) — ready for adjuster/SIU review in stage 4
-- Preserves files for Stage 4 web app access
-- Press Ctrl+C to skip monitoring early
-
-#### Step 5: Deploy Stage 4 (Web Application)
-
-```bash
-# Deploy web application for internal users
-./stage4-deploy.sh
-```
-
-**What this does**:
-- Deploys Transfer Family Web App
-- Configures S3 Access Grants for role-based access
-- Provides web app URL for browser access
-
-**Access the web app**:
-1. Open the web app URL from the deployment output
-2. Reset the password for each Identity Center user before first login (they are created without an initial password):
-   - Open the AWS console → IAM Identity Center → Users
-   - Select `claims-reviewer` → **Reset password** → choose **Generate a one-time password** (or send an email) → copy the temporary password
-   - Repeat for `claims-administrator`
-   - See `code-talk/DEMO-SETUP.md` Step 3B for the full walkthrough (including MFA considerations for demo users)
-3. Sign in with Identity Center credentials using the temporary password, then set a new password when prompted:
-   - `claims-reviewer` (read-only access to submitted and processed claims)
-   - `claims-administrator` (full read/write access)
-4. Browse into the `claim-3/` folder to see the original submission artifacts (submission form, policy document, damage photo, repair estimate) alongside the AI-generated `summary.html`
-5. Open `summary.html` directly in the browser — it's a self-contained report (inline CSS, no external assets) showing the extracted claim fields, damage assessment, fraud risk flags, and classification outcome. No separate reporting tool needed for adjuster or SIU triage.
-
-### Cleanup
-
-When you're done with the demo, clean up all resources:
-
-```bash
-cd code-talk
-
-# Option 1: Full cleanup (removes everything)
-./cleanup.sh
-
-# Option 2: Reset to Stage 0 (keeps identity foundation)
-./cleanup.sh --reset-to-stage0
-```
-
-**What this does**:
-- Empties all S3 buckets (including versioned objects and delete markers)
-- Deletes CloudWatch log groups for agents
-- Destroys all infrastructure via Terraform
-- Option to preserve Stage 0 for faster re-deployment
-
-## Testing the Solution
-
-### Test Files Included
-
-- **claim-1**: Fraudulent claim with mismatched damage description
-  - PDF describes minor rear bumper damage
-  - Photo shows severe front-end damage
-  - AI detects inconsistency with 99% confidence
-
-- **claim-2**: Legitimate claim with matching description
-  - PDF and photo align correctly
-  - AI validates as consistent
-
-- **claim-3**: Full-artifact P&C claim matching the current 4-agent architecture (recommended for the web app walkthrough)
-  - `claim-3-submission-form.pdf` — FNOL form with claimant and incident details
-  - `claim-3-policy-document.pdf` — policy with coverage limit, deductible, and effective/expiration dates
-  - `claim-3-photo.jpg` — damage photo
-  - `claim-3-repair-estimate.pdf` — repair estimate
-  - Exercises all 4 agents end-to-end: document extraction (across 3 distinct document types), damage assessment, fraud detection, and classification
-
-### Monitoring Agent Activity
-
-The `stage3-test.sh` script provides real-time monitoring of agent logs with color-coded output.
-
-- 🔵 **[EXTRACTION]** — document extraction
-- 🟣 **[DAMAGE]** — damage assessment
-- 🔴 **[FRAUD]** — fraud detection
-- 🟡 **[CLASSIFICATION]** — claim routing
-- 🟢 **[ORCHESTRATOR]** — pipeline coordination
-
-Press **Ctrl+C** during monitoring to skip to the next step.
-
-## Details about the AI Agent Architecture
-
-The solution uses **4 specialized AI agents plus 1 Lambda orchestrator**. All four agents are built with the [STRANDS framework](https://github.com/strands-agents/sdk) and run on Amazon Bedrock AgentCore using Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6` by default; configurable per agent via the `bedrock_model_id` variable on `modules/agentcore-agent`). They are packaged as Python zips (`uv pip install` + `zip`) and uploaded to S3 in stage 0 — no Docker images or ECR.
-
-Python source lives under `agent-source-code/`:
-
-```
-agent-source-code/
-├── classification_agent/            # AgentCore — routing (approved / requires_review / rejected)
-├── damage_assessment_agent/         # AgentCore — photo analysis + cost estimation
-├── document_extraction_agent/       # AgentCore — structured extraction from PDFs and photos
-├── fraud_detection_agent/           # AgentCore — fraud risk scoring with configurable rule set
-└── claims-orchestrator/             # Lambda  — drives the 4 agents through a 5-stage pipeline
-```
-
-**Tool backend**: 3 of the 4 agents (damage_assessment, fraud_detection, classification) reach AWS data through an **MCP gateway** backed by the `claims_reader` Lambda (deployed in stage 3). This gives them tools like `get_claim_data`, `get_claim_photos`, and `get_fraud_rules`. The 4th agent (document_extraction) reads S3 directly via boto3 and does not use the gateway.
-
-### Claims Orchestrator (Lambda)
-
-- **Runtime**: AWS Lambda (python3.13) — not an AgentCore agent
-- **Trigger**: S3 `Object Created` on the clean bucket (via EventBridge), filtered to `*.zip` keys
-- **Source**: `agent-source-code/claims-orchestrator/`
-
-On invocation, the orchestrator unzips the incoming claim archive, lays out the files under a `claim-{id}/` prefix in the clean bucket, creates a DynamoDB record for the claim, and then runs the following pipeline stages (`stages/`):
-
-1. **document_extraction** — invokes the Document Extraction agent runtime, parses the structured JSON response, and writes extraction results to DynamoDB.
-2. **damage_assessment** — invokes the Damage Assessment agent runtime and writes damage items + cost estimate to DynamoDB.
-3. **fraud_detection** — invokes the Fraud Detection agent runtime and writes the risk profile + flags to DynamoDB.
-4. **classification** — invokes the Classification agent runtime, writes the routing outcome to DynamoDB, and marks the claim status `completed`.
-5. **summary** — generates a self-contained HTML report directly from the DynamoDB record and writes it to S3 at `{claim_id}/summary.html`. This stage does **not** invoke an AgentCore agent; the Lambda renders the HTML itself so reviewers can open it in the Transfer Family web app or by downloading it from the console.
-
-### 1. Document Extraction Agent
-
-- **Source**: `agent-source-code/document_extraction_agent/`
-- **Tools (boto3, no MCP gateway)**:
-  - `list_claim_documents(claim_id)` — lists document keys under the claim prefix
-  - `read_document(s3_key)` — reads a document and returns it as base64
-- **Role**: Classifies each document as `submission-form`, `policy-document`, `photo`, or `repair-estimate`, then extracts per-type structured fields (e.g. `claimant_name`, `policy_number`, `coverage_limit`, `incident_description`) with per-field confidence scores (0.0–1.0).
-
-### 2. Damage Assessment Agent
-
-- **Source**: `agent-source-code/damage_assessment_agent/`
-- **Tools**:
-  - `analyze_photo(s3_path, claim_id)` — Bedrock vision analysis to classify damage type and severity per photo
-  - MCP gateway: `get_claim_data`, `get_claim_photos`
-- **Role**: For every photo on the claim, produces a damage classification and severity. Then independently builds a cost estimate using static repair-cost reference data (`config/repair_costs.json`). It deliberately does not copy the claimant's repair estimate — that is the claimant's figure, not the agent's assessment.
-
-### 3. Fraud Detection Agent
-
-- **Source**: `agent-source-code/fraud_detection_agent/`
-- **Tools**:
-  - `analyze_photo_integrity(s3_path, claim_id)` — Bedrock vision analysis for manipulation signals
-  - MCP gateway: `get_claim_data`, `get_claim_photos`, `get_fraud_rules` (optional dynamic rules)
-- **Role**: Produces a fraud risk profile — **not** a binary fraud/not-fraud decision. Applies a configurable rule set covering financial, temporal, document, coverage, and photo-manipulation rules (`config/rules.py` or dynamically loaded). Emits a `risk_score`, `risk_level`, and per-rule flags with detail strings that quote the specific claim-data values that triggered each flag.
-
-### 4. Classification Agent
-
-- **Source**: `agent-source-code/classification_agent/`
-- **Tools**: MCP gateway only — no local tools
-- **Role**: Reads the full claim record (submission, extractions, damage assessment, fraud assessment) and routes to `approved`, `requires_review`, or `rejected` using threshold-based condition checks. Does **not** re-weight the fraud risk score — the Fraud Detection agent already produced that. Routing rules are loaded from static config or dynamically from the gateway.
-
-### STRANDS Framework
-
-All four AgentCore agents are built with [STRANDS](https://github.com/strands-agents/sdk) (`strands-agents`, `strands-agents-tools`). The framework provides:
-
-- `@tool` decorator — exposes Python functions as tools the LLM can call
-- `Agent` class — wraps a `BedrockModel` with tool-calling logic and conversation management
-- `BedrockAgentCoreApp` — hosts the agent as an HTTP server inside AgentCore Runtime
-- MCP client support — lets an agent consume tools from an external MCP gateway (used by damage_assessment, fraud_detection, and classification)
-
-Agents read their tool descriptions from Python docstrings, decide when to call each tool, chain multiple tool calls together, and return structured JSON that the orchestrator parses and persists to DynamoDB.
-
-## Important Notes
-
-1. **Stage Dependencies**: Each stage builds on the previous one. Deploy in order (0 → 1 → 2 → 3 → 4).
-
-2. **Identity Center**: Only one Identity Center instance per AWS account. If you already have one, you may need to adjust the configuration.
-
-3. **Bedrock Model Access**: Ensure `global.anthropic.claude-sonnet-4-6` is enabled in your AWS account before deploying Stage 0 (the stage-0 verify script checks access). This is the default model for all four AgentCore agents and is configurable via the `bedrock_model_id` variable on `modules/agentcore-agent`.
-
-4. **Costs**: Be aware of AWS service costs for Transfer Family, GuardDuty Malware Protection, Bedrock, AgentCore, CloudWatch Logs, Lambda, S3, and DynamoDB.
-
-5. **Cleanup**: Always clean up any infrastructure you create to avoid unnecessary charges. The `cleanup.sh` script automates the cleanup of S3 buckets, CloudWatch log groups, and performs the Terraform destroy operation.
-
-6. **ZIP File Format**: Claims must be uploaded as ZIP files containing:
-   - One PDF file (claim report)
-   - One image file (PNG/JPG of damage)
-   - Named as `claim-N.zip` (e.g., `claim-1.zip`)
-   - The `stage3-test.sh` script automatically zips the claim documents from the data folder for you
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: `./stage0-deploy.sh: command not found`
-- **Solution**: Ensure you're in the correct directory
-  - From workspace root: `cd examples/sftp-automated-workflows-agentcore/code-talk`
-  - Or if already in example: `cd code-talk`
-- **Solution**: Ensure script is executable: `chmod +x stage0-deploy.sh`
-
-**Issue**: Terraform state conflicts
-- **Solution**: Ensure you're in the `examples/sftp-automated-workflows-agentcore` directory (not `code-talk`) when running Terraform commands
-- **Solution**: Verify you're using the correct tfvars file for the stage
-
-**Issue**: Agent logs not appearing
-- **Solution**: Wait 5-10 seconds for agents to start processing
-- **Solution**: Verify Stage 3 was deployed successfully
-
-**Issue**: AI agent errors in logs (model access denied, invocation errors)
-- **Solution**: Bedrock models not enabled - see `code-talk/DEMO-SETUP.md` Step 3A to enable Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`)
-- **Solution**: Run `./stage0-verify.sh` from the `code-talk` directory to check model access
-
-**Issue**: S3 bucket deletion fails when trying to run terraform destroy
-- **Solution**: Run `./cleanup.sh` from the `code-talk` directory - it handles versioned objects and delete markers automatically
-- **Solution**: Alternatively run `./cleanup.sh --reset-to-stage0` to preserve Stage 0 infrastructure
-
-**Issue**: Identity Center or MFA-related errors during web app login
-- **Solution**: Complete manual Identity Center configuration - see `code-talk/DEMO-SETUP.md` Step 3B
-
-For comprehensive setup instructions and additional troubleshooting, see `code-talk/DEMO-SETUP.md`.
-
-## Manual Deployment (Advanced)
-
-If you prefer manual Terraform commands instead of the automated scripts:
-
-```bash
-# Stage 0
+cd examples/sftp-automated-workflows-agentcore
 terraform init
-terraform apply -var-file=stage0.tfvars
+terraform apply
+```
 
-# Stage 1
-terraform apply -var-file=stage1.tfvars
+When you're done:
 
-# Stage 2
-terraform apply -var-file=stage2.tfvars
-
-# Stage 3
-terraform apply -var-file=stage3.tfvars
-
-# Stage 4
-terraform apply -var-file=stage4.tfvars
-
-# Cleanup
+```bash
 terraform destroy
 ```
 
-**Note**: Manual deployment requires manual verification, testing, and cleanup steps.
+### Staged Walkthrough
 
-## Outputs
-
-View deployment outputs at any time:
+If you'd rather deploy stage by stage — to inspect each layer, run per-stage tests, or follow a workshop path — use the scripts under [`walkthrough/`](./walkthrough/README.md):
 
 ```bash
-terraform output
+cd walkthrough
+./stage0-deploy.sh   # foundation
+./stage1-deploy.sh   # transfer server
+./stage1-test.sh     # SFTP upload smoke test
+./stage2-deploy.sh   # malware protection
+./stage2-test.sh
+./stage3-deploy.sh   # AI orchestration
+./stage3-test.sh
+./stage4-deploy.sh   # web app
+./cleanup.sh         # full teardown
 ```
 
-Key outputs include:
-- Transfer server endpoint
-- Cognito username and password (in Secrets Manager)
-- Web app endpoint
-- S3 bucket names
-- AgentCore agent runtime ARNs
-- Orchestrator Lambda name
-- DynamoDB table name
+See [`walkthrough/README.md`](./walkthrough/README.md) and [`walkthrough/DEMO-SETUP.md`](./walkthrough/DEMO-SETUP.md) for the full guide.
+
+## Sample Data
+
+The `data/` folder contains 5 sample claims — each a property-damage submission from a fictitious AnyCompany Insurance customer. Each `claim-N/` folder holds:
+
+- `claim-N-submission-form.pdf` — the FNOL form
+- `claim-N-policy-document.pdf` — the active policy
+- `claim-N-photo.{jpg,png}` — the damage photo
+- `claim-N-repair-estimate.pdf` — the repair shop's estimate
+
+The `walkthrough/zip-claims.sh` utility packages each folder into `data/zipped/claim-N.zip` for SFTP upload.
+
+## Important Notes
+
+1. **Identity Center**: only one Identity Center instance per AWS account. If you already have one, you may need to adjust the configuration.
+2. **Bedrock Model Access**: ensure `global.anthropic.claude-sonnet-4-6` is enabled in your AWS account before deploying. The default model is configurable per agent via the `bedrock_model_id` variable on `modules/agentcore-agent`.
+3. **Costs**: be aware of AWS service costs for Transfer Family, GuardDuty Malware Protection, Bedrock, AgentCore, CloudWatch Logs, Lambda, S3, and DynamoDB.
+4. **Cleanup**: always destroy infrastructure when finished. The `walkthrough/cleanup.sh` script handles versioned-bucket cleanup and CloudWatch log group deletion automatically.
+5. **ZIP File Format**: claims must be uploaded as ZIP files containing one PDF (claim report) and one image file, named `claim-N.zip`. The `walkthrough/zip-claims.sh` script handles this for you.
 
 ## License
 
 This example is provided under the MIT-0 License. See LICENSE file for details.
+
+## Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5 |
+| <a name="requirement_archive"></a> [archive](#requirement\_archive) | >= 2.4.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.95.0 |
+| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 0.70.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0.0 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_archive"></a> [archive](#provider\_archive) | >= 2.4.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.95.0 |
+| <a name="provider_awscc"></a> [awscc](#provider\_awscc) | >= 0.70.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | n/a |
+| <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
+
+## Modules
+
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_agent_code_bucket"></a> [agent\_code\_bucket](#module\_agent\_code\_bucket) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
+| <a name="module_claims_orchestrator"></a> [claims\_orchestrator](#module\_claims\_orchestrator) | ./modules/claims-orchestrator | n/a |
+| <a name="module_classification_agent"></a> [classification\_agent](#module\_classification\_agent) | ./modules/agentcore-agent | n/a |
+| <a name="module_cognito"></a> [cognito](#module\_cognito) | ./modules/cognito-hosted-ui | n/a |
+| <a name="module_damage_assessment_agent"></a> [damage\_assessment\_agent](#module\_damage\_assessment\_agent) | ./modules/agentcore-agent | n/a |
+| <a name="module_document_extraction_agent"></a> [document\_extraction\_agent](#module\_document\_extraction\_agent) | ./modules/agentcore-agent | n/a |
+| <a name="module_fraud_detection_agent"></a> [fraud\_detection\_agent](#module\_fraud\_detection\_agent) | ./modules/agentcore-agent | n/a |
+| <a name="module_guardduty_malware_protection"></a> [guardduty\_malware\_protection](#module\_guardduty\_malware\_protection) | aws-ia/transfer-family/aws//modules/transfer-malware-protection | 0.5.1 |
+| <a name="module_s3_bucket_clean"></a> [s3\_bucket\_clean](#module\_s3\_bucket\_clean) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
+| <a name="module_s3_bucket_errors"></a> [s3\_bucket\_errors](#module\_s3\_bucket\_errors) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
+| <a name="module_s3_bucket_malware_source"></a> [s3\_bucket\_malware\_source](#module\_s3\_bucket\_malware\_source) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
+| <a name="module_s3_bucket_quarantine"></a> [s3\_bucket\_quarantine](#module\_s3\_bucket\_quarantine) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
+| <a name="module_s3_bucket_transfer"></a> [s3\_bucket\_transfer](#module\_s3\_bucket\_transfer) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
+| <a name="module_transfer_custom_idp"></a> [transfer\_custom\_idp](#module\_transfer\_custom\_idp) | git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution | v0.6.0 |
+| <a name="module_transfer_server"></a> [transfer\_server](#module\_transfer\_server) | git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-server | v0.6.0 |
+| <a name="module_transfer_webapp"></a> [transfer\_webapp](#module\_transfer\_webapp) | ../../modules/transfer-web-app | n/a |
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [aws_bedrockagentcore_gateway.claims_reader](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway) | resource |
+| [aws_bedrockagentcore_gateway_target.get_claim_data](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway_target) | resource |
+| [aws_bedrockagentcore_gateway_target.get_claim_photos](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway_target) | resource |
+| [aws_cognito_user.anycompany](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user) | resource |
+| [aws_dynamodb_table.claims](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
+| [aws_dynamodb_table_item.anycompany_repair_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
+| [aws_dynamodb_table_item.cognito_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
+| [aws_iam_role.claims_gateway](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.claims_reader_lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.transfer_session](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.claims_gateway_invoke_lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy.claims_reader_lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy.transfer_session_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_identitystore_group.claims_admins](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_group) | resource |
+| [aws_identitystore_group.claims_reviewers](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_group) | resource |
+| [aws_identitystore_group_membership.claims_administrator_to_admins](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_group_membership) | resource |
+| [aws_identitystore_group_membership.claims_reviewer_to_reviewers](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_group_membership) | resource |
+| [aws_identitystore_user.claims_administrator](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_user) | resource |
+| [aws_identitystore_user.claims_reviewer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_user) | resource |
+| [aws_kms_alias.malware_key_alias](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
+| [aws_kms_key.malware_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
+| [aws_kms_key_policy.malware_key_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy) | resource |
+| [aws_lambda_function.claims_reader](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
+| [aws_s3_bucket_cors_configuration.clean_bucket_cors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_cors_configuration) | resource |
+| [aws_s3control_access_grants_instance.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3control_access_grants_instance) | resource |
+| [aws_secretsmanager_secret.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
+| [aws_secretsmanager_secret_version.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_sns_topic.malware_threats](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic) | resource |
+| [awscc_sso_instance.main](https://registry.terraform.io/providers/hashicorp/awscc/latest/docs/resources/sso_instance) | resource |
+| [null_resource.cleanup_validation_object](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [random_id.agentcore](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
+| [random_id.cognito_domain_suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
+| [random_password.cognito_user](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_pet.malware](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [random_pet.transfer](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [archive_file.claims_reader_lambda](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
+| [aws_s3_bucket.transfer_source](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_bucket) | data source |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
+| <a name="input_cognito_domain_prefix"></a> [cognito\_domain\_prefix](#input\_cognito\_domain\_prefix) | Domain prefix for Cognito hosted UI | `string` | `"anycompany-insurance"` | no |
+| <a name="input_cognito_user_email"></a> [cognito\_user\_email](#input\_cognito\_user\_email) | Email address for the AnyCompany Auto Repair user | `string` | `"repairs@anycompany.example.com"` | no |
+| <a name="input_cognito_username"></a> [cognito\_username](#input\_cognito\_username) | Username for the AnyCompany Auto Repair user | `string` | `"anycompany-repairs"` | no |
+| <a name="input_enable_agentcore"></a> [enable\_agentcore](#input\_enable\_agentcore) | Enable the AgentCore orchestration layer (gateway + gateway targets + claims\_reader Lambda + DynamoDB + claims\_orchestrator). Requires enable\_agentcore\_agents = true since the orchestrator invokes agent runtimes created by that flag. | `bool` | `true` | no |
+| <a name="input_enable_agentcore_agents"></a> [enable\_agentcore\_agents](#input\_enable\_agentcore\_agents) | Enable AgentCore agent runtimes (the AI agents themselves; created early so their build step runs alongside the foundation). The gateway wiring and orchestrator Lambda that actually invoke them are gated separately by enable\_agentcore. | `bool` | `true` | no |
+| <a name="input_enable_cognito"></a> [enable\_cognito](#input\_enable\_cognito) | Enable Cognito user pool for authentication | `bool` | `true` | no |
+| <a name="input_enable_custom_idp"></a> [enable\_custom\_idp](#input\_enable\_custom\_idp) | Enable custom identity provider solution | `bool` | `true` | no |
+| <a name="input_enable_identity_center"></a> [enable\_identity\_center](#input\_enable\_identity\_center) | Enable IAM Identity Center integration | `bool` | `true` | no |
+| <a name="input_enable_malware_protection"></a> [enable\_malware\_protection](#input\_enable\_malware\_protection) | Enable GuardDuty malware protection | `bool` | `true` | no |
+| <a name="input_enable_s3_access_grants"></a> [enable\_s3\_access\_grants](#input\_enable\_s3\_access\_grants) | Enable S3 Access Grants | `bool` | `true` | no |
+| <a name="input_enable_transfer_server"></a> [enable\_transfer\_server](#input\_enable\_transfer\_server) | Enable Transfer Family server | `bool` | `true` | no |
+| <a name="input_enable_webapp"></a> [enable\_webapp](#input\_enable\_webapp) | Enable web application for internal users | `bool` | `true` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to resources | `map(string)` | <pre>{<br/>  "Environment": "Demo",<br/>  "Project": "Transfer Family POC"<br/>}</pre> | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_agentcore_agent_code_bucket"></a> [agentcore\_agent\_code\_bucket](#output\_agentcore\_agent\_code\_bucket) | Name of the S3 bucket holding packaged agent code |
+| <a name="output_agentcore_bedrock_model_id"></a> [agentcore\_bedrock\_model\_id](#output\_agentcore\_bedrock\_model\_id) | Bedrock model ID used by AgentCore agents |
+| <a name="output_agentcore_claims_table_name"></a> [agentcore\_claims\_table\_name](#output\_agentcore\_claims\_table\_name) | Name of the DynamoDB table for claims data |
+| <a name="output_agentcore_classification_agent_arn"></a> [agentcore\_classification\_agent\_arn](#output\_agentcore\_classification\_agent\_arn) | ARN of the classification AgentCore runtime |
+| <a name="output_agentcore_damage_assessment_agent_arn"></a> [agentcore\_damage\_assessment\_agent\_arn](#output\_agentcore\_damage\_assessment\_agent\_arn) | ARN of the damage assessment AgentCore runtime |
+| <a name="output_agentcore_document_extraction_agent_arn"></a> [agentcore\_document\_extraction\_agent\_arn](#output\_agentcore\_document\_extraction\_agent\_arn) | ARN of the document extraction AgentCore runtime |
+| <a name="output_agentcore_fraud_detection_agent_arn"></a> [agentcore\_fraud\_detection\_agent\_arn](#output\_agentcore\_fraud\_detection\_agent\_arn) | ARN of the fraud detection AgentCore runtime |
+| <a name="output_cloudfront_url"></a> [cloudfront\_url](#output\_cloudfront\_url) | CloudFront distribution URL for the landing page |
+| <a name="output_cognito_password_secret_arn"></a> [cognito\_password\_secret\_arn](#output\_cognito\_password\_secret\_arn) | ARN of the Secrets Manager secret containing the user password |
+| <a name="output_cognito_user_pool_id"></a> [cognito\_user\_pool\_id](#output\_cognito\_user\_pool\_id) | Cognito User Pool ID |
+| <a name="output_cognito_username"></a> [cognito\_username](#output\_cognito\_username) | Username for the Cognito user |
+| <a name="output_identity_center_instance_arn"></a> [identity\_center\_instance\_arn](#output\_identity\_center\_instance\_arn) | ARN of the IAM Identity Center instance |
+| <a name="output_identity_store_id"></a> [identity\_store\_id](#output\_identity\_store\_id) | ID of the Identity Store |
+| <a name="output_lambda_function_name"></a> [lambda\_function\_name](#output\_lambda\_function\_name) | Name of the Custom IDP Lambda function |
+| <a name="output_malware_clean_bucket_name"></a> [malware\_clean\_bucket\_name](#output\_malware\_clean\_bucket\_name) | Name of the clean bucket after malware scanning |
+| <a name="output_malware_errors_bucket_name"></a> [malware\_errors\_bucket\_name](#output\_malware\_errors\_bucket\_name) | Name of the errors bucket for scan failures |
+| <a name="output_malware_quarantine_bucket_name"></a> [malware\_quarantine\_bucket\_name](#output\_malware\_quarantine\_bucket\_name) | Name of the quarantine bucket for infected files |
+| <a name="output_malware_upload_bucket_name"></a> [malware\_upload\_bucket\_name](#output\_malware\_upload\_bucket\_name) | Name of the upload bucket for malware scanning |
+| <a name="output_s3_access_grants_instance_arn"></a> [s3\_access\_grants\_instance\_arn](#output\_s3\_access\_grants\_instance\_arn) | ARN of the S3 Access Grants instance |
+| <a name="output_transfer_s3_bucket_name"></a> [transfer\_s3\_bucket\_name](#output\_transfer\_s3\_bucket\_name) | Name of the S3 bucket for Transfer Family |
+| <a name="output_transfer_server_endpoint"></a> [transfer\_server\_endpoint](#output\_transfer\_server\_endpoint) | Endpoint of the Transfer Family server |
+| <a name="output_transfer_server_id"></a> [transfer\_server\_id](#output\_transfer\_server\_id) | ID of the Transfer Family server |
+| <a name="output_web_app_arn"></a> [web\_app\_arn](#output\_web\_app\_arn) | ARN of the Transfer Family Web App |
+| <a name="output_web_app_endpoint"></a> [web\_app\_endpoint](#output\_web\_app\_endpoint) | Endpoint URL of the Transfer Family Web App |
+<!-- END_TF_DOCS -->
