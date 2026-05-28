@@ -4,53 +4,56 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# Feature flags for incremental demo stages
+# Feature flags for incremental demo stages.
+# Defaults are `true` so a fresh `terraform apply` from the example root
+# deploys the full end-to-end pipeline. The walkthrough/stageN.tfvars files
+# override these flags to enable only a subset for the staged learning path.
 variable "enable_identity_center" {
   type        = bool
   description = "Enable IAM Identity Center integration"
-  default     = false
+  default     = true
 }
 
 variable "enable_s3_access_grants" {
   type        = bool
   description = "Enable S3 Access Grants"
-  default     = false
+  default     = true
 }
 
 variable "enable_cognito" {
   type        = bool
   description = "Enable Cognito user pool for authentication"
-  default     = false
+  default     = true
 }
 
 variable "enable_custom_idp" {
   type        = bool
   description = "Enable custom identity provider solution"
-  default     = false
+  default     = true
 }
 
 variable "enable_transfer_server" {
   type        = bool
   description = "Enable Transfer Family server"
-  default     = false
+  default     = true
 }
 
 variable "enable_malware_protection" {
   type        = bool
   description = "Enable GuardDuty malware protection"
-  default     = false
+  default     = true
 }
 
 variable "enable_agentcore_agents" {
   type        = bool
-  description = "Enable AgentCore agent runtimes (created in stage 0). These are the AI agents themselves; they are created early so their build step runs as part of the foundation stage. The gateway wiring and orchestrator Lambda that actually invoke them are gated separately by enable_agentcore."
-  default     = false
+  description = "Enable AgentCore agent runtimes (the AI agents themselves; created early so their build step runs alongside the foundation). The gateway wiring and orchestrator Lambda that actually invoke them are gated separately by enable_agentcore."
+  default     = true
 }
 
 variable "enable_agentcore" {
   type        = bool
   description = "Enable the AgentCore orchestration layer (gateway + gateway targets + claims_reader Lambda + DynamoDB + claims_orchestrator). Requires enable_agentcore_agents = true since the orchestrator invokes agent runtimes created by that flag."
-  default     = false
+  default     = true
 
   validation {
     condition     = var.enable_agentcore == false || var.enable_agentcore_agents == true
@@ -61,7 +64,7 @@ variable "enable_agentcore" {
 variable "enable_webapp" {
   type        = bool
   description = "Enable web application for internal users"
-  default     = false
+  default     = true
 }
 
 variable "tags" {
