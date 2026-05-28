@@ -75,3 +75,21 @@ variable "tags" {
     Project     = "Transfer Family POC"
   }
 }
+
+variable "cognito_username" {
+  description = "Username for the AnyCompany Auto Repair user"
+  type        = string
+  default     = "anycompany-repairs"
+}
+
+variable "cognito_user_email" {
+  description = "Email address for the AnyCompany Auto Repair user"
+  type        = string
+  default     = "repairs@anycompany.example.com"
+}
+
+variable "cognito_domain_prefix" {
+  description = "Domain prefix for Cognito hosted UI"
+  type        = string
+  default     = "anycompany-insurance"
+}

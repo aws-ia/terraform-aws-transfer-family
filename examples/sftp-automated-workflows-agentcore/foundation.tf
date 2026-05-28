@@ -11,28 +11,6 @@ data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
 ################################################################################
-# Cognito Variables
-################################################################################
-
-variable "cognito_username" {
-  description = "Username for the AnyCompany Auto Repair user"
-  type        = string
-  default     = "anycompany-repairs"
-}
-
-variable "cognito_user_email" {
-  description = "Email address for the AnyCompany Auto Repair user"
-  type        = string
-  default     = "repairs@anycompany.example.com"
-}
-
-variable "cognito_domain_prefix" {
-  description = "Domain prefix for Cognito hosted UI"
-  type        = string
-  default     = "anycompany-insurance"
-}
-
-################################################################################
 # IAM Identity Center
 ################################################################################
 
