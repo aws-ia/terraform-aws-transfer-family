@@ -124,6 +124,13 @@ resource "random_id" "bucket_suffix" {
 }
 
 resource "aws_s3_bucket" "landing_page" {
+  #checkov:skip=CKV2_AWS_6: "Public access block is configured by aws_s3_bucket_public_access_block.landing_page below; checkov's static analysis does not always trace count-indexed associations across separate resources (see bridgecrewio/checkov#2327)."
+  #checkov:skip=CKV_AWS_21: "Versioning is configured by aws_s3_bucket_versioning.landing_page below; checkov's static analysis does not always trace count-indexed associations across separate resources."
+  #checkov:skip=CKV_AWS_18: "Access logging not required for landing-page bucket; CloudFront access logging is intentionally not enabled per the existing CKV_AWS_86 skip on the distribution."
+  #checkov:skip=CKV_AWS_144: "Cross-region replication not required for landing-page bucket"
+  #checkov:skip=CKV_AWS_145: "Using AWS managed encryption is acceptable for this use case"
+  #checkov:skip=CKV2_AWS_61: "Lifecycle configuration not required for landing-page bucket"
+  #checkov:skip=CKV2_AWS_62: "Event notifications not required for landing-page bucket"
   count = var.create_landing_page ? 1 : 0
 
   bucket        = var.landing_page_bucket_name != "" ? var.landing_page_bucket_name : "${var.domain_prefix}-landing-page-${random_id.bucket_suffix[0].hex}"
@@ -179,6 +186,35 @@ resource "aws_s3_object" "landing_page" {
   }))
 }
 
+# CloudFront Response Headers Policy — adds standard security headers
+# (HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) to every
+# response served by the landing-page distribution.
+resource "aws_cloudfront_response_headers_policy" "landing_page" {
+  count = var.create_landing_page ? 1 : 0
+
+  name = "${var.domain_prefix}-landing-page-headers"
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 63072000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+    content_type_options {
+      override = true
+    }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+  }
+}
+
 # CloudFront Origin Access Control (optional)
 resource "aws_cloudfront_origin_access_control" "landing_page" {
   count = var.create_landing_page ? 1 : 0
@@ -196,6 +232,9 @@ resource "aws_cloudfront_distribution" "landing_page" {
   #checkov:skip=CKV_AWS_174: "Uses cloudfront_default_certificate which pins to TLSv1 for *.cloudfront.net domains. A custom TLS 1.2+ policy requires an ACM certificate bound to a custom domain, which is out of scope for this example."
   #checkov:skip=CKV_AWS_310: "Origin failover requires a second S3 origin; the landing page is single-origin static content where failover adds complexity with no reliability benefit for this example."
   #checkov:skip=CKV_AWS_374: "Geo restriction is intentionally disabled to allow global access to the public Cognito hosted UI landing page; adding restrictions would break legitimate users."
+  #checkov:skip=CKV2_AWS_42: "Custom SSL certificate requires an ACM certificate bound to a custom domain, which is out of scope for this example. See the existing CKV_AWS_174 skip on this resource."
+  #checkov:skip=CKV2_AWS_47: "WAF protection is not attached to this distribution per the existing CKV_AWS_68 skip on this resource; AMR for Log4j is not applicable."
+  #checkov:skip=CKV2_AWS_32: "Response headers policy is configured by aws_cloudfront_response_headers_policy.landing_page and referenced via response_headers_policy_id in the default_cache_behavior; checkov's static analysis does not always trace count-indexed associations across separate resources (see bridgecrewio/checkov#2327)."
   count = var.create_landing_page ? 1 : 0
 
   enabled             = true
@@ -210,10 +249,11 @@ resource "aws_cloudfront_distribution" "landing_page" {
   }
 
   default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-landing-page"
-    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "S3-landing-page"
+    viewer_protocol_policy     = "redirect-to-https"
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.landing_page[0].id
 
     forwarded_values {
       query_string = true

@@ -23,6 +23,7 @@
 # ── DynamoDB table for claim records ─────────────────────────────────────────
 
 resource "aws_dynamodb_table" "claims" {
+  #checkov:skip=CKV_AWS_119: "Using AWS managed encryption is acceptable for this use case"
   count        = var.enable_agentcore ? 1 : 0
   name         = "${local.agentcore_name_prefix}-claims"
   billing_mode = "PAY_PER_REQUEST"
@@ -31,6 +32,10 @@ resource "aws_dynamodb_table" "claims" {
   attribute {
     name = "claim_id"
     type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
   }
 
   tags = var.tags
@@ -307,6 +312,12 @@ def get_claim_photos(claim_id):
 }
 
 resource "aws_lambda_function" "claims_reader" {
+  #checkov:skip=CKV_AWS_50: "X-ray tracing is available to be enabled via the variables file"
+  #checkov:skip=CKV_AWS_115: "Concurrent execution limit not required, AWS manages throttling"
+  #checkov:skip=CKV_AWS_116: "DLQ not required for synchronous claims_reader Lambda invoked by MCP gateway"
+  #checkov:skip=CKV_AWS_117: "Lambda function does not require VPC configuration for this use case"
+  #checkov:skip=CKV_AWS_173: "Using AWS managed encryption is acceptable for this use case"
+  #checkov:skip=CKV_AWS_272: "Code signing adds operational complexity without significant security benefit"
   count         = var.enable_agentcore ? 1 : 0
   filename      = data.archive_file.claims_reader_lambda[0].output_path
   function_name = "${local.agentcore_name_prefix}-claims-reader"

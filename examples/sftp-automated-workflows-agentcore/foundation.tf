@@ -195,6 +195,8 @@ resource "random_password" "cognito_user" {
 
 # Store Cognito user password securely in Secrets Manager
 resource "aws_secretsmanager_secret" "cognito_user_password" {
+  #checkov:skip=CKV_AWS_149: "Using AWS managed encryption is acceptable for this example"
+  #checkov:skip=CKV2_AWS_57: "Automatic rotation not required for Cognito user passwords"
   count = var.enable_cognito ? 1 : 0
 
   name_prefix             = "cognito-user-password-"

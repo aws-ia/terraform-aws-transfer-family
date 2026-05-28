@@ -271,6 +271,7 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | [random_pet.transfer](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 | [archive_file.claims_reader_lambda](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_iam_policy_document.malware_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_s3_bucket.transfer_source](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_bucket) | data source |
 
