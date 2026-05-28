@@ -16,7 +16,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory (parent of code-talk folder)
+# Script directory (parent of walkthrough folder)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
@@ -34,14 +34,14 @@ fi
 # Deploy Stage 0
 echo -e "${YELLOW}Ready to deploy Stage 0 infrastructure${NC}"
 echo ""
-echo -e "${BLUE}Command:${NC} terraform apply -var-file=stage0.tfvars -auto-approve -compact-warnings"
+echo -e "${BLUE}Command:${NC} terraform apply -var-file=walkthrough/stage0.tfvars -auto-approve -compact-warnings"
 echo ""
 echo -e "${YELLOW}Press Enter to deploy...${NC}"
 read -r
 
 echo ""
 echo -e "${YELLOW}Deploying Stage 0 infrastructure...${NC}"
-terraform -chdir="$SCRIPT_DIR" apply -var-file="stage0.tfvars" -auto-approve -compact-warnings
+terraform -chdir="$SCRIPT_DIR" apply -var-file="walkthrough/stage0.tfvars" -auto-approve -compact-warnings
 
 # Check if deployment was successful
 if [ $? -eq 0 ]; then

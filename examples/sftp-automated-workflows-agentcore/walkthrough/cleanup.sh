@@ -18,7 +18,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Script directory (parent of code-talk folder)
+# Script directory (parent of walkthrough folder)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Check for reset flag
@@ -160,12 +160,12 @@ echo ""
 if [ "$RESET_TO_STAGE0" = true ]; then
     echo -e "${YELLOW}Resetting to Stage 0...${NC}"
     echo ""
-    echo -e "${BLUE}Command:${NC} terraform apply -var-file=stage0.tfvars -auto-approve -compact-warnings"
+    echo -e "${BLUE}Command:${NC} terraform apply -var-file=walkthrough/stage0.tfvars -auto-approve -compact-warnings"
     echo ""
     echo -e "${YELLOW}Press Enter to reset to Stage 0...${NC}"
     read -r
     
-    terraform -chdir="$SCRIPT_DIR" apply -var-file="stage0.tfvars" -auto-approve -compact-warnings
+    terraform -chdir="$SCRIPT_DIR" apply -var-file="walkthrough/stage0.tfvars" -auto-approve -compact-warnings
     
     if [ $? -eq 0 ]; then
         echo ""

@@ -16,7 +16,7 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Script directory (parent of code-talk folder)
+# Script directory (parent of walkthrough folder)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo -e "${BLUE}=================================${NC}"
@@ -97,7 +97,7 @@ echo ""
 
 # Always re-zip claims to ensure latest files
 echo -e "${YELLOW}Creating ZIP files for claims...${NC}"
-"$SCRIPT_DIR/code-talk/zip-claims.sh"
+"$SCRIPT_DIR/walkthrough/zip-claims.sh"
 echo ""
 
 ZIPPED_DIR="$SCRIPT_DIR/data/zipped"

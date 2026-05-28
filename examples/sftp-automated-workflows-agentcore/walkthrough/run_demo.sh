@@ -33,16 +33,16 @@ echo -e "  7. Fraud detection"
 echo -e "  8. Classification and summary generation\n"
 
 echo -e "${CYAN}🔍 Monitoring Options:${NC}"
-echo -e "  Single agent:  ./demo/monitor_agents.sh {extraction|damage|fraud|classification|orchestrator}"
-echo -e "  Infrastructure: ./demo/monitor_agents.sh {claims|malware}"
-echo -e "  All commands:  ./demo/monitor_agents.sh all\n"
+echo -e "  Single agent:  ./walkthrough/monitor_agents.sh {extraction|damage|fraud|classification|orchestrator}"
+echo -e "  Infrastructure: ./walkthrough/monitor_agents.sh {claims|malware}"
+echo -e "  All commands:  ./walkthrough/monitor_agents.sh all\n"
 
 echo -e "${GREEN}📁 Test Files:${NC}"
 echo -e "  Location: data/claim-3/"
 echo -e "  Files: car_damage_claim_report.pdf, claim-3.png\n"
 
 echo -e "${YELLOW}🚀 Ready to start demo!${NC}"
-echo -e "Run: ${CYAN}./demo/monitor_agents.sh claims${NC} in another terminal, then upload files via SFTP\n"
+echo -e "Run: ${CYAN}./walkthrough/monitor_agents.sh claims${NC} in another terminal, then upload files via SFTP\n"
 
 echo -e "${CYAN}SFTP Upload Command:${NC}"
 echo -e "  sftp ${COGNITO_USERNAME}@${TRANSFER_SERVER_ENDPOINT}"

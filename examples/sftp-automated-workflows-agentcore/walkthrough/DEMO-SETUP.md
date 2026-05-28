@@ -30,7 +30,7 @@ Stage 0 deploys the identity and authentication infrastructure plus agent runtim
 ### Step 1: Deploy Infrastructure
 
 ```bash
-cd examples/sftp-automated-workflows-agentcore/code-talk
+cd examples/sftp-automated-workflows-agentcore/walkthrough
 ./stage0-deploy.sh
 ```
 
@@ -43,7 +43,7 @@ The script will:
 
 ### Step 2: Verify Deployment
 
-Run the verification script to check your environment (from the code-talk folder):
+Run the verification script to check your environment (from the walkthrough folder):
 
 ```bash
 ./stage0-verify.sh
@@ -212,7 +212,7 @@ After completing Stage 0 and Stage 1:
 
 ## Cleanup
 
-When finished with the demo, you have two cleanup options (from the code-talk folder):
+When finished with the demo, you have two cleanup options (from the walkthrough folder):
 
 ### Option 1: Full Cleanup (Destroy Everything)
 
