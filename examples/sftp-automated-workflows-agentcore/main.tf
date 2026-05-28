@@ -1,10 +1,10 @@
 ################################################################################
 # AWS Transfer Family — SFTP Automated Workflows with AgentCore
 #
-# A registry-publishable example that provisions an end-to-end P&C claims
-# intake pipeline: SFTP server with custom IDP, GuardDuty malware scanning,
-# 4 Bedrock AgentCore agents, an MCP gateway, an orchestrator Lambda, and a
-# Transfer Family web app for adjuster/SIU review.
+# An end-to-end P&C claims intake pipeline: SFTP server with custom IDP,
+# GuardDuty malware scanning, 4 Bedrock AgentCore agents, an MCP gateway,
+# an orchestrator Lambda, and a Transfer Family web app for adjuster/SIU
+# review.
 #
 # Components are split across descriptive layer files in this directory:
 #   - foundation.tf          Identity Center, S3 Access Grants, Cognito,

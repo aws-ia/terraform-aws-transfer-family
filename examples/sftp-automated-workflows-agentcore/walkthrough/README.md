@@ -1,6 +1,6 @@
 # Walkthrough — Staged Deployment
 
-This folder is the educational, stage-by-stage path through the example. It exists alongside the registry-style one-shot deploy at the example root: both produce the same end-state, but the walkthrough lets you stop, inspect, and test each layer before moving to the next.
+This folder is the educational, stage-by-stage path through the example. It exists alongside the one-shot deploy at the example root: both produce the same end-state, but the walkthrough lets you stop, inspect, and test each layer before moving to the next.
 
 ## When to use which
 
