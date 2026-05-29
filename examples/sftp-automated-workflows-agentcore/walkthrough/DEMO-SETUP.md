@@ -11,6 +11,7 @@ This guide walks through the setup process for the SFTP Automated Workflows demo
 - [ ] **Terraform**: Version 1.0 or later (`terraform --version`)
 - [ ] **jq**: For JSON parsing (`jq --version`)
 - [ ] **SFTP Client**: Verify `sftp` command is available
+- [ ] **uv**: Astral's Python package manager, used by the agent build pipeline (`uv --version`). Install with `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`.
 
 ### Optional Tools
 
@@ -23,7 +24,6 @@ This guide walks through the setup process for the SFTP Automated Workflows demo
 
 Stage 0 deploys the identity and authentication infrastructure plus agent runtimes:
 - IAM Identity Center for internal users
-- S3 Access Grants for fine-grained permissions
 - Cognito User Pool for external users (SFTP)
 - **4 AgentCore agent runtimes (packaged with uv pip install + zip, uploaded to S3)**
 
@@ -52,7 +52,7 @@ Run the verification script to check your environment (from the walkthrough/scri
 This will check:
 - ✓ Prerequisites (AWS CLI, Terraform, jq, SFTP)
 - ✓ AWS credentials
-- ✓ Deployed resources (Identity Center, Cognito, S3 Access Grants)
+- ✓ Deployed resources (Identity Center, Cognito)
 - ✓ Bedrock model access
 
 ### Step 3: Manual Configuration
@@ -234,7 +234,7 @@ This will:
 This will:
 1. Empty all S3 buckets
 2. Destroy Stages 1-4 only
-3. Preserve Stage 0 (Identity Center, Cognito, S3 Access Grants)
+3. Preserve Stage 0 (Identity Center, Cognito)
 4. Keep Terraform state for Stage 0
 
 **Use this option when**:

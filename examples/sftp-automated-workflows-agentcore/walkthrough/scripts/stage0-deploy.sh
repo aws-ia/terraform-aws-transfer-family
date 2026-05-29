@@ -3,7 +3,7 @@
 ################################################################################
 # Stage 0 Deployment Script
 # Deploys Identity Foundation + AgentCore Agents:
-#   - IAM Identity Center, S3 Access Grants, Cognito
+#   - IAM Identity Center, Cognito
 #   - Python zip packages uploaded to S3 for AgentCore agents
 ################################################################################
 

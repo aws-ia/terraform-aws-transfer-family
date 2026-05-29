@@ -121,19 +121,6 @@ resource "aws_identitystore_group_membership" "claims_administrator_to_admins" {
 }
 
 ################################################################################
-# S3 Access Grants
-################################################################################
-
-# Create S3 Access Grants instance for fine-grained S3 access control
-resource "aws_s3control_access_grants_instance" "main" {
-  count = var.enable_s3_access_grants ? 1 : 0
-
-  identity_center_arn = local.sso_instance_arn
-
-  tags = var.tags
-}
-
-################################################################################
 # Cognito User Pool for External Users
 ################################################################################
 

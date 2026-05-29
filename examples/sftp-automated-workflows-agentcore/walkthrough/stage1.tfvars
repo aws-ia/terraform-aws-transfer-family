@@ -12,7 +12,6 @@
 ################################################################################
 
 enable_identity_center  = true # IAM Identity Center for internal user management
-enable_s3_access_grants = true # S3 Access Grants for granular permissions
 enable_cognito          = true # Cognito User Pool for external authentication
 enable_agentcore_agents = true # AgentCore agent runtimes (from stage 0)
 enable_custom_idp       = true # Custom Lambda IDP for Transfer Family

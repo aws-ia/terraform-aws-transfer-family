@@ -36,7 +36,7 @@ if [ "$RESET_TO_STAGE0" = true ]; then
     echo -e "${YELLOW}Mode: Reset to Stage 0 (keep identity foundation)${NC}"
     echo ""
     echo -e "${YELLOW}⚠️  WARNING: This will destroy Stages 1-4 and delete all data!${NC}"
-    echo -e "${YELLOW}Stage 0 (Identity Center, Cognito, S3 Access Grants) will be preserved.${NC}"
+    echo -e "${YELLOW}Stage 0 (Identity Center, Cognito) will be preserved.${NC}"
 else
     echo -e "${YELLOW}Mode: Full cleanup (destroy all infrastructure)${NC}"
     echo ""

@@ -65,6 +65,14 @@ else
     check_result "fail" "jq not found (required for JSON parsing)"
 fi
 
+# Check uv (used by the agent build pipeline)
+if command -v uv &> /dev/null; then
+    UV_VERSION=$(uv --version 2>&1 | head -1)
+    check_result "pass" "uv installed ($UV_VERSION)"
+else
+    check_result "fail" "uv not found (required by agent build; install with 'brew install uv' or 'curl -LsSf https://astral.sh/uv/install.sh | sh')"
+fi
+
 # Check SFTP
 if command -v sftp &> /dev/null; then
     check_result "pass" "SFTP client available"
@@ -132,14 +140,6 @@ if [ -n "$IDENTITY_STORE_ID" ]; then
     check_result "pass" "Identity Store configured"
 else
     check_result "fail" "Identity Store not found"
-fi
-
-# Check S3 Access Grants
-S3_ACCESS_GRANTS_ARN=$(terraform -chdir="$SCRIPT_DIR" output -raw s3_access_grants_instance_arn 2>/dev/null || echo "")
-if [ -n "$S3_ACCESS_GRANTS_ARN" ]; then
-    check_result "pass" "S3 Access Grants instance created"
-else
-    check_result "fail" "S3 Access Grants instance not found"
 fi
 
 # Check Cognito User Pool

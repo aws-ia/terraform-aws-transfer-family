@@ -12,8 +12,8 @@ output "identity_store_id" {
 }
 
 output "s3_access_grants_instance_arn" {
-  description = "ARN of the S3 Access Grants instance"
-  value       = var.enable_s3_access_grants ? aws_s3control_access_grants_instance.main[0].access_grants_instance_arn : null
+  description = "ARN of the S3 Access Grants instance (created by the transfer-web-app module)"
+  value       = var.enable_webapp ? module.transfer_webapp[0].access_grants_instance_arn : null
 }
 
 output "cognito_user_pool_id" {

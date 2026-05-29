@@ -14,12 +14,6 @@ variable "enable_identity_center" {
   default     = true
 }
 
-variable "enable_s3_access_grants" {
-  type        = bool
-  description = "Enable S3 Access Grants"
-  default     = true
-}
-
 variable "enable_cognito" {
   type        = bool
   description = "Enable Cognito user pool for authentication"

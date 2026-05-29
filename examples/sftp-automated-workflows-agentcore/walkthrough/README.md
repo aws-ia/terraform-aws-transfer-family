@@ -24,6 +24,7 @@ See [`DEMO-SETUP.md`](./DEMO-SETUP.md) for the full prerequisites checklist:
 - AWS CLI configured with admin credentials
 - Terraform ≥ 1.5
 - `jq`, `zip`, an SFTP client
+- [`uv`](https://docs.astral.sh/uv/) — used by the agent build pipeline (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - Bedrock Claude Sonnet 4.6 model access enabled in your account
 - No existing IAM Identity Center instance (or adjust the configuration)
 
@@ -38,8 +39,8 @@ cd examples/sftp-automated-workflows-agentcore/walkthrough/scripts
 ### Stage 0 — Foundation
 
 ```bash
-./stage0-deploy.sh    # IAM Identity Center, Cognito, S3 Access Grants,
-                      # Custom IDP Lambda, 4 AgentCore agent runtimes
+./stage0-deploy.sh    # IAM Identity Center, Cognito, Custom IDP Lambda,
+                      # 4 AgentCore agent runtimes
 ./stage0-verify.sh    # Verify environment + Bedrock model access
 ```
 
@@ -68,7 +69,7 @@ cd examples/sftp-automated-workflows-agentcore/walkthrough/scripts
 ### Stage 4 — Web App for Internal Users
 
 ```bash
-./stage4-deploy.sh    # Transfer Family Web App + S3 Access Grants
+./stage4-deploy.sh    # Transfer Family Web App + S3 Access Grants instance
 ```
 
 ## Demo helpers

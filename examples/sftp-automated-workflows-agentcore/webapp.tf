@@ -11,8 +11,8 @@ module "transfer_webapp" {
   identity_center_instance_arn = local.sso_instance_arn
   identity_store_id            = local.identity_store_id
 
-  # S3 Access Grants — use the instance created in stage0
-  s3_access_grants_instance_id = aws_s3control_access_grants_instance.main[0].access_grants_instance_id
+  # S3 Access Grants — instance is created by the transfer-web-app module
+  # itself when no s3_access_grants_instance_id is provided.
 
   # Group-based access to the clean files bucket
   identity_center_groups = [

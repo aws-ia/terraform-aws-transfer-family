@@ -42,7 +42,7 @@ The flow mirrors how P&C carriers process a claim:
 ├── outputs.tf                        # Top-level outputs
 ├── versions.tf                       # Required Terraform/provider versions
 ├── providers.tf                      # Concrete provider blocks
-├── foundation.tf                     # Identity Center, Cognito, S3 Access Grants, Custom IDP
+├── foundation.tf                     # Identity Center, Cognito, Custom IDP
 ├── agentcore-agents.tf               # 4 Bedrock AgentCore agent runtimes
 ├── transfer-server.tf                # Transfer Family SFTP server + upload bucket
 ├── malware-protection.tf             # GuardDuty Malware Protection + bucket routing
@@ -72,7 +72,6 @@ The solution provisions five logical layers in a single dependency-ordered `terr
 ### Foundation (`foundation.tf`)
 
 - IAM Identity Center with users (`claims-reviewer`, `claims-administrator`) and groups
-- S3 Access Grants instance
 - Cognito user pool for external SFTP authentication
 - Custom IDP Lambda (built via CodeBuild; consumed by the Transfer Server)
 
@@ -104,7 +103,7 @@ The solution provisions five logical layers in a single dependency-ordered `terr
 
 ### Web App (`webapp.tf`)
 
-- Transfer Family Web App with role-separated S3 Access Grants
+- Transfer Family Web App with role-separated S3 Access Grants (instance and locations created here)
 - Reviewer role: read access to processed claims
 - Administrator role: full read/write access
 - CORS configuration on the clean bucket
@@ -129,6 +128,7 @@ The solution provisions five logical layers in a single dependency-ordered `terr
 - AWS CLI configured with administrator credentials
 - Terraform ≥ 1.5
 - `jq`, `zip`, an SFTP client
+- [`uv`](https://docs.astral.sh/uv/) — used by the agent build pipeline to package each AgentCore agent's Python dependencies (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - No existing IAM Identity Center instance (or adjust the configuration accordingly)
 - Bedrock Claude Sonnet 4.6 (`global.anthropic.claude-sonnet-4-6`) model access enabled in your account
 
@@ -260,7 +260,6 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | [aws_kms_key_policy.malware_key_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy) | resource |
 | [aws_lambda_function.claims_reader](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
 | [aws_s3_bucket_cors_configuration.clean_bucket_cors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_cors_configuration) | resource |
-| [aws_s3control_access_grants_instance.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3control_access_grants_instance) | resource |
 | [aws_secretsmanager_secret.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_sns_topic.malware_threats](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic) | resource |
@@ -291,7 +290,6 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | <a name="input_enable_custom_idp"></a> [enable\_custom\_idp](#input\_enable\_custom\_idp) | Enable custom identity provider solution | `bool` | `true` | no |
 | <a name="input_enable_identity_center"></a> [enable\_identity\_center](#input\_enable\_identity\_center) | Enable IAM Identity Center integration | `bool` | `true` | no |
 | <a name="input_enable_malware_protection"></a> [enable\_malware\_protection](#input\_enable\_malware\_protection) | Enable GuardDuty malware protection | `bool` | `true` | no |
-| <a name="input_enable_s3_access_grants"></a> [enable\_s3\_access\_grants](#input\_enable\_s3\_access\_grants) | Enable S3 Access Grants | `bool` | `true` | no |
 | <a name="input_enable_transfer_server"></a> [enable\_transfer\_server](#input\_enable\_transfer\_server) | Enable Transfer Family server | `bool` | `true` | no |
 | <a name="input_enable_webapp"></a> [enable\_webapp](#input\_enable\_webapp) | Enable web application for internal users | `bool` | `true` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to resources | `map(string)` | <pre>{<br/>  "Environment": "Demo",<br/>  "Project": "Transfer Family POC"<br/>}</pre> | no |
@@ -318,7 +316,7 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | <a name="output_malware_errors_bucket_name"></a> [malware\_errors\_bucket\_name](#output\_malware\_errors\_bucket\_name) | Name of the errors bucket for scan failures |
 | <a name="output_malware_quarantine_bucket_name"></a> [malware\_quarantine\_bucket\_name](#output\_malware\_quarantine\_bucket\_name) | Name of the quarantine bucket for infected files |
 | <a name="output_malware_upload_bucket_name"></a> [malware\_upload\_bucket\_name](#output\_malware\_upload\_bucket\_name) | Name of the upload bucket for malware scanning |
-| <a name="output_s3_access_grants_instance_arn"></a> [s3\_access\_grants\_instance\_arn](#output\_s3\_access\_grants\_instance\_arn) | ARN of the S3 Access Grants instance |
+| <a name="output_s3_access_grants_instance_arn"></a> [s3\_access\_grants\_instance\_arn](#output\_s3\_access\_grants\_instance\_arn) | ARN of the S3 Access Grants instance (created by the transfer-web-app module) |
 | <a name="output_transfer_s3_bucket_name"></a> [transfer\_s3\_bucket\_name](#output\_transfer\_s3\_bucket\_name) | Name of the S3 bucket for Transfer Family |
 | <a name="output_transfer_server_endpoint"></a> [transfer\_server\_endpoint](#output\_transfer\_server\_endpoint) | Endpoint of the Transfer Family server |
 | <a name="output_transfer_server_id"></a> [transfer\_server\_id](#output\_transfer\_server\_id) | ID of the Transfer Family server |
