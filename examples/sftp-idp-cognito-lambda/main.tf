@@ -10,7 +10,7 @@ data "aws_caller_identity" "current" {}
 
 resource "random_pet" "name" {
   prefix = "aws-ia"
-  length = 1
+  length = 2
 }
 
 resource "random_id" "suffix" {
