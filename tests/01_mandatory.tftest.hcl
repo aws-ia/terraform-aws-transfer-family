@@ -118,6 +118,13 @@ run "malware_protection_apply" {
   }
 }
 
+run "agentcore_example_plan" {
+  command = plan
+  module {
+    source = "./examples/sftp-automated-workflows-agentcore"
+  }
+}
+
 # Commenting the Custom IDP module tests out due to persistent timeouts
 # run "custom_idp_module_plan" {
 #   command = plan
