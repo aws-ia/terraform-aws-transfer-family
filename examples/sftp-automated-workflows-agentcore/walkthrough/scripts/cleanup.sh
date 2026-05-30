@@ -157,6 +157,20 @@ echo -e "${BLUE}Destroying Infrastructure${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
+# Disable DynamoDB deletion protection on all tables managed by this stack
+echo -e "${YELLOW}Disabling DynamoDB deletion protection...${NC}"
+DYNAMO_TABLES=$(aws dynamodb list-tables --query 'TableNames[?contains(@, `transferidp`) || contains(@, `tf-demo`)]' --output text 2>/dev/null || echo "")
+for TABLE in $DYNAMO_TABLES; do
+    echo "  Disabling deletion protection on $TABLE..."
+    aws dynamodb update-table --table-name "$TABLE" --no-deletion-protection-enabled --no-cli-pager 2>/dev/null || true
+done
+if [ -n "$DYNAMO_TABLES" ]; then
+    echo -e "${GREEN}✓ Deletion protection disabled${NC}"
+else
+    echo -e "${YELLOW}⚠ No matching DynamoDB tables found${NC}"
+fi
+echo ""
+
 if [ "$RESET_TO_STAGE0" = true ]; then
     echo -e "${YELLOW}Resetting to Stage 0...${NC}"
     echo ""
