@@ -254,7 +254,7 @@ echo -e "${YELLOW}Press Enter to view processed claims...${NC}"
 read -r
 echo ""
 
-aws dynamodb scan --table-name "$CLAIMS_TABLE" --max-items 5 --output json | jq -r '.Items[] | "Claim ID: \(.claim_id.S // "N/A")\nStatus: \(.status.S // "N/A")\nTimestamp: \(.timestamp.S // "N/A")\n---"'
+aws dynamodb scan --table-name "$CLAIMS_TABLE" --max-items 5 --output json | jq -r '.Items[] | "Claim ID: \(.claim_id.S // "N/A")\nStatus: \(.status.S // "N/A")\nTimestamp: \(.updated_at.S // .created_at.S // "N/A")\n---"'
 
 echo ""
 echo -e "${GREEN}✓ Claim-1 test completed!${NC}"
@@ -278,6 +278,19 @@ CLAIM2_ZIP="$ZIPPED_DIR/claim-2.zip"
 
 echo ""
 echo -e "${BLUE}Claim ZIP file:${NC} claim-2.zip"
+echo ""
+
+# Re-copy password to clipboard in case something else was copied
+if command -v pbcopy &> /dev/null; then
+    echo -n "$PASSWORD" | pbcopy
+elif command -v xclip &> /dev/null; then
+    echo -n "$PASSWORD" | xclip -selection clipboard
+elif command -v xsel &> /dev/null; then
+    echo -n "$PASSWORD" | xsel --clipboard --input
+elif command -v clip.exe &> /dev/null; then
+    echo -n "$PASSWORD" | clip.exe
+fi
+echo -e "${GREEN}✓ Password re-copied to clipboard${NC}"
 echo ""
 
 # Build SFTP commands for claim-2
@@ -399,7 +412,7 @@ echo -e "${YELLOW}Press Enter to view all processed claims...${NC}"
 read -r
 echo ""
 
-aws dynamodb scan --table-name "$CLAIMS_TABLE" --output json | jq -r '.Items[] | "Claim ID: \(.claim_id.S // "N/A")\nStatus: \(.status.S // "N/A")\nTimestamp: \(.timestamp.S // "N/A")\n---"'
+aws dynamodb scan --table-name "$CLAIMS_TABLE" --output json | jq -r '.Items[] | "Claim ID: \(.claim_id.S // "N/A")\nStatus: \(.status.S // "N/A")\nTimestamp: \(.updated_at.S // .created_at.S // "N/A")\n---"'
 
 echo ""
 echo -e "${GREEN}✓ All tests completed!${NC}"

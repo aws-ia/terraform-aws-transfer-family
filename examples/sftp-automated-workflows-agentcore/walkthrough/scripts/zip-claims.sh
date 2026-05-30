@@ -54,7 +54,7 @@ for CLAIM_FOLDER in "${CLAIM_FOLDERS[@]}"; do
         
         # List contents
         echo -e "${BLUE}  Contents:${NC}"
-        unzip -l "$ZIP_FILE" | tail -n +4 | head -n -2 | awk '{print "    " $4}'
+        unzip -l "$ZIP_FILE" | tail -n +4 | sed '$d' | sed '$d' | awk '{print "    " $4}'
     else
         echo -e "${RED}✗ Failed to create ZIP for $CLAIM_NAME${NC}"
     fi
