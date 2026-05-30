@@ -216,6 +216,11 @@ resource "aws_iam_role_policy" "claims_reader_lambda" {
         Effect   = "Allow"
         Action   = ["dynamodb:GetItem", "dynamodb:Query"]
         Resource = aws_dynamodb_table.claims[0].arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["xray:PutTraceSegments", "xray:PutTelemetryRecords"]
+        Resource = "*"
       }
     ]
   })
@@ -312,7 +317,7 @@ def get_claim_photos(claim_id):
 }
 
 resource "aws_lambda_function" "claims_reader" {
-  #checkov:skip=CKV_AWS_50: "X-ray tracing is available to be enabled via the variables file"
+  #checkov:skip=CKV_AWS_50: "X-ray tracing is enabled"
   #checkov:skip=CKV_AWS_115: "Concurrent execution limit not required, AWS manages throttling"
   #checkov:skip=CKV_AWS_116: "DLQ not required for synchronous claims_reader Lambda invoked by MCP gateway"
   #checkov:skip=CKV_AWS_117: "Lambda function does not require VPC configuration for this use case"
@@ -327,6 +332,10 @@ resource "aws_lambda_function" "claims_reader" {
   timeout       = 30
 
   source_code_hash = data.archive_file.claims_reader_lambda[0].output_base64sha256
+
+  tracing_config {
+    mode = "Active"
+  }
 
   environment {
     variables = {

@@ -71,9 +71,9 @@ def should_run(claim: dict) -> bool:
     )
 
 
-def invoke(claim_id: str, claim: dict) -> dict:
+def invoke(claim_id: str, claim: dict, *, run_id: str = "") -> dict:
     """Invoke the damage assessment agent via AgentCore Runtime."""
-    session_id = f"orchestrator-dmg-{claim_id}-{uuid.uuid4()}"
+    session_id = f"damage-{claim_id}-{run_id}" if run_id else f"orchestrator-dmg-{claim_id}-{uuid.uuid4()}"
     payload = json.dumps({"claim_id": claim_id, "session_id": session_id})
 
     logger.info("Invoking damage assessment agent for claim %s", claim_id)

@@ -418,7 +418,7 @@ def should_run(claim: dict) -> bool:
     return True
 
 
-def invoke(claim_id: str, claim: dict) -> dict:
+def invoke(claim_id: str, claim: dict, *, run_id: str = "") -> dict:
     """Read the claim record and render summary.html; no agent invocation."""
     plain_claim = _to_plain(dict(claim))
     html_body = "".join(

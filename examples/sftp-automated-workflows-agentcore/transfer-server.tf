@@ -39,6 +39,9 @@ module "transfer_server" {
   endpoint_type = "PUBLIC"
   protocols     = ["SFTP"]
 
+  # Post-quantum cryptography security policy
+  security_policy_name = "TransferSecurityPolicy-2025-03"
+
   # These attributes configure the server to use the Custom IdP solution
   identity_provider   = "AWS_LAMBDA"
   lambda_function_arn = module.transfer_custom_idp[0].lambda_function_arn

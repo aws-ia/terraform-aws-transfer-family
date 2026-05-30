@@ -93,7 +93,7 @@ module "document_extraction_agent" {
   name_prefix      = local.agentcore_name_prefix
   agent_name       = "document-extraction-agent"
   agent_source_dir = "${path.module}/agent-source-code/document_extraction_agent"
-  entry_point      = ["main.py"]
+  entry_point      = ["opentelemetry-instrument", "main.py"]
 
   code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
   code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn
@@ -117,7 +117,7 @@ module "damage_assessment_agent" {
   name_prefix      = local.agentcore_name_prefix
   agent_name       = "damage-assessment-agent"
   agent_source_dir = "${path.module}/agent-source-code/damage_assessment_agent"
-  entry_point      = ["main.py"]
+  entry_point      = ["opentelemetry-instrument", "main.py"]
 
   code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
   code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn
@@ -145,7 +145,7 @@ module "fraud_detection_agent" {
   name_prefix      = local.agentcore_name_prefix
   agent_name       = "fraud-detection-agent"
   agent_source_dir = "${path.module}/agent-source-code/fraud_detection_agent"
-  entry_point      = ["main.py"]
+  entry_point      = ["opentelemetry-instrument", "main.py"]
 
   code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
   code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn
@@ -173,7 +173,7 @@ module "classification_agent" {
   name_prefix      = local.agentcore_name_prefix
   agent_name       = "classification-agent"
   agent_source_dir = "${path.module}/agent-source-code/classification_agent"
-  entry_point      = ["main.py"]
+  entry_point      = ["opentelemetry-instrument", "main.py"]
 
   code_bucket_id  = module.agent_code_bucket[0].s3_bucket_id
   code_bucket_arn = module.agent_code_bucket[0].s3_bucket_arn

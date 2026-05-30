@@ -182,17 +182,18 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MON
     # Also monitor orchestrator Lambda log group
     ORCHESTRATOR_LOG_GROUP="/aws/lambda/tf-demo-claims-orchestrator"
     
-    # Fetch recent log events from all agent log groups
+    # Fetch recent log events from all agent log groups (filter out OTEL noise)
     for LOG_GROUP in $LOG_GROUPS; do
         # Extract agent name from log group path (full runtime name)
         AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||')
         
-        # Use JSON output and parse with jq to properly handle newlines
+        # Use JSON output and parse with jq; filter out verbose OTEL instrumentation logs
         aws logs filter-log-events \
             --log-group-name "$LOG_GROUP" \
             --start-time $START_TIME \
             --output json 2>/dev/null | \
             jq -r '.events[]?.message // empty' 2>/dev/null | \
+            grep -v -i -E 'opentelemetry|otel|botocore|\[WARN\]' | \
             while IFS= read -r line; do
                 if [ -n "$line" ]; then
                     # Color code by agent type
@@ -340,17 +341,18 @@ while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MON
     # Also monitor orchestrator Lambda log group
     ORCHESTRATOR_LOG_GROUP="/aws/lambda/tf-demo-claims-orchestrator"
     
-    # Fetch recent log events from all agent log groups
+    # Fetch recent log events from all agent log groups (filter out OTEL noise)
     for LOG_GROUP in $LOG_GROUPS; do
         # Extract agent name from log group path (full runtime name)
         AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||')
         
-        # Use JSON output and parse with jq to properly handle newlines
+        # Use JSON output and parse with jq; filter out verbose OTEL instrumentation logs
         aws logs filter-log-events \
             --log-group-name "$LOG_GROUP" \
             --start-time $START_TIME \
             --output json 2>/dev/null | \
             jq -r '.events[]?.message // empty' 2>/dev/null | \
+            grep -v -i -E 'opentelemetry|otel|botocore|\[WARN\]' | \
             while IFS= read -r line; do
                 if [ -n "$line" ]; then
                     # Color code by agent type

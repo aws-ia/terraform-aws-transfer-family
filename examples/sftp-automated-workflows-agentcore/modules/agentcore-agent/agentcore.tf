@@ -29,7 +29,10 @@ resource "aws_bedrockagentcore_agent_runtime" "agentcore_runtime" {
     server_protocol = var.server_protocol
   }
 
-  environment_variables = merge(var.environment_variables, { "SOURCE_CONTENT_HASH" = local.source_content_hash })
+  environment_variables = merge(var.environment_variables, {
+    "SOURCE_CONTENT_HASH" = local.source_content_hash
+    "ARTIFACT_ETAG"       = aws_s3_object.agent_code.etag
+  })
 
   depends_on = [
     aws_iam_role_policy.bedrock_invoke,

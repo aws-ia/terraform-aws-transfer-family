@@ -112,13 +112,13 @@ def should_run(claim: dict) -> bool:
     return True
 
 
-def invoke(claim_id: str, claim: dict) -> dict:
+def invoke(claim_id: str, claim: dict, *, run_id: str = "") -> dict:
     """Invoke the document extraction agent via AgentCore Runtime.
 
     The agent expects { "claim_id": "...", "session_id": "..." } as JSON payload.
     It returns a JSON array of extraction results in its final response.
     """
-    session_id = f"orchestrator-{claim_id}-{uuid.uuid4()}"
+    session_id = f"extraction-{claim_id}-{run_id}" if run_id else f"orchestrator-{claim_id}-{uuid.uuid4()}"
     payload = json.dumps({"claim_id": claim_id, "session_id": session_id})
 
     logger.info("Invoking document extraction agent for claim %s", claim_id)

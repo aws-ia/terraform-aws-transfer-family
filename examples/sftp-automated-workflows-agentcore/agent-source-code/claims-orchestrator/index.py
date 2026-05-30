@@ -11,6 +11,7 @@ import os
 import re
 import tempfile
 import traceback
+import uuid
 import zipfile
 from datetime import datetime, timezone
 from urllib.parse import unquote_plus
@@ -140,7 +141,9 @@ def handler(event, context):
         logger.error("No claim_id resolved from event: %s", event)
         return {"statusCode": 400, "body": "Missing claim_id"}
 
-    logger.info("Starting orchestration for claim %s", claim_id)
+    # Single run ID for this orchestration — all stages derive their session from it
+    run_id = str(uuid.uuid4())
+    logger.info("Starting orchestration for claim %s (run_id=%s)", claim_id, run_id)
 
     for step in PIPELINE:
         stage_name = step["name"]
@@ -158,7 +161,7 @@ def handler(event, context):
                 continue
 
             logger.info("Running stage %s for claim %s", stage_name, claim_id)
-            result = stage.invoke(claim_id, claim)
+            result = stage.invoke(claim_id, claim, run_id=run_id)
             stage.update(claim_id, result, table, claim=claim)
             logger.info("Completed stage %s for claim %s", stage_name, claim_id)
 

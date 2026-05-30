@@ -59,9 +59,9 @@ def should_run(claim: dict) -> bool:
     return True
 
 
-def invoke(claim_id: str, claim: dict) -> dict:
+def invoke(claim_id: str, claim: dict, *, run_id: str = "") -> dict:
     """Invoke the classification agent via AgentCore Runtime."""
-    session_id = f"orchestrator-classification-{claim_id}-{uuid.uuid4()}"
+    session_id = f"classification-{claim_id}-{run_id}" if run_id else f"orchestrator-classification-{claim_id}-{uuid.uuid4()}"
     payload = json.dumps({"claim_id": claim_id, "session_id": session_id})
 
     logger.info("Invoking classification agent for claim %s", claim_id)

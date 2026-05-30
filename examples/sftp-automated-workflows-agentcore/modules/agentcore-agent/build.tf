@@ -39,7 +39,7 @@ resource "terraform_data" "build_agent_package" {
       find "$BUILD_DIR" -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
       # Copy agent source code into the build directory
       cp -r "$SOURCE_DIR"/. "$BUILD_DIR"/
-      rm -rf "$BUILD_DIR/__pycache__" "$BUILD_DIR/.bedrock_agentcore" "$BUILD_DIR/.bedrock_agentcore.yaml" "$BUILD_DIR/.dockerignore" "$BUILD_DIR/bin"
+      rm -rf "$BUILD_DIR/__pycache__" "$BUILD_DIR/.bedrock_agentcore" "$BUILD_DIR/.bedrock_agentcore.yaml" "$BUILD_DIR/.dockerignore"
       cd "$BUILD_DIR" && zip -qr "$ZIP_PATH" .
     EOT
 

@@ -7,5 +7,10 @@ resource "aws_s3_object" "agent_code" {
   source      = local.zip_path
   source_hash = local.source_content_hash
 
+  # Force re-upload whenever the build runs (tainted or source changed)
+  lifecycle {
+    replace_triggered_by = [terraform_data.build_agent_package]
+  }
+
   depends_on = [terraform_data.build_agent_package]
 }
