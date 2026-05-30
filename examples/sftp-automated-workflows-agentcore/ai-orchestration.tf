@@ -229,91 +229,8 @@ resource "aws_iam_role_policy" "claims_reader_lambda" {
 data "archive_file" "claims_reader_lambda" {
   count       = var.enable_agentcore ? 1 : 0
   type        = "zip"
+  source_dir  = "${path.module}/lambda-source-code/claims-reader"
   output_path = "${path.module}/build/claims_reader_lambda.zip"
-
-  source {
-    content  = <<-PYTHON
-import json
-import logging
-import os
-
-import boto3
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-s3 = boto3.client("s3")
-CLAIMS_BUCKET = os.environ.get("CLAIMS_BUCKET", "")
-CLAIMS_TABLE = os.environ.get("CLAIMS_TABLE", "")
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff"}
-TOOL_NAME_DELIMITER = "___"
-
-
-def _resolve_tool_name(context):
-    """Extract the tool name from the AgentCore Gateway context.
-
-    AgentCore Gateway sends the tool name in context.client_context.custom,
-    formatted as target_name + '___' + tool_name. We strip the target prefix.
-    """
-    try:
-        custom = context.client_context.custom
-    except AttributeError:
-        return ""
-    raw = custom.get("bedrockAgentCoreToolName", "")
-    if TOOL_NAME_DELIMITER in raw:
-        return raw.split(TOOL_NAME_DELIMITER, 1)[1]
-    return raw
-
-
-def lambda_handler(event, context):
-    tool_name = _resolve_tool_name(context)
-    logger.info("Invoked tool=%s event=%s", tool_name, json.dumps(event))
-
-    # AgentCore Gateway sends the input schema properties directly as the event dict.
-    claim_id = event.get("claim_id", "") if isinstance(event, dict) else ""
-
-    if tool_name == "get_claim_data":
-        return get_claim_data(claim_id)
-    if tool_name == "get_claim_photos":
-        return get_claim_photos(claim_id)
-
-    logger.error("Unknown tool name resolved from context: %r", tool_name)
-    return {"error": f"Unknown tool: {tool_name}"}
-
-
-def get_claim_data(claim_id):
-    logger.info("get_claim_data claim_id=%s", claim_id)
-    try:
-        dynamodb = boto3.resource("dynamodb")
-        table = dynamodb.Table(CLAIMS_TABLE)
-        response = table.get_item(Key={"claim_id": claim_id})
-        if "Item" in response:
-            return json.loads(json.dumps(response["Item"], default=str))
-    except Exception:
-        logger.exception("DynamoDB get_item failed for %s — falling back to S3 listing", claim_id)
-
-    # Fallback: list S3 objects under claim prefix
-    prefix = f"{claim_id}/"
-    resp = s3.list_objects_v2(Bucket=CLAIMS_BUCKET, Prefix=prefix)
-    keys = [obj["Key"] for obj in resp.get("Contents", []) if not obj["Key"].endswith("/")]
-    return {"claim_id": claim_id, "documents": keys}
-
-
-def get_claim_photos(claim_id):
-    logger.info("get_claim_photos claim_id=%s", claim_id)
-    prefix = f"{claim_id}/"
-    resp = s3.list_objects_v2(Bucket=CLAIMS_BUCKET, Prefix=prefix)
-    photos = []
-    for obj in resp.get("Contents", []):
-        key = obj["Key"]
-        ext = os.path.splitext(key)[1].lower()
-        if ext in IMAGE_EXTENSIONS:
-            photos.append(key)
-    return photos
-    PYTHON
-    filename = "lambda_function.py"
-  }
 }
 
 resource "aws_lambda_function" "claims_reader" {
@@ -349,21 +266,158 @@ resource "aws_lambda_function" "claims_reader" {
 
 # ── Claims Orchestrator (S3 event → 4-agent pipeline → DynamoDB) ─────────────
 
-module "claims_orchestrator" {
-  count  = var.enable_agentcore ? 1 : 0
-  source = "./modules/claims-orchestrator"
+data "archive_file" "claims_orchestrator" {
+  count       = var.enable_agentcore ? 1 : 0
+  type        = "zip"
+  source_dir  = "${path.module}/lambda-source-code/claims-orchestrator"
+  output_path = "${path.module}/build/claims_orchestrator.zip"
+}
 
-  name_prefix        = local.agentcore_name_prefix
-  source_dir         = "${path.module}/agent-source-code/claims-orchestrator"
-  claims_bucket_name = module.s3_bucket_clean[0].s3_bucket_id
-  claims_bucket_arn  = module.s3_bucket_clean[0].s3_bucket_arn
-  claims_table_name  = aws_dynamodb_table.claims[0].name
-  claims_table_arn   = aws_dynamodb_table.claims[0].arn
+resource "aws_sqs_queue" "orchestrator_dlq" {
+  count                     = var.enable_agentcore ? 1 : 0
+  name                      = "${local.agentcore_name_prefix}-claims-orchestrator-dlq"
+  message_retention_seconds = 1209600 # 14 days
+  sqs_managed_sse_enabled   = true
+  tags                      = var.tags
+}
 
-  document_extraction_agent_arn = module.document_extraction_agent[0].agent_runtime_arn
-  damage_assessment_agent_arn   = module.damage_assessment_agent[0].agent_runtime_arn
-  fraud_detection_agent_arn     = module.fraud_detection_agent[0].agent_runtime_arn
-  classification_agent_arn      = module.classification_agent[0].agent_runtime_arn
+resource "aws_lambda_function" "claims_orchestrator" {
+  #checkov:skip=CKV_AWS_117: "Orchestrator only calls AWS service endpoints (S3, DynamoDB, Bedrock AgentCore). No private VPC resources to reach."
+  #checkov:skip=CKV_AWS_173: "Environment variables contain only AWS resource identifiers. No secrets stored."
+  #checkov:skip=CKV_AWS_272: "Code signing adds operational complexity without significant security benefit for this example."
+  count                          = var.enable_agentcore ? 1 : 0
+  filename                       = data.archive_file.claims_orchestrator[0].output_path
+  function_name                  = "${local.agentcore_name_prefix}-claims-orchestrator"
+  role                           = aws_iam_role.claims_orchestrator[0].arn
+  handler                        = "index.handler"
+  runtime                        = "python3.13"
+  timeout                        = 900
+  memory_size                    = 256
+  source_code_hash               = data.archive_file.claims_orchestrator[0].output_base64sha256
+  reserved_concurrent_executions = -1
+
+  tracing_config {
+    mode = "Active"
+  }
+
+  dead_letter_config {
+    target_arn = aws_sqs_queue.orchestrator_dlq[0].arn
+  }
+
+  environment {
+    variables = {
+      CLAIMS_TABLE                  = aws_dynamodb_table.claims[0].name
+      CLAIMS_BUCKET                 = module.s3_bucket_clean[0].s3_bucket_id
+      DOCUMENT_EXTRACTION_AGENT_ARN = module.document_extraction_agent[0].agent_runtime_arn
+      DAMAGE_ASSESSMENT_AGENT_ARN   = module.damage_assessment_agent[0].agent_runtime_arn
+      FRAUD_DETECTION_AGENT_ARN     = module.fraud_detection_agent[0].agent_runtime_arn
+      CLASSIFICATION_AGENT_ARN      = module.classification_agent[0].agent_runtime_arn
+    }
+  }
 
   tags = var.tags
+}
+
+resource "aws_iam_role" "claims_orchestrator" {
+  count = var.enable_agentcore ? 1 : 0
+  name  = "${local.agentcore_name_prefix}-claims-orchestrator-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy" "claims_orchestrator" {
+  count = var.enable_agentcore ? 1 : 0
+  name  = "${local.agentcore_name_prefix}-claims-orchestrator-policy"
+  role  = aws_iam_role.claims_orchestrator[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
+        Resource = [module.s3_bucket_clean[0].s3_bucket_arn, "${module.s3_bucket_clean[0].s3_bucket_arn}/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:GetItem", "dynamodb:Query"]
+        Resource = [aws_dynamodb_table.claims[0].arn]
+      },
+      {
+        Effect = "Allow"
+        Action = ["bedrock-agentcore:InvokeAgentRuntime"]
+        Resource = [
+          module.document_extraction_agent[0].agent_runtime_arn, "${module.document_extraction_agent[0].agent_runtime_arn}/*",
+          module.damage_assessment_agent[0].agent_runtime_arn, "${module.damage_assessment_agent[0].agent_runtime_arn}/*",
+          module.fraud_detection_agent[0].agent_runtime_arn, "${module.fraud_detection_agent[0].agent_runtime_arn}/*",
+          module.classification_agent[0].agent_runtime_arn, "${module.classification_agent[0].agent_runtime_arn}/*",
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["xray:PutTraceSegments", "xray:PutTelemetryRecords"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = [aws_sqs_queue.orchestrator_dlq[0].arn]
+      }
+    ]
+  })
+}
+
+# ── S3 EventBridge trigger ───────────────────────────────────────────────────
+
+resource "aws_s3_bucket_notification" "claims" {
+  count       = var.enable_agentcore ? 1 : 0
+  bucket      = module.s3_bucket_clean[0].s3_bucket_id
+  eventbridge = true
+}
+
+resource "aws_cloudwatch_event_rule" "claim_uploaded" {
+  count       = var.enable_agentcore ? 1 : 0
+  name        = "${local.agentcore_name_prefix}-claim-uploaded"
+  description = "Trigger claims processing on file uploads under claim-* prefixes"
+
+  event_pattern = jsonencode({
+    source      = ["aws.s3"]
+    detail-type = ["Object Created"]
+    detail = {
+      bucket = { name = [module.s3_bucket_clean[0].s3_bucket_id] }
+      object = { key = [{ suffix = ".zip" }] }
+    }
+  })
+
+  tags = var.tags
+}
+
+resource "aws_cloudwatch_event_target" "orchestrator" {
+  count     = var.enable_agentcore ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.claim_uploaded[0].name
+  target_id = "claims-orchestrator"
+  arn       = aws_lambda_function.claims_orchestrator[0].arn
+}
+
+resource "aws_lambda_permission" "eventbridge_orchestrator" {
+  count         = var.enable_agentcore ? 1 : 0
+  statement_id  = "AllowEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.claims_orchestrator[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.claim_uploaded[0].arn
 }

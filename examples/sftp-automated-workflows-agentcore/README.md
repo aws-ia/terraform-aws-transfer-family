@@ -50,7 +50,6 @@ The flow mirrors how P&C carriers process a claim:
 ├── webapp.tf                         # Transfer Family Web App + S3 Access Grants
 ├── modules/                          # Reusable Terraform submodules
 │   ├── agentcore-agent/              # Per-agent runtime + IAM + build + S3 upload
-│   ├── claims-orchestrator/          # Orchestrator Lambda + IAM + EventBridge trigger
 │   └── cognito-hosted-ui/            # Cognito user pool + Managed Login + landing page
 ├── walkthrough/                      # Optional staged-deployment learning path
 │   ├── README.md                     # Walkthrough entry point
@@ -62,7 +61,10 @@ The flow mirrors how P&C carriers process a claim:
 │       ├── cleanup.sh
 │       └── ...
 ├── data/                             # Sample claim ZIPs (5 claims)
-└── agent-source-code/                # Python source for the 4 agents and orchestrator Lambda
+├── lambda-source-code/               # Python source for Lambda functions
+│   ├── claims-orchestrator/          # S3 event → 4-agent pipeline → DynamoDB
+│   └── claims-reader/                # MCP gateway backend (get_claim_data/photos)
+└── agent-source-code/                # Python source for the 4 AgentCore agents
 ```
 
 ## Architecture
@@ -216,7 +218,6 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_agent_code_bucket"></a> [agent\_code\_bucket](#module\_agent\_code\_bucket) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
-| <a name="module_claims_orchestrator"></a> [claims\_orchestrator](#module\_claims\_orchestrator) | ./modules/claims-orchestrator | n/a |
 | <a name="module_classification_agent"></a> [classification\_agent](#module\_classification\_agent) | ./modules/agentcore-agent | n/a |
 | <a name="module_cognito"></a> [cognito](#module\_cognito) | ./modules/cognito-hosted-ui | n/a |
 | <a name="module_damage_assessment_agent"></a> [damage\_assessment\_agent](#module\_damage\_assessment\_agent) | ./modules/agentcore-agent | n/a |
@@ -239,14 +240,18 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | [aws_bedrockagentcore_gateway.claims_reader](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway) | resource |
 | [aws_bedrockagentcore_gateway_target.get_claim_data](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway_target) | resource |
 | [aws_bedrockagentcore_gateway_target.get_claim_photos](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway_target) | resource |
+| [aws_cloudwatch_event_rule.claim_uploaded](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
+| [aws_cloudwatch_event_target.orchestrator](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cognito_user.anycompany](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user) | resource |
 | [aws_dynamodb_table.claims](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_dynamodb_table_item.anycompany_repair_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
 | [aws_dynamodb_table_item.cognito_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
 | [aws_iam_role.claims_gateway](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.claims_orchestrator](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.claims_reader_lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.transfer_session](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.claims_gateway_invoke_lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy.claims_orchestrator](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.claims_reader_lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.transfer_session_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_identitystore_group.claims_admins](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/identitystore_group) | resource |
@@ -258,11 +263,15 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | [aws_kms_alias.malware_key_alias](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.malware_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_kms_key_policy.malware_key_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key_policy) | resource |
+| [aws_lambda_function.claims_orchestrator](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
 | [aws_lambda_function.claims_reader](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
+| [aws_lambda_permission.eventbridge_orchestrator](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_s3_bucket_cors_configuration.clean_bucket_cors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_cors_configuration) | resource |
+| [aws_s3_bucket_notification.claims](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_notification) | resource |
 | [aws_secretsmanager_secret.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_sns_topic.malware_threats](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic) | resource |
+| [aws_sqs_queue.orchestrator_dlq](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue) | resource |
 | [awscc_sso_instance.main](https://registry.terraform.io/providers/hashicorp/awscc/latest/docs/resources/sso_instance) | resource |
 | [null_resource.cleanup_validation_object](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [random_id.agentcore](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
@@ -270,6 +279,7 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | [random_password.cognito_user](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_pet.malware](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 | [random_pet.transfer](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [archive_file.claims_orchestrator](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
 | [archive_file.claims_reader_lambda](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_iam_policy_document.malware_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document) | data source |
