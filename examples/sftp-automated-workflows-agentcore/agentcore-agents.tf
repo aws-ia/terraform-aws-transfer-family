@@ -107,6 +107,8 @@ module "document_extraction_agent" {
 
   enable_agentcore_observability = var.enable_agentcore_observability
   tags                 = var.tags
+
+  depends_on = [aws_xray_indexing_rule.default]
 }
 
 # ── Damage Assessment Agent (uses gateway when enable_agentcore) ─────────────
@@ -136,6 +138,8 @@ module "damage_assessment_agent" {
 
   enable_agentcore_observability = var.enable_agentcore_observability
   tags                 = var.tags
+
+  depends_on = [aws_xray_indexing_rule.default]
 }
 
 # ── Fraud Detection Agent (uses gateway when enable_agentcore) ───────────────
@@ -165,6 +169,8 @@ module "fraud_detection_agent" {
 
   enable_agentcore_observability = var.enable_agentcore_observability
   tags                 = var.tags
+
+  depends_on = [aws_xray_indexing_rule.default]
 }
 
 # ── Classification Agent (uses gateway when enable_agentcore) ────────────────
@@ -194,6 +200,8 @@ module "classification_agent" {
 
   enable_agentcore_observability = var.enable_agentcore_observability
   tags                 = var.tags
+
+  depends_on = [aws_xray_indexing_rule.default]
 }
 
 ################################################################################
