@@ -50,7 +50,7 @@ read -r
 echo ""
 
 # Check if Terraform state exists
-if [ ! -f "$SCRIPT_DIR/terraform.tfstate" ]; then
+if ! terraform -chdir="$SCRIPT_DIR" output -json >/dev/null 2>&1; then
     echo -e "${YELLOW}No Terraform state found. Nothing to clean up.${NC}"
     exit 0
 fi
@@ -223,7 +223,7 @@ else
         echo -e "${GREEN}All resources have been destroyed.${NC}"
         echo ""
         
-        # Clean up local state files
+        # Clean up local state files (if using local backend)
         echo -e "${YELLOW}Cleaning up local Terraform files...${NC}"
         rm -f "$SCRIPT_DIR/terraform.tfstate"
         rm -f "$SCRIPT_DIR/terraform.tfstate.backup"

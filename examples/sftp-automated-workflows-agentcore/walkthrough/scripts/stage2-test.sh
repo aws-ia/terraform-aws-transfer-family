@@ -23,7 +23,7 @@ echo -e "${BLUE}=================================${NC}"
 echo ""
 
 # Check if Terraform state exists
-if [ ! -f "$SCRIPT_DIR/terraform.tfstate" ]; then
+if ! terraform -chdir="$SCRIPT_DIR" output -json >/dev/null 2>&1; then
     echo -e "${RED}Error: Terraform state not found. Please run stage2-deploy.sh first.${NC}"
     exit 1
 fi

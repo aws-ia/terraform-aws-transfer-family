@@ -113,7 +113,7 @@ echo -e "${YELLOW}Checking Terraform state...${NC}"
 echo ""
 
 # Check if Terraform state exists
-if [ ! -f "$SCRIPT_DIR/terraform.tfstate" ]; then
+if ! terraform -chdir="$SCRIPT_DIR" output -json >/dev/null 2>&1; then
     check_result "fail" "Terraform state not found - run ./stage0-deploy.sh first"
     echo ""
     echo -e "${RED}Cannot continue verification without deployed infrastructure.${NC}"
