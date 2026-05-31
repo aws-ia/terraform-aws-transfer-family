@@ -87,3 +87,9 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "enable_agentcore_observability" {
+  description = "Enable CloudWatch log delivery and trace delivery for this agent runtime. Requires CloudWatch Transaction Search to be enabled at the account level."
+  type        = bool
+  default     = false
+}

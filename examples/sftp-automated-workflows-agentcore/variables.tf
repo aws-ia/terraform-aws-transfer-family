@@ -55,6 +55,12 @@ variable "enable_agentcore" {
   }
 }
 
+variable "enable_agentcore_observability" {
+  type        = bool
+  description = "Enable CloudWatch Transaction Search and agent observability (log delivery + trace delivery). This is an account-level setting; set to false if Transaction Search is already configured or not desired."
+  default     = false
+}
+
 variable "enable_webapp" {
   type        = bool
   description = "Enable web application for internal users"

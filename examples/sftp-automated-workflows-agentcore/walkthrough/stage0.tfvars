@@ -21,6 +21,7 @@
 enable_identity_center  = true # IAM Identity Center for internal user management
 enable_cognito          = true # Cognito User Pool for external authentication
 enable_agentcore_agents = true # AgentCore agent runtimes (builds + registers 4 agents)
+enable_agentcore_observability    = true # CloudWatch Transaction Search + agent log/trace delivery
 enable_custom_idp       = true # Custom IDP for Transfer Family
 
 ################################################################################

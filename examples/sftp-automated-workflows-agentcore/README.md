@@ -242,6 +242,8 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | [aws_bedrockagentcore_gateway_target.get_claim_photos](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/bedrockagentcore_gateway_target) | resource |
 | [aws_cloudwatch_event_rule.claim_uploaded](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_target.orchestrator](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
+| [aws_cloudwatch_log_group.spans](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
+| [aws_cloudwatch_log_resource_policy.xray_transaction_search](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
 | [aws_cognito_user.anycompany](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user) | resource |
 | [aws_dynamodb_table.claims](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_dynamodb_table_item.anycompany_repair_record](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
@@ -272,6 +274,8 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | [aws_secretsmanager_secret_version.cognito_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_sns_topic.malware_threats](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic) | resource |
 | [aws_sqs_queue.orchestrator_dlq](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sqs_queue) | resource |
+| [aws_xray_indexing_rule.default](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/xray_indexing_rule) | resource |
+| [aws_xray_trace_segment_destination.cloudwatch](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/xray_trace_segment_destination) | resource |
 | [awscc_sso_instance.main](https://registry.terraform.io/providers/hashicorp/awscc/latest/docs/resources/sso_instance) | resource |
 | [null_resource.cleanup_validation_object](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [random_id.agentcore](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
@@ -296,6 +300,7 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | <a name="input_cognito_username"></a> [cognito\_username](#input\_cognito\_username) | Username for the AnyCompany Auto Repair user | `string` | `"anycompany-repairs"` | no |
 | <a name="input_enable_agentcore"></a> [enable\_agentcore](#input\_enable\_agentcore) | Enable the AgentCore orchestration layer (gateway + gateway targets + claims\_reader Lambda + DynamoDB + claims\_orchestrator). Requires enable\_agentcore\_agents = true since the orchestrator invokes agent runtimes created by that flag. | `bool` | `true` | no |
 | <a name="input_enable_agentcore_agents"></a> [enable\_agentcore\_agents](#input\_enable\_agentcore\_agents) | Enable AgentCore agent runtimes (the AI agents themselves; created early so their build step runs alongside the foundation). The gateway wiring and orchestrator Lambda that actually invoke them are gated separately by enable\_agentcore. | `bool` | `true` | no |
+| <a name="input_enable_agentcore_observability"></a> [enable\_agentcore\_observability](#input\_enable\_agentcore\_observability) | Enable CloudWatch Transaction Search and agent observability (log delivery + trace delivery). This is an account-level setting; set to false if Transaction Search is already configured or not desired. | `bool` | `false` | no |
 | <a name="input_enable_cognito"></a> [enable\_cognito](#input\_enable\_cognito) | Enable Cognito user pool for authentication | `bool` | `true` | no |
 | <a name="input_enable_custom_idp"></a> [enable\_custom\_idp](#input\_enable\_custom\_idp) | Enable custom identity provider solution | `bool` | `true` | no |
 | <a name="input_enable_identity_center"></a> [enable\_identity\_center](#input\_enable\_identity\_center) | Enable IAM Identity Center integration | `bool` | `true` | no |

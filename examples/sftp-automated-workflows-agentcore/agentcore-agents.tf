@@ -105,7 +105,8 @@ module "document_extraction_agent" {
     local.agentcore_data_env,
   )
 
-  tags = var.tags
+  enable_agentcore_observability = var.enable_agentcore_observability
+  tags                 = var.tags
 }
 
 # ── Damage Assessment Agent (uses gateway when enable_agentcore) ─────────────
@@ -133,7 +134,8 @@ module "damage_assessment_agent" {
     local.agentcore_gateway_env,
   )
 
-  tags = var.tags
+  enable_agentcore_observability = var.enable_agentcore_observability
+  tags                 = var.tags
 }
 
 # ── Fraud Detection Agent (uses gateway when enable_agentcore) ───────────────
@@ -161,7 +163,8 @@ module "fraud_detection_agent" {
     local.agentcore_gateway_env,
   )
 
-  tags = var.tags
+  enable_agentcore_observability = var.enable_agentcore_observability
+  tags                 = var.tags
 }
 
 # ── Classification Agent (uses gateway when enable_agentcore) ────────────────
@@ -189,5 +192,77 @@ module "classification_agent" {
     local.agentcore_gateway_env,
   )
 
-  tags = var.tags
+  enable_agentcore_observability = var.enable_agentcore_observability
+  tags                 = var.tags
+}
+
+################################################################################
+# Observability — CloudWatch Transaction Search (account-level)
+#
+# Enables Transaction Search (required for AgentCore trace delivery).
+# One-time account-level setup:
+#   1. Creates the aws/spans log group for span ingestion
+#   2. Grants X-Ray permission to write spans to CloudWatch Logs
+#   3. Sets the trace segment destination to CloudWatchLogs
+#   4. Configures the default indexing rule (1% sampling — free tier)
+#
+# Reference: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Enable-TransactionSearch.html
+################################################################################
+
+resource "aws_cloudwatch_log_group" "spans" {
+  #checkov:skip=CKV_AWS_338: "Spans log group retention is managed by CloudWatch Transaction Search defaults"
+  #checkov:skip=CKV_AWS_158: "Using AWS managed encryption is acceptable for this use case"
+  count             = var.enable_agentcore_observability ? 1 : 0
+  name              = "aws/spans"
+  retention_in_days = 30
+  tags              = var.tags
+}
+
+resource "aws_cloudwatch_log_resource_policy" "xray_transaction_search" {
+  count       = var.enable_agentcore_observability ? 1 : 0
+  policy_name = "${local.agentcore_name_prefix}-xray-transaction-search"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "TransactionSearchXRayAccess"
+      Effect = "Allow"
+      Principal = {
+        Service = "xray.amazonaws.com"
+      }
+      Action = "logs:PutLogEvents"
+      Resource = [
+        "${aws_cloudwatch_log_group.spans[0].arn}:*",
+        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/application-signals/data:*"
+      ]
+      Condition = {
+        ArnLike = {
+          "aws:SourceArn" = "arn:aws:xray:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        }
+        StringEquals = {
+          "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_xray_trace_segment_destination" "cloudwatch" {
+  count       = var.enable_agentcore_observability ? 1 : 0
+  destination = "CloudWatchLogs"
+
+  depends_on = [aws_cloudwatch_log_resource_policy.xray_transaction_search]
+}
+
+resource "aws_xray_indexing_rule" "default" {
+  count = var.enable_agentcore_observability ? 1 : 0
+  name  = "Default"
+
+  rule {
+    probabilistic {
+      desired_sampling_percentage = 1.0
+    }
+  }
+
+  depends_on = [aws_xray_trace_segment_destination.cloudwatch]
 }

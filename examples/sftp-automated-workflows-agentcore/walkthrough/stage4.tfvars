@@ -16,6 +16,7 @@
 enable_identity_center    = true # IAM Identity Center for internal user management
 enable_cognito            = true # Cognito User Pool for external authentication
 enable_agentcore_agents   = true # AgentCore agent runtimes (from stage 0)
+enable_agentcore_observability      = true # CloudWatch Transaction Search + agent log/trace delivery
 enable_custom_idp         = true # Custom Lambda IDP for Transfer Family
 enable_transfer_server    = true # SFTP server for file uploads
 enable_malware_protection = true # GuardDuty malware scanning and routing
