@@ -217,15 +217,6 @@ module "classification_agent" {
 # Reference: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Enable-TransactionSearch.html
 ################################################################################
 
-resource "aws_cloudwatch_log_group" "spans" {
-  #checkov:skip=CKV_AWS_338: "Spans log group retention is managed by CloudWatch Transaction Search defaults"
-  #checkov:skip=CKV_AWS_158: "Using AWS managed encryption is acceptable for this use case"
-  count             = var.enable_agentcore_observability ? 1 : 0
-  name              = "aws/spans"
-  retention_in_days = 30
-  tags              = var.tags
-}
-
 resource "aws_cloudwatch_log_resource_policy" "xray_transaction_search" {
   count       = var.enable_agentcore_observability ? 1 : 0
   policy_name = "${local.agentcore_name_prefix}-xray-transaction-search"
@@ -240,7 +231,7 @@ resource "aws_cloudwatch_log_resource_policy" "xray_transaction_search" {
       }
       Action = "logs:PutLogEvents"
       Resource = [
-        "${aws_cloudwatch_log_group.spans[0].arn}:*",
+        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:aws/spans:*",
         "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/application-signals/data:*"
       ]
       Condition = {
