@@ -105,10 +105,7 @@ module "document_extraction_agent" {
     local.agentcore_data_env,
   )
 
-  enable_agentcore_observability = var.enable_agentcore_observability
-  tags                 = var.tags
-
-  depends_on = [aws_xray_indexing_rule.default]
+  tags = var.tags
 }
 
 # ── Damage Assessment Agent (uses gateway when enable_agentcore) ─────────────
@@ -136,10 +133,7 @@ module "damage_assessment_agent" {
     local.agentcore_gateway_env,
   )
 
-  enable_agentcore_observability = var.enable_agentcore_observability
-  tags                 = var.tags
-
-  depends_on = [aws_xray_indexing_rule.default]
+  tags = var.tags
 }
 
 # ── Fraud Detection Agent (uses gateway when enable_agentcore) ───────────────
@@ -167,10 +161,7 @@ module "fraud_detection_agent" {
     local.agentcore_gateway_env,
   )
 
-  enable_agentcore_observability = var.enable_agentcore_observability
-  tags                 = var.tags
-
-  depends_on = [aws_xray_indexing_rule.default]
+  tags = var.tags
 }
 
 # ── Classification Agent (uses gateway when enable_agentcore) ────────────────
@@ -198,24 +189,31 @@ module "classification_agent" {
     local.agentcore_gateway_env,
   )
 
-  enable_agentcore_observability = var.enable_agentcore_observability
-  tags                 = var.tags
-
-  depends_on = [aws_xray_indexing_rule.default]
+  tags = var.tags
 }
 
 ################################################################################
-# Observability — CloudWatch Transaction Search (account-level)
+# Observability — CloudWatch Transaction Search + Agent Log/Trace Delivery
 #
-# Enables Transaction Search (required for AgentCore trace delivery).
-# One-time account-level setup:
-#   1. Creates the aws/spans log group for span ingestion
-#   2. Grants X-Ray permission to write spans to CloudWatch Logs
-#   3. Sets the trace segment destination to CloudWatchLogs
-#   4. Configures the default indexing rule (1% sampling — free tier)
+# Enables Transaction Search (required for AgentCore trace delivery) and sets
+# up vended log delivery (APPLICATION_LOGS + USAGE_LOGS + TRACES) for each
+# agent runtime. Resources are chained sequentially to avoid concurrent
+# CreateDelivery API conflicts.
 #
 # Reference: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Enable-TransactionSearch.html
 ################################################################################
+
+locals {
+  # Agent runtime references for observability (empty when agents disabled)
+  observability_agents = var.enable_agentcore_agents && var.enable_agentcore_observability ? {
+    extraction     = module.document_extraction_agent[0]
+    damage         = module.damage_assessment_agent[0]
+    fraud          = module.fraud_detection_agent[0]
+    classification = module.classification_agent[0]
+  } : {}
+}
+
+# ── Transaction Search (account-level) ───────────────────────────────────────
 
 resource "aws_cloudwatch_log_resource_policy" "xray_transaction_search" {
   count       = var.enable_agentcore_observability ? 1 : 0
@@ -264,4 +262,200 @@ resource "aws_xray_indexing_rule" "default" {
   }
 
   depends_on = [aws_xray_trace_segment_destination.cloudwatch]
+}
+
+# ── Per-agent log delivery (chained to avoid concurrent API conflicts) ───────
+
+resource "aws_cloudwatch_log_group" "agent_observability" {
+  #checkov:skip=CKV_AWS_338: "Demo example — 30-day retention is acceptable"
+  #checkov:skip=CKV_AWS_158: "Using AWS managed encryption is acceptable for this use case"
+  for_each          = local.observability_agents
+  name              = "/aws/vendedlogs/bedrock-agentcore/runtimes/${each.value.agent_runtime_id}"
+  retention_in_days = 30
+  tags              = var.tags
+}
+
+resource "aws_cloudwatch_log_resource_policy" "agent_log_delivery" {
+  count       = var.enable_agentcore_observability ? 1 : 0
+  policy_name = "${local.agentcore_name_prefix}-agent-log-delivery"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "AWSLogDeliveryWrite"
+      Effect = "Allow"
+      Principal = {
+        Service = "delivery.logs.amazonaws.com"
+      }
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Resource = [for lg in aws_cloudwatch_log_group.agent_observability : "${lg.arn}:log-stream:*"]
+      Condition = {
+        StringEquals = {
+          "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+        }
+        ArnLike = {
+          "aws:SourceArn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        }
+      }
+    }]
+  })
+}
+
+# APPLICATION_LOGS delivery — one per agent, chained sequentially
+resource "aws_cloudwatch_log_delivery_source" "app_logs" {
+  for_each     = local.observability_agents
+  name         = "${local.agentcore_name_prefix}-${each.key}-app-logs"
+  log_type     = "APPLICATION_LOGS"
+  resource_arn = each.value.agent_runtime_arn
+
+  depends_on = [aws_xray_indexing_rule.default]
+}
+
+resource "aws_cloudwatch_log_delivery_destination" "app_logs" {
+  for_each = local.observability_agents
+  name     = "${local.agentcore_name_prefix}-${each.key}-app-logs"
+
+  delivery_destination_configuration {
+    destination_resource_arn = aws_cloudwatch_log_group.agent_observability[each.key].arn
+  }
+
+  depends_on = [aws_cloudwatch_log_resource_policy.agent_log_delivery]
+}
+
+resource "aws_cloudwatch_log_delivery" "app_logs_extraction" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.app_logs["extraction"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.app_logs["extraction"].name
+
+  depends_on = [aws_xray_indexing_rule.default]
+}
+
+resource "aws_cloudwatch_log_delivery" "app_logs_damage" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.app_logs["damage"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.app_logs["damage"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.app_logs_extraction]
+}
+
+resource "aws_cloudwatch_log_delivery" "app_logs_fraud" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.app_logs["fraud"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.app_logs["fraud"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.app_logs_damage]
+}
+
+resource "aws_cloudwatch_log_delivery" "app_logs_classification" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.app_logs["classification"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.app_logs["classification"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.app_logs_fraud]
+}
+
+# USAGE_LOGS delivery — chained after app_logs
+resource "aws_cloudwatch_log_delivery_source" "usage_logs" {
+  for_each     = local.observability_agents
+  name         = "${local.agentcore_name_prefix}-${each.key}-usage-logs"
+  log_type     = "USAGE_LOGS"
+  resource_arn = each.value.agent_runtime_arn
+
+  depends_on = [aws_cloudwatch_log_delivery.app_logs_classification]
+}
+
+resource "aws_cloudwatch_log_delivery_destination" "usage_logs" {
+  for_each = local.observability_agents
+  name     = "${local.agentcore_name_prefix}-${each.key}-usage-logs"
+
+  delivery_destination_configuration {
+    destination_resource_arn = aws_cloudwatch_log_group.agent_observability[each.key].arn
+  }
+
+  depends_on = [aws_cloudwatch_log_resource_policy.agent_log_delivery]
+}
+
+resource "aws_cloudwatch_log_delivery" "usage_logs_extraction" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.usage_logs["extraction"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.usage_logs["extraction"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.app_logs_classification]
+}
+
+resource "aws_cloudwatch_log_delivery" "usage_logs_damage" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.usage_logs["damage"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.usage_logs["damage"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.usage_logs_extraction]
+}
+
+resource "aws_cloudwatch_log_delivery" "usage_logs_fraud" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.usage_logs["fraud"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.usage_logs["fraud"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.usage_logs_damage]
+}
+
+resource "aws_cloudwatch_log_delivery" "usage_logs_classification" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.usage_logs["classification"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.usage_logs["classification"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.usage_logs_fraud]
+}
+
+# TRACES delivery — chained after usage_logs
+resource "aws_cloudwatch_log_delivery_source" "traces" {
+  for_each     = local.observability_agents
+  name         = "${local.agentcore_name_prefix}-${each.key}-traces"
+  log_type     = "TRACES"
+  resource_arn = each.value.agent_runtime_arn
+
+  depends_on = [aws_cloudwatch_log_delivery.usage_logs_classification]
+}
+
+resource "aws_cloudwatch_log_delivery_destination" "traces" {
+  for_each                 = local.observability_agents
+  name                     = "${local.agentcore_name_prefix}-${each.key}-traces"
+  delivery_destination_type = "XRAY"
+
+  depends_on = [aws_xray_indexing_rule.default]
+}
+
+resource "aws_cloudwatch_log_delivery" "traces_extraction" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.traces["extraction"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.traces["extraction"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.usage_logs_classification]
+}
+
+resource "aws_cloudwatch_log_delivery" "traces_damage" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.traces["damage"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.traces["damage"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.traces_extraction]
+}
+
+resource "aws_cloudwatch_log_delivery" "traces_fraud" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.traces["fraud"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.traces["fraud"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.traces_damage]
+}
+
+resource "aws_cloudwatch_log_delivery" "traces_classification" {
+  count                    = var.enable_agentcore_observability ? 1 : 0
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.traces["classification"].arn
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.traces["classification"].name
+
+  depends_on = [aws_cloudwatch_log_delivery.traces_fraud]
 }
