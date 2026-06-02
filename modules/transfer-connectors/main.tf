@@ -10,7 +10,7 @@
 data "aws_caller_identity" "current" {}
 locals {
   should_scan = false
-  logging_role = length(aws_iam_role.connector_logging_role) > 0 ? aws_iam_role.connector_logging_role[0].arn : var.logging_role
+  logging_role = var.create_logging_role ? aws_iam_role.connector_logging_role[0].arn : var.logging_role
   
   # Use provided secret ID or create new one
   effective_secret_id = var.user_secret_id != null ? var.user_secret_id : (local.create_secret ? aws_secretsmanager_secret.sftp_credentials[0].arn : null)
@@ -311,7 +311,7 @@ resource "terraform_data" "discover_and_test_connector" {
 #####################################################################################
 
 resource "aws_iam_role" "connector_logging_role" {
-  count = var.logging_role == null ? 1 : 0
+  count = var.create_logging_role ? 1 : 0
   
   name = "transfer-connector-logging-role-${var.connector_name}"
   
@@ -332,7 +332,7 @@ resource "aws_iam_role" "connector_logging_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "connector_logging_policy" {
-  count      = var.logging_role == null ? 1 : 0
+  count      = var.create_logging_role ? 1 : 0
   role       = aws_iam_role.connector_logging_role[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSTransferLoggingAccess"
 }
