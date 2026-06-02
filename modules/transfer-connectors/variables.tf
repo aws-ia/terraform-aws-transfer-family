@@ -52,7 +52,7 @@ variable "security_policy_name" {
 }
 
 variable "create_logging_role" {
-  description = "Enable CloudWatch logging"
+  description = "Use custom role (name provided by logging_role variable) for logging"
   type        = bool
   default     = true
 }
