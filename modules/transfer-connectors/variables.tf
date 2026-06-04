@@ -51,12 +51,6 @@ variable "security_policy_name" {
   }
 }
 
-variable "create_logging_role" {
-  description = "Use custom role (name provided by logging_role variable) for logging"
-  type        = bool
-  default     = true
-}
-
 variable "logging_role" {
   description = "IAM role ARN for CloudWatch logging (if not provided, a new role will be created)"
   type        = string
