@@ -70,6 +70,12 @@ def get_agent(session_id: str):
 
     model = BedrockModel(**model_kwargs)
     tools = list(TOOLS)
+
+    # active_rules holds the threshold-based routing rules (approved /
+    # requires_review / rejected). Defaults to CLASSIFICATION_RULES; can
+    # be overridden by the gateway's get_classification_rules tool. The
+    # agent never re-weights the fraud score — it only maps risk_level
+    # and other signals to the routing outcome.
     active_rules = dict(CLASSIFICATION_RULES)
 
     logger.info("Built-in tools loaded: %s", [getattr(t, "__name__", getattr(t, "name", str(t))) for t in tools])

@@ -86,6 +86,9 @@ def get_agent(session_id: str):
 
     model = BedrockModel(**model_kwargs)
 
+    # Strands runs the tool-calling loop here: the model decides when to call
+    # list_claim_documents → read_document, chains them per claim artifact,
+    # and emits the final JSON array of structured extractions.
     yield Agent(
         system_prompt=_build_system_prompt(),
         tools=[list_claim_documents, read_document],

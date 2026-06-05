@@ -57,6 +57,11 @@ def get_agent(session_id: str):
 
     tools = list(TOOLS)
 
+    # Local tools include analyze_photo (Bedrock vision for damage type +
+    # severity per photo); MCP gateway tools (claim metadata lookups) are
+    # added below when available. Strands then iterates per photo and
+    # produces an independent cost estimate from the local repair-cost
+    # reference data — deliberately not the body shop's repair_estimate.
     agent_kwargs = dict(
         system_prompt=_build_system_prompt(),
         tools=tools,

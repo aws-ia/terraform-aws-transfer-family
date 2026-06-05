@@ -28,6 +28,9 @@ def invoke(payload, context=None):
 
     try:
         with get_agent(session_id=session_id) as agent:
+            # Output is a fraud *risk profile* (risk_score, risk_level, per-rule
+            # flags with quoted evidence), not a binary fraud/not-fraud verdict.
+            # The Classification agent applies the routing thresholds later.
             result = agent(claim_id)
             text = str(result)
             logger.info("Agent raw response length: %d chars", len(text))

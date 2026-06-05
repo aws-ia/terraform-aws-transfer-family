@@ -30,6 +30,11 @@ dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(CLAIMS_TABLE)
 s3 = boto3.client("s3")
 
+# Pipeline stages run sequentially against the claim record in DynamoDB.
+# Each stage's invoke() calls its AgentCore agent runtime; update() writes
+# the agent's output back to the claim record before the next stage runs.
+# A stage can opt out via should_run() — used by document_extraction when
+# a pre-extracted policy is already on file for the claimant.
 PIPELINE = [
     {"name": "document_extraction", "stage": document_extraction},
     {"name": "damage_assessment", "stage": damage_assessment},
@@ -114,6 +119,9 @@ def handler(event, context):
 
     detail = event.get("detail", {})
     if detail:
+        # EventBridge path: GuardDuty has cleared a ZIP into the clean bucket.
+        # Extract its contents under claim-{id}/ and seed the DynamoDB record
+        # before running the pipeline.
         bucket = detail.get("bucket", {}).get("name", CLAIMS_BUCKET)
         key = unquote_plus(detail.get("object", {}).get("key", ""))
 
@@ -135,6 +143,8 @@ def handler(event, context):
         extract_zip(bucket, key, claim_id)
         create_claim_record(claim_id, bucket)
     else:
+        # Direct invocation path (manual replay or testing); the claim is
+        # assumed to already be in DynamoDB and the ZIP already extracted.
         claim_id = event.get("claim_id")
 
     if not claim_id:
@@ -145,6 +155,10 @@ def handler(event, context):
     run_id = str(uuid.uuid4())
     logger.info("Starting orchestration for claim %s (run_id=%s)", claim_id, run_id)
 
+    # Each stage decides whether to run, invokes its AgentCore agent if so,
+    # and persists the result. A failure in any stage marks the claim as
+    # 'error' and aborts the rest — partial results from earlier stages are
+    # preserved so SIU can inspect what went wrong.
     for step in PIPELINE:
         stage_name = step["name"]
         stage = step["stage"]
