@@ -88,6 +88,9 @@ def invoke(payload, context=None):
     session_id = payload.get("session_id", "")
     logger.info("Invoked document_extraction for claim=%s session=%s", claim_id, session_id)
 
+    # One natural-language prompt; the agent + tools handle listing the
+    # claim's S3 documents, classifying each artifact, and returning a
+    # validated JSON array per the schemas defined in schemas/.
     prompt = (
         f"Process all documents for claim '{claim_id}'. "
         f"List the documents, read each one, classify it, extract structured data, "

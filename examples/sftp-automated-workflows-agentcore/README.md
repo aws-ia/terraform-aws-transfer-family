@@ -197,21 +197,21 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5 |
-| <a name="requirement_archive"></a> [archive](#requirement\_archive) | >= 2.4.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 6.40.0 |
-| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 0.70.0 |
-| <a name="requirement_null"></a> [null](#requirement\_null) | >= 3.2.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0.0 |
+| <a name="requirement_archive"></a> [archive](#requirement\_archive) | ~> 2.8 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 6.49 |
+| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | ~> 1.87 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.3 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.9 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_archive"></a> [archive](#provider\_archive) | >= 2.4.0 |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 6.40.0 |
-| <a name="provider_awscc"></a> [awscc](#provider\_awscc) | >= 0.70.0 |
-| <a name="provider_null"></a> [null](#provider\_null) | >= 3.2.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.0.0 |
+| <a name="provider_archive"></a> [archive](#provider\_archive) | ~> 2.8 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 6.49 |
+| <a name="provider_awscc"></a> [awscc](#provider\_awscc) | ~> 1.87 |
+| <a name="provider_null"></a> [null](#provider\_null) | ~> 3.3 |
+| <a name="provider_random"></a> [random](#provider\_random) | ~> 3.9 |
 
 ## Modules
 
@@ -223,14 +223,14 @@ This example is provided under the MIT-0 License. See LICENSE file for details.
 | <a name="module_damage_assessment_agent"></a> [damage\_assessment\_agent](#module\_damage\_assessment\_agent) | ./modules/agentcore-agent | n/a |
 | <a name="module_document_extraction_agent"></a> [document\_extraction\_agent](#module\_document\_extraction\_agent) | ./modules/agentcore-agent | n/a |
 | <a name="module_fraud_detection_agent"></a> [fraud\_detection\_agent](#module\_fraud\_detection\_agent) | ./modules/agentcore-agent | n/a |
-| <a name="module_guardduty_malware_protection"></a> [guardduty\_malware\_protection](#module\_guardduty\_malware\_protection) | aws-ia/transfer-family/aws//modules/transfer-malware-protection | 0.5.1 |
+| <a name="module_guardduty_malware_protection"></a> [guardduty\_malware\_protection](#module\_guardduty\_malware\_protection) | ../../modules/transfer-malware-protection | n/a |
 | <a name="module_s3_bucket_clean"></a> [s3\_bucket\_clean](#module\_s3\_bucket\_clean) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
 | <a name="module_s3_bucket_errors"></a> [s3\_bucket\_errors](#module\_s3\_bucket\_errors) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
 | <a name="module_s3_bucket_malware_source"></a> [s3\_bucket\_malware\_source](#module\_s3\_bucket\_malware\_source) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
 | <a name="module_s3_bucket_quarantine"></a> [s3\_bucket\_quarantine](#module\_s3\_bucket\_quarantine) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
 | <a name="module_s3_bucket_transfer"></a> [s3\_bucket\_transfer](#module\_s3\_bucket\_transfer) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | v5.0.0 |
-| <a name="module_transfer_custom_idp"></a> [transfer\_custom\_idp](#module\_transfer\_custom\_idp) | git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution | v0.6.0 |
-| <a name="module_transfer_server"></a> [transfer\_server](#module\_transfer\_server) | git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-server | v0.6.0 |
+| <a name="module_transfer_custom_idp"></a> [transfer\_custom\_idp](#module\_transfer\_custom\_idp) | ../../modules/transfer-custom-idp-solution | n/a |
+| <a name="module_transfer_server"></a> [transfer\_server](#module\_transfer\_server) | ../../modules/transfer-server | n/a |
 | <a name="module_transfer_webapp"></a> [transfer\_webapp](#module\_transfer\_webapp) | ../../modules/transfer-web-app | n/a |
 
 ## Resources

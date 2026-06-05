@@ -208,7 +208,7 @@ resource "aws_secretsmanager_secret_version" "cognito_user_password" {
 # Custom IDP Solution Module
 module "transfer_custom_idp" {
   count  = var.enable_custom_idp ? 1 : 0
-  source = "git::https://github.com/aws-ia/terraform-aws-transfer-family.git//modules/transfer-custom-idp-solution?ref=v0.6.0"
+  source = "../../modules/transfer-custom-idp-solution"
 
   # All provisioned resources will use this prefix
   name_prefix = "transferidp"

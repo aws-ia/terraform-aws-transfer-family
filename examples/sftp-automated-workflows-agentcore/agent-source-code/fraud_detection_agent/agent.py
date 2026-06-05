@@ -64,6 +64,11 @@ def get_agent(session_id: str):
 
     model = BedrockModel(**model_kwargs)
     tools = list(TOOLS)
+
+    # active_rules drives the rule set the agent applies (financial, temporal,
+    # coverage, document, photo-manipulation). Defaults to FRAUD_RULES from
+    # config; if the MCP gateway exposes get_fraud_rules, those override
+    # locally so insurers can swap rule sets without redeploying the agent.
     active_rules = list(FRAUD_RULES)
 
     logger.info("Built-in tools loaded: %s", [getattr(t, "__name__", getattr(t, "name", str(t))) for t in tools])

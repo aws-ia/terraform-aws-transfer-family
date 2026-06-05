@@ -189,12 +189,15 @@ resource "null_resource" "build_trigger" {
   provisioner "local-exec" {
     command = <<-EOT
       echo "Waiting for IAM role propagation..."
+      echo "Region: ${data.aws_region.current.name}"
       sleep 10
       
       BUILD_ID=$(aws codebuild start-build \
         --project-name ${aws_codebuild_project.build.name} \
         --query 'build.id' \
+        --region ${data.aws_region.current.name} \
         --output text)
+        
       
       echo "CodeBuild started: $BUILD_ID"
       
@@ -203,6 +206,7 @@ resource "null_resource" "build_trigger" {
         BUILD_STATUS=$(aws codebuild batch-get-builds \
           --ids $BUILD_ID \
           --query 'builds[0].buildStatus' \
+          --region ${data.aws_region.current.name} \
           --output text)
         
         if [ "$BUILD_STATUS" == "SUCCEEDED" ]; then
@@ -448,32 +452,6 @@ resource "aws_api_gateway_method" "get_user_config" {
   resource_id   = aws_api_gateway_resource.config[0].id
   http_method   = "GET"
   authorization = "AWS_IAM"
-
-  request_parameters = {
-       "method.request.header.PasswordBase64"  = false
-       "method.request.querystring.protocol"   = false
-       "method.request.querystring.sourceIp"   = false
-  }
-}
-
-resource "aws_api_gateway_model" "user_config_response" {
-  count       = var.provision_api ? 1 : 0
-  rest_api_id = aws_api_gateway_rest_api.identity_provider[0].id
-  name        = "UserConfigResponseModel"
-  content_type = "application/json"
-  description = "API response for GetUserConfig"
-
-  schema = jsonencode({
-    "$schema"  = "http://json-schema.org/draft-04/schema#"
-    title      = "UserConfig"
-    type       = "object"
-    properties = {
-      HomeDirectory = { type = "string" }
-      Role          = { type = "string" }
-      Policy        = { type = "string" }
-      PublicKeys    = { type = "array", items = { type = "string" } }
-    }
-  })
 }
 
 resource "aws_api_gateway_integration" "lambda" {
@@ -489,10 +467,10 @@ resource "aws_api_gateway_integration" "lambda" {
   request_templates = {
     "application/json" = <<EOF
 {
-  "username": "$util.urlDecode($input.params('username'))",
+  "username": "$input.params('username')",
   "serverId": "$input.params('serverId')",
-  "password": "$util.escapeJavaScript($util.base64Decode($input.params('PasswordBase64'))).replaceAll("\\'","'")",
-  "sourceIp": "$input.params('sourceIp')",
+  "password": "$util.escapeJavaScript($input.params('Password')).replaceAll("\\\\'","'")",
+  "sourceIp": "$util.escapeJavaScript($input.params('SourceIp')).replaceAll("\\\\'","'")",
   "protocol": "$input.params('protocol')"
 }
 EOF
@@ -507,7 +485,7 @@ resource "aws_api_gateway_method_response" "success" {
   status_code = "200"
 
   response_models = {
-    "application/json" = aws_api_gateway_model.user_config_response[0].name
+    "application/json" = "Empty"
   }
 }
 

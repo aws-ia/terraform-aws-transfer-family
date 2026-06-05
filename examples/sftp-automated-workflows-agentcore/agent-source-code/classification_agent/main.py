@@ -28,6 +28,11 @@ def invoke(payload, context=None):
 
     try:
         with get_agent(session_id=session_id) as agent:
+            # The agent reads the entire claim record (extractions, damage
+            # assessment, fraud risk profile) via gateway tools and routes to
+            # approved / requires_review / rejected. Decision is rule-driven,
+            # not LLM-judgment — the system prompt forbids any re-weighting
+            # of the fraud score.
             result = agent(claim_id)
             text = str(result)
             logger.info("Agent raw response length: %d chars", len(text))

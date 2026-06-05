@@ -26,6 +26,10 @@ def invoke(payload, context=None):
     session_id = payload.get("session_id", "")
     logger.info("Invoked damage_assessment for claim=%s session=%s", claim_id, session_id)
 
+    # The agent looks up the claim data, analyzes each photo, then builds an
+    # *independent* cost estimate from the local repair-cost reference. The
+    # claimant's repair_estimate is read but not trusted, so any inflation
+    # vs. our estimate is observable downstream.
     prompt = (
         f"Assess damage for claim '{claim_id}'. "
         f"Read the claim data, identify photos, analyze each photo for damage, "
