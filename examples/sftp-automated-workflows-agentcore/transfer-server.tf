@@ -23,38 +23,52 @@ resource "random_pet" "transfer" {
 # Step 1: Transfer Family Server
 ################################################################################
 
-# Transfer Family Server Module
+# Create Transfer Family SFTP server with Custom IdP authentication
 module "transfer_server" {
   count = var.enable_transfer_server && var.enable_custom_idp ? 1 : 0
 
   source = "../../modules/transfer-server"
 
-  # Server Configuration
-  server_name = "anycompany-insurance-sftp"
-
-  # Transfer Family supports "S3" and "EFS" storage domains 
-  domain = "S3"
-
-  # The Transfer Family server endpoint can be public or VPC-attached ***
-  endpoint_type = "PUBLIC"
-  protocols     = ["SFTP"]
-
-  # Post-quantum cryptography security policy
+  server_name          = "anycompany-insurance-sftp"
+  domain               = "S3"
+  endpoint_type        = "PUBLIC"
+  protocols            = ["SFTP"]
   security_policy_name = "TransferSecurityPolicy-2025-03"
 
-  # These attributes configure the server to use the Custom IdP solution
+  # Configure server to use the Custom IdP Lambda for authentication
   identity_provider   = "AWS_LAMBDA"
   lambda_function_arn = module.transfer_custom_idp[0].lambda_function_arn
 
-  # Tags
   tags = var.tags
 }
 
+
 ################################################################################
-# Step 2: Assign User to Identity Provider
+# Step 2: Custom IDP Solution
 ################################################################################
 
-# Create user record for AnyCompany Auto Repair and assign to the "cognito_pool" provider
+# Deploy Custom IdP Lambda and DynamoDB tables for Transfer Family authentication
+module "transfer_custom_idp" {
+  count  = var.enable_custom_idp ? 1 : 0
+  source = "../../modules/transfer-custom-idp-solution"
+
+  name_prefix = "transferidp"
+
+  # VPC attachment allows connecting to private identity providers (e.g. Active Directory)
+  use_vpc = false
+
+  # Optional API Gateway endpoint for use with AWS WAF to filter authentication requests
+  provision_api = false
+
+  # Override default BUILD_GENERAL1_SMALL for faster Lambda dependency builds
+  codebuild_compute_type = "BUILD_GENERAL1_LARGE"
+}
+
+################################################################################
+# Step 3: Configure Cognito Identity Provider and User in Custom IdP
+################################################################################
+
+# Create user record for AnyCompany Auto Repair assigned to the "cognito_pool" provider
 resource "aws_dynamodb_table_item" "anycompany_repair_record" {
   count = var.enable_custom_idp && var.enable_transfer_server ? 1 : 0
 
@@ -65,23 +79,18 @@ resource "aws_dynamodb_table_item" "anycompany_repair_record" {
   depends_on = [module.transfer_custom_idp]
 
   item = jsonencode({
-    # The user record defines what identity provider the user is associated with and 
-    # connfigures the session.
     user = {
       S = var.cognito_username
     }
     identity_provider_key = {
       S = "cognito_pool"
     }
-    # 
     config = {
       M = {
-        # In Transfer Family servers, directories can be logically mapped to S3 buckets and paths ***
+        # Logical directory mapping from server root to the claims-files S3 bucket
         HomeDirectoryDetails = {
           L = [
             {
-              # This entry maps the root "/" on the server to the "claims-files" buckets
-              # where repair claims are uploaded 
               M = {
                 Entry = {
                   S = "/"
@@ -96,16 +105,13 @@ resource "aws_dynamodb_table_item" "anycompany_repair_record" {
         HomeDirectoryType = {
           S = "LOGICAL"
         }
-
-        # Transfer Family uses an IAM role to access files in S3. The IAM policy determines
-        # Read/Write access to buckets, regardless of directory mappings above. 
+        # IAM role governing S3 read/write access for this session
         Role = {
           S = aws_iam_role.transfer_session[0].arn
         }
       }
     }
-    # Optionally, an IP allow list can be used to control the source IPs a user is
-    # allowed to authenticate from.
+    # Source IP allow list for authentication requests
     ipv4_allow_list = {
       SS = [
         "0.0.0.0/0"
@@ -114,11 +120,49 @@ resource "aws_dynamodb_table_item" "anycompany_repair_record" {
   })
 }
 
+# Register Cognito user pool as an identity provider in the Custom IdP solution
+resource "aws_dynamodb_table_item" "cognito_provider" {
+  count = var.enable_custom_idp && var.enable_cognito ? 1 : 0
+
+  table_name = module.transfer_custom_idp[0].identity_providers_table_name
+  hash_key   = "provider"
+
+  depends_on = [module.transfer_custom_idp]
+
+  item = jsonencode({
+    provider = {
+      # Provider name referenced by user records in the users table
+      S = "cognito_pool"
+    }
+    public_key_support = {
+      BOOL = false
+    }
+    # Cognito-specific configuration: app client ID and region
+    config = {
+      M = {
+        cognito_client_id = {
+          S = module.cognito[0].app_client_id
+        }
+        cognito_user_pool_region = {
+          S = data.aws_region.current.id
+        }
+        mfa = {
+          BOOL = false
+        }
+      }
+    }
+    # Identity provider module used to handle authentication requests
+    module = {
+      S = "cognito"
+    }
+  })
+}
+
 ################################################################################
-# Step 3: S3 Bucket for Transfer Family
+# Step 4: S3 Bucket for Transfer Family
 ################################################################################
 
-# Create S3 bucket for SFTP file uploads using the s3-bucket module
+# Create S3 bucket for SFTP file uploads (repair claims)
 module "s3_bucket_transfer" {
   count  = var.enable_transfer_server ? 1 : 0
   source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
@@ -147,7 +191,7 @@ module "s3_bucket_transfer" {
   tags = var.tags
 }
 
-# IAM Role for Transfer Family Session
+# Create IAM role assumed by Transfer Family to access S3 on behalf of users
 resource "aws_iam_role" "transfer_session" {
   count = var.enable_transfer_server ? 1 : 0
 
@@ -165,11 +209,9 @@ resource "aws_iam_role" "transfer_session" {
       }
     ]
   })
-
-
 }
 
-# IAM Policy for S3 Access
+# Grant Transfer Family session role read/write access to the claims S3 bucket
 resource "aws_iam_role_policy" "transfer_session_s3" {
   count = var.enable_transfer_server ? 1 : 0
 

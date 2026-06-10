@@ -102,6 +102,7 @@ echo ""
 
 ZIPPED_DIR="$SCRIPT_DIR/data/zipped"
 CLAIM1_ZIP="$ZIPPED_DIR/claim-1.zip"
+CLAIM2_ZIP="$ZIPPED_DIR/claim-2.zip"
 
 echo ""
 
@@ -112,17 +113,17 @@ echo ""
 echo -e "${BLUE}Username:${NC} $COGNITO_USERNAME"
 echo -e "${BLUE}Server:${NC} $TRANSFER_SERVER_ENDPOINT"
 echo -e "${BLUE}Password:${NC} (copied to clipboard)"
-echo -e "${BLUE}Claim ZIP file:${NC} claim-1.zip"
+echo -e "${BLUE}Claim ZIP files:${NC} claim-1.zip, claim-2.zip"
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
 # Upload files via SFTP
-echo -e "${YELLOW}Uploading claim-1.zip via SFTP...${NC}"
+echo -e "${YELLOW}Uploading claim-1.zip and claim-2.zip via SFTP...${NC}"
 echo ""
 
-# Build SFTP commands - upload claim-1.zip
-SFTP_COMMANDS="put \"$CLAIM1_ZIP\"\nls -l\nbye\n"
+# Build SFTP commands - upload both claims in one session
+SFTP_COMMANDS="put \"$CLAIM1_ZIP\"\nput \"$CLAIM2_ZIP\"\nls -l\nbye\n"
 
 # Execute SFTP with commands piped via stdin
 echo -e "${BLUE}Connecting to SFTP server...${NC}"
@@ -243,165 +244,6 @@ if [ "$STOP_MONITORING" = true ]; then
     echo -e "${YELLOW}✓ Monitoring stopped by user${NC}"
 else
     echo -e "${GREEN}✓ Monitoring period completed${NC}"
-fi
-echo ""
-
-# Check DynamoDB for processed claims
-echo -e "${YELLOW}Checking DynamoDB for processed claims...${NC}"
-echo ""
-echo -e "${BLUE}Command:${NC} aws dynamodb scan --table-name $CLAIMS_TABLE --max-items 5"
-echo ""
-echo -e "${YELLOW}Press Enter to view processed claims...${NC}"
-read -r
-echo ""
-
-aws dynamodb scan --table-name "$CLAIMS_TABLE" --max-items 5 --output json | jq -r '.Items[] | "Claim ID: \(.claim_id.S // "N/A")\nStatus: \(.status.S // "N/A")\nTimestamp: \(.updated_at.S // .created_at.S // "N/A")\n---"'
-
-echo ""
-echo -e "${GREEN}✓ Claim-1 test completed!${NC}"
-echo ""
-
-################################################################################
-# Test Claim-2
-################################################################################
-
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}Testing Claim-2 Submission${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-
-echo -e "${YELLOW}Ready to test claim-2 submission?${NC}"
-echo -e "${YELLOW}Press Enter to upload claim-2 files...${NC}"
-read -r
-
-# Set claim-2 ZIP path
-CLAIM2_ZIP="$ZIPPED_DIR/claim-2.zip"
-
-echo ""
-echo -e "${BLUE}Claim ZIP file:${NC} claim-2.zip"
-echo ""
-
-# Re-copy password to clipboard in case something else was copied
-if command -v pbcopy &> /dev/null; then
-    echo -n "$PASSWORD" | pbcopy
-elif command -v xclip &> /dev/null; then
-    echo -n "$PASSWORD" | xclip -selection clipboard
-elif command -v xsel &> /dev/null; then
-    echo -n "$PASSWORD" | xsel --clipboard --input
-elif command -v clip.exe &> /dev/null; then
-    echo -n "$PASSWORD" | clip.exe
-fi
-echo -e "${GREEN}✓ Password re-copied to clipboard${NC}"
-echo ""
-
-# Build SFTP commands for claim-2
-SFTP_COMMANDS2="put \"$CLAIM2_ZIP\"\nls -l\nbye\n"
-
-echo -e "${BLUE}Uploading claim-2 files via SFTP...${NC}"
-echo -e "${YELLOW}You will be prompted for the password (it's in your clipboard)${NC}"
-echo ""
-
-echo -e "$SFTP_COMMANDS2" | sftp "$COGNITO_USERNAME@$TRANSFER_SERVER_ENDPOINT"
-
-if [ $? -eq 0 ]; then
-    echo ""
-    echo -e "${GREEN}✓ Claim-2 upload completed!${NC}"
-else
-    echo ""
-    echo -e "${RED}✗ Claim-2 upload failed.${NC}"
-fi
-
-echo ""
-echo -e "${YELLOW}Monitoring claim-2 processing...${NC}"
-echo -e "${YELLOW}Press Ctrl+C to stop monitoring early${NC}"
-echo ""
-
-# Monitor logs for claim-2 processing
-START_TIME=$(($(date +%s) * 1000))
-MAX_MONITOR_TIME=90
-MONITOR_START=$(date +%s)
-
-echo -e "${CYAN}[Watching agent activity for claim-2 for up to 90 seconds]${NC}"
-echo ""
-
-# Temporarily disable exit on error for monitoring loop
-set +e
-
-# Set up trap to catch Ctrl+C
-STOP_MONITORING2=false
-trap 'STOP_MONITORING2=true; echo' INT
-
-while [ $(($(date +%s) - MONITOR_START)) -lt $MAX_MONITOR_TIME ] && [ "$STOP_MONITORING2" = false ]; do
-    # Find all log groups for agentcore runtimes (refresh each loop)
-    LOG_GROUPS=$(aws logs describe-log-groups \
-        --log-group-name-prefix "/aws/bedrock-agentcore/runtimes/" \
-        --query 'logGroups[].logGroupName' \
-        --output text 2>/dev/null || echo "")
-    
-    # Also monitor orchestrator Lambda log group
-    ORCHESTRATOR_LOG_GROUP="/aws/lambda/tf-demo-claims-orchestrator"
-    
-    # Fetch recent log events from all agent log groups (filter out OTEL noise)
-    for LOG_GROUP in $LOG_GROUPS; do
-        # Extract agent name from log group path (full runtime name)
-        AGENT_NAME=$(echo "$LOG_GROUP" | sed 's|.*/runtimes/||')
-        
-        # Use JSON output and parse with jq; filter out verbose OTEL instrumentation logs
-        aws logs filter-log-events \
-            --log-group-name "$LOG_GROUP" \
-            --start-time $START_TIME \
-            --output json 2>/dev/null | \
-            jq -r '.events[]?.message // empty' 2>/dev/null | \
-            grep -v -i -E 'opentelemetry|otel|botocore|\[WARN\]' | \
-            while IFS= read -r line; do
-                if [ -n "$line" ]; then
-                    # Color code by agent type
-                    case "$AGENT_NAME" in
-                        *document_extraction*|*document-extraction*)
-                            echo -e "${BLUE}[EXTRACTION]${NC} $line"
-                            ;;
-                        *damage_assessment*|*damage-assessment*)
-                            echo -e "${MAGENTA}[DAMAGE]${NC} $line"
-                            ;;
-                        *fraud_detection*|*fraud-detection*)
-                            echo -e "${RED}[FRAUD]${NC} $line"
-                            ;;
-                        *classification*)
-                            echo -e "${YELLOW}[CLASSIFICATION]${NC} $line"
-                            ;;
-                        *)
-                            echo -e "${GREEN}[AGENT]${NC} $line"
-                            ;;
-                    esac
-                fi
-            done
-    done
-    
-    # Fetch recent log events from orchestrator Lambda
-    aws logs filter-log-events \
-        --log-group-name "$ORCHESTRATOR_LOG_GROUP" \
-        --start-time $START_TIME \
-        --output json 2>/dev/null | \
-        jq -r '.events[]?.message // empty' 2>/dev/null | \
-        while IFS= read -r line; do
-            if [ -n "$line" ]; then
-                echo -e "${CYAN}[ORCHESTRATOR]${NC} $line"
-            fi
-        done
-    
-    START_TIME=$(($(date +%s) * 1000))
-    sleep 3
-done
-
-# Reset trap and re-enable exit on error
-trap - INT
-set -e
-
-echo ""
-if [ "$STOP_MONITORING2" = true ]; then
-    echo -e "${YELLOW}✓ Monitoring stopped by user${NC}"
-else
-    echo -e "${GREEN}✓ Claim-2 monitoring completed${NC}"
 fi
 echo ""
 
