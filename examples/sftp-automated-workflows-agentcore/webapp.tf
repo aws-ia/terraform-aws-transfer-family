@@ -3,20 +3,30 @@
 # Components: Transfer Family Web App with S3 Access Grants
 ################################################################################
 
+################################################################################
+# Step 1: Deploy Transfer Family Web App
+################################################################################
+
+# Use the module to deploy web application for internal claims team access
 module "transfer_webapp" {
   count  = var.enable_webapp ? 1 : 0
   source = "../../modules/transfer-web-app"
 
-  iam_role_name                = "anycompany-insurance-webapp-role"
+  iam_role_name = "anycompany-insurance-webapp-role"
+
+  # Web apps are configured with an IAM Identity Center instance
   identity_center_instance_arn = local.sso_instance_arn
   identity_store_id            = local.identity_store_id
 
   # S3 Access Grants — instance is created by the transfer-web-app module
   # itself when no s3_access_grants_instance_id is provided.
 
-  # Group-based access to the clean files bucket
+  # Group-based access grants are managed in the identity_center_groups attribute.
+  # IAM Identity Center groups are automatically assigned to the web app and
+  # S3 Access Grants are created for each group's defined paths.
   identity_center_groups = [
     {
+      # Claims Admins: Full read/write access to all files in the clean-files bucket
       group_name = "Claims Admins"
       access_grants = [
         {
@@ -26,6 +36,7 @@ module "transfer_webapp" {
       ]
     },
     {
+      # Claims Reviewers: Read-only access to submitted and processed claims
       group_name = "Claims Reviewers"
       access_grants = [
         {
@@ -48,9 +59,10 @@ module "transfer_webapp" {
 }
 
 ################################################################################
-# CORS Configuration for Clean Bucket
+# Step 2: CORS Configuration for Clean Bucket
 ################################################################################
 
+# CORS must be configured on the bucket to use the bucket with Transfer Web Apps
 resource "aws_s3_bucket_cors_configuration" "clean_bucket_cors" {
   count  = var.enable_webapp ? 1 : 0
   bucket = module.s3_bucket_clean[0].s3_bucket_id
