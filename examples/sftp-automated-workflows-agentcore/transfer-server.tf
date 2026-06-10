@@ -81,6 +81,49 @@ module "transfer_custom_idp" {
 # Step 3: Configure User and Identity Provider Records
 ################################################################################
 
+
+
+# Populate identity providers table with Cognito user pool details.
+resource "aws_dynamodb_table_item" "cognito_provider" {
+  count = var.enable_custom_idp && var.enable_cognito ? 1 : 0
+
+  table_name = module.transfer_custom_idp[0].identity_providers_table_name
+  hash_key   = "provider"
+
+  depends_on = [module.transfer_custom_idp]
+
+  item = jsonencode({
+    provider = {
+      # The provider name is referenced in the users table, to assign users. ***
+      S = "cognito_pool"
+    }
+    public_key_support = {
+      BOOL = false
+    }
+    # Identity providers have specific configuration attributes. In this case,
+    # The cognito user pool's app client ID and region are required.
+    config = {
+      M = {
+        cognito_client_id = {
+          S = module.cognito[0].app_client_id
+        }
+        cognito_user_pool_region = {
+          S = data.aws_region.current.id
+        }
+        mfa = {
+          # Multi-factor authentication is supported with some providers
+          BOOL = false
+        }
+      }
+    }
+    # The module field defines which identity provider module will be used
+    # to handle authentication requests.
+    module = {
+      S = "cognito"
+    }
+  })
+}
+
 # Create user record for AnyCompany Auto Repair and assign to the "cognito_pool" provider
 resource "aws_dynamodb_table_item" "anycompany_repair_record" {
   count = var.enable_custom_idp && var.enable_transfer_server ? 1 : 0
@@ -137,47 +180,6 @@ resource "aws_dynamodb_table_item" "anycompany_repair_record" {
       SS = [
         "0.0.0.0/0"
       ]
-    }
-  })
-}
-
-# Populate identity providers table with Cognito user pool details.
-resource "aws_dynamodb_table_item" "cognito_provider" {
-  count = var.enable_custom_idp && var.enable_cognito ? 1 : 0
-
-  table_name = module.transfer_custom_idp[0].identity_providers_table_name
-  hash_key   = "provider"
-
-  depends_on = [module.transfer_custom_idp]
-
-  item = jsonencode({
-    provider = {
-      # The provider name is referenced in the users table, to assign users. ***
-      S = "cognito_pool"
-    }
-    public_key_support = {
-      BOOL = false
-    }
-    # Identity providers have specific configuration attributes. In this case,
-    # The cognito user pool's app client ID and region are required.
-    config = {
-      M = {
-        cognito_client_id = {
-          S = module.cognito[0].app_client_id
-        }
-        cognito_user_pool_region = {
-          S = data.aws_region.current.id
-        }
-        mfa = {
-          # Multi-factor authentication is supported with some providers
-          BOOL = false
-        }
-      }
-    }
-    # The module field defines which identity provider module will be used
-    # to handle authentication requests.
-    module = {
-      S = "cognito"
     }
   })
 }

@@ -64,26 +64,6 @@ resource "random_id" "agentcore" {
   byte_length = 4
 }
 
-# ── S3 bucket for agent code packages ────────────────────────────────────────
-
-module "agent_code_bucket" {
-  count  = var.enable_agentcore_agents ? 1 : 0
-  source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
-
-  bucket                   = lower("${local.agentcore_name_prefix}-agent-code-${random_id.agentcore[0].hex}")
-  control_object_ownership = true
-  object_ownership         = "BucketOwnerEnforced"
-  block_public_acls        = true
-  block_public_policy      = true
-  ignore_public_acls       = true
-  restrict_public_buckets  = true
-  force_destroy            = true
-
-  versioning = {
-    enabled = true
-  }
-}
-
 # ── Document Extraction Agent (no gateway — reads S3 directly via boto3) ─────
 
 module "document_extraction_agent" {
@@ -191,6 +171,29 @@ module "classification_agent" {
 
   tags = var.tags
 }
+
+
+# ── S3 bucket for agent code packages ────────────────────────────────────────
+
+module "agent_code_bucket" {
+  count  = var.enable_agentcore_agents ? 1 : 0
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=v5.0.0"
+
+  bucket                   = lower("${local.agentcore_name_prefix}-agent-code-${random_id.agentcore[0].hex}")
+  control_object_ownership = true
+  object_ownership         = "BucketOwnerEnforced"
+  block_public_acls        = true
+  block_public_policy      = true
+  ignore_public_acls       = true
+  restrict_public_buckets  = true
+  force_destroy            = true
+
+  versioning = {
+    enabled = true
+  }
+}
+
+
 
 ################################################################################
 # Observability — CloudWatch Transaction Search + Agent Log/Trace Delivery
