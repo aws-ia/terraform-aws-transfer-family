@@ -189,12 +189,15 @@ resource "null_resource" "build_trigger" {
   provisioner "local-exec" {
     command = <<-EOT
       echo "Waiting for IAM role propagation..."
+      echo "Region: ${data.aws_region.current.name}"
       sleep 10
       
       BUILD_ID=$(aws codebuild start-build \
         --project-name ${aws_codebuild_project.build.name} \
         --query 'build.id' \
+        --region ${data.aws_region.current.name} \
         --output text)
+        
       
       echo "CodeBuild started: $BUILD_ID"
       
@@ -203,6 +206,7 @@ resource "null_resource" "build_trigger" {
         BUILD_STATUS=$(aws codebuild batch-get-builds \
           --ids $BUILD_ID \
           --query 'builds[0].buildStatus' \
+          --region ${data.aws_region.current.name} \
           --output text)
         
         if [ "$BUILD_STATUS" == "SUCCEEDED" ]; then
