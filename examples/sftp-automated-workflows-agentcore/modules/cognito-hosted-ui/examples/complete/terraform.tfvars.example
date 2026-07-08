@@ -1,0 +1,35 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Cognito Configuration
+user_pool_name  = "example-user-pool"
+domain_prefix   = "my-unique-domain-prefix-12345"  # MUST be globally unique across all AWS accounts
+app_client_name = "example-app-client"
+
+# Landing Page Configuration
+create_landing_page   = true
+landing_page_template = "landing.html"           # Path to your HTML template (relative to this directory)
+branding_settings     = "cognito-branding.json"  # Path to your branding JSON (relative to this directory)
+
+# Test User Configuration (optional)
+create_test_user = true
+test_username    = "testuser"
+test_user_email  = "test@example.com"
+
+# Password Policy (optional - these are the defaults)
+password_policy = {
+  minimum_length                   = 8
+  require_lowercase                = true
+  require_numbers                  = true
+  require_symbols                  = true
+  require_uppercase                = true
+  temporary_password_validity_days = 7
+}
+
+# Tags (optional)
+tags = {
+  Environment = "development"
+  ManagedBy   = "Terraform"
+  Project     = "cognito-hosted-ui-example"
+  Owner       = "your-team"
+}
