@@ -54,7 +54,10 @@ module "transfer_server" {
   log_retention_days       = 30 # This can be modified based on requirements
   log_group_kms_key_id     = aws_kms_key.transfer_family_key.arn
   logging_role             = var.logging_role
-  workflow_details         = var.workflow_details 
+  workflow_details         = var.workflow_details
+  s3_storage_options = {
+    directory_listing_optimization = "ENABLED"
+  }
 }
 
 module "sftp_users" {

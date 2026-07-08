@@ -1,3 +1,4 @@
+<!-- BEGIN_TF_DOCS -->
 # SFTP with Cognito Identity Provider Example
 
 This example demonstrates how to set up AWS Transfer Family SFTP server with a custom identity provider using Amazon Cognito for user authentication and AWS Lambda for identity provider logic.
@@ -116,12 +117,14 @@ sftp> put myfile.txt
 ```
 
 Or use an SFTP client like FileZilla with:
+
 - **Host**: Server endpoint from Terraform output
 - **Username**: `user1` (explicit config) or `user2` (default fallback)
 - **Password**: Retrieved from Secrets Manager
 - **Port**: 22
 
 **Key Differences:**
+
 - **user1**: Has full bucket access, sees root directory (`/`)
 - **user2**: Has isolated access, sees only their folder (`/home/users/user2/`)
 - **user2**: Demonstrates the `$default$` fallback behavior for any authenticated Cognito user without explicit configuration
@@ -138,7 +141,7 @@ The example creates two Cognito users to demonstrate different configuration app
 - **Home Directory**: Logical mapping to root of S3 bucket (`/`)
 - **IP Allowlist**: None (unrestricted access)
 - **S3 Permissions**: Full access to entire bucket
-- **DynamoDB Record**: Explicit transfer_users record with custom configuration
+- **DynamoDB Record**: Explicit transfer\_users record with custom configuration
 
 ### User 2 (Default Fallback User - Demonstrates `$default$`)
 
@@ -180,7 +183,7 @@ The example configures DynamoDB items for identity provider and users:
    - MFA settings (disabled by default)
    - Module type: `cognito`
 
-2. **User Records** (for each user in transfer_users list):
+2. **User Records** (for each user in transfer\_users list):
    - Username and identity provider key (Cognito Pool ID)
    - Home directory mappings (virtual to physical paths)
    - IAM role for S3 access
@@ -224,6 +227,7 @@ existing_cognito_user_pool_region    = "us-east-1"
 ```
 
 When using an existing pool:
+
 - No new Cognito User Pool or user will be created
 - You must manage users in your existing pool
 - The password secret outputs will be null
@@ -255,7 +259,6 @@ terraform destroy
 > [!IMPORTANT]
 > The S3 bucket must be empty before destruction. Remove all files first if needed.
 
-<!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
@@ -268,8 +271,8 @@ terraform destroy
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.22.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.95.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | >= 3.6.0 |
 
 ## Modules
 
@@ -307,7 +310,7 @@ terraform destroy
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region | `string` | `"us-east-1"` | no |
 | <a name="input_cognito_user_email"></a> [cognito\_user\_email](#input\_cognito\_user\_email) | Email address for the Cognito user | `string` | `"user1@example.com"` | no |
 | <a name="input_cognito_username"></a> [cognito\_username](#input\_cognito\_username) | Username for the Cognito user | `string` | `"user1"` | no |
-| <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `true` | no |
+| <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `false` | no |
 | <a name="input_existing_cognito_user_pool_client_id"></a> [existing\_cognito\_user\_pool\_client\_id](#input\_existing\_cognito\_user\_pool\_client\_id) | ID of existing Cognito User Pool Client to use (required if existing\_cognito\_user\_pool\_id is provided) | `string` | `null` | no |
 | <a name="input_existing_cognito_user_pool_id"></a> [existing\_cognito\_user\_pool\_id](#input\_existing\_cognito\_user\_pool\_id) | ID of existing Cognito User Pool to use (if not provided, a new pool will be created) | `string` | `null` | no |
 | <a name="input_existing_cognito_user_pool_region"></a> [existing\_cognito\_user\_pool\_region](#input\_existing\_cognito\_user\_pool\_region) | Region of existing Cognito User Pool (required if existing\_cognito\_user\_pool\_id is provided) | `string` | `null` | no |
