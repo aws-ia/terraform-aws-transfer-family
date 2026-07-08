@@ -141,7 +141,7 @@ data "aws_iam_policy_document" "transfer_web_app" {
       "s3:ListCallerAccessGrants",
     ]
     resources = [
-      "arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:access-grants/*"
+      "arn:${data.aws_partition.current.partition}:s3:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-grants/*"
     ]
     condition {
       test     = "StringEquals"

@@ -257,7 +257,7 @@ resource "aws_dynamodb_table_item" "cognito_provider" {
           S = module.cognito[0].app_client_id
         }
         cognito_user_pool_region = {
-          S = data.aws_region.current.id
+          S = data.aws_region.current.region
         }
         mfa = {
           # Multi-factor authentication is supported with some providers

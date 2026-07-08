@@ -67,7 +67,7 @@ resource "aws_iam_role_policy" "transfer_server_describe" {
         Action = [
           "transfer:DescribeServer"
         ]
-        Resource = "arn:aws:transfer:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:server/*"
+        Resource = "arn:aws:transfer:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:server/*"
       }
     ]
   })
