@@ -174,14 +174,14 @@ resource "aws_s3_object" "landing_page" {
   content = templatefile(var.landing_page_template, {
     user_pool_id   = aws_cognito_user_pool.main.id
     client_id      = aws_cognito_user_pool_client.main.id
-    region         = data.aws_region.current.id
+    region         = data.aws_region.current.region
     cognito_domain = aws_cognito_user_pool_domain.main.domain
   })
   content_type = "text/html"
   etag = md5(templatefile(var.landing_page_template, {
     user_pool_id   = aws_cognito_user_pool.main.id
     client_id      = aws_cognito_user_pool_client.main.id
-    region         = data.aws_region.current.id
+    region         = data.aws_region.current.region
     cognito_domain = aws_cognito_user_pool_domain.main.domain
   }))
 }

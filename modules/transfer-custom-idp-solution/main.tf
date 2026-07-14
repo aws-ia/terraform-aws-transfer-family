@@ -189,13 +189,13 @@ resource "null_resource" "build_trigger" {
   provisioner "local-exec" {
     command = <<-EOT
       echo "Waiting for IAM role propagation..."
-      echo "Region: ${data.aws_region.current.name}"
+      echo "Region: ${data.aws_region.current.region}"
       sleep 10
       
       BUILD_ID=$(aws codebuild start-build \
         --project-name ${aws_codebuild_project.build.name} \
         --query 'build.id' \
-        --region ${data.aws_region.current.name} \
+        --region ${data.aws_region.current.region} \
         --output text)
         
       
@@ -206,7 +206,7 @@ resource "null_resource" "build_trigger" {
         BUILD_STATUS=$(aws codebuild batch-get-builds \
           --ids $BUILD_ID \
           --query 'builds[0].buildStatus' \
-          --region ${data.aws_region.current.name} \
+          --region ${data.aws_region.current.region} \
           --output text)
         
         if [ "$BUILD_STATUS" == "SUCCEEDED" ]; then
@@ -269,7 +269,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${local.codebuild_project}:*"
+        Resource = "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${local.codebuild_project}:*"
       },
       {
         Effect = "Allow"
