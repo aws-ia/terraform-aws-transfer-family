@@ -105,6 +105,10 @@ resource "aws_transfer_server" "transfer_server" {
   url             = var.identity_provider == "API_GATEWAY" ? var.api_gateway_url : null
   invocation_role = var.identity_provider == "API_GATEWAY" ? var.api_gateway_invocation_role : null
 
+  # Banners (optional)
+  pre_authentication_login_banner  = var.pre_authentication_login_banner
+  post_authentication_login_banner = var.post_authentication_login_banner
+
   dynamic "endpoint_details" {
     for_each = var.endpoint_details != null ? [1] : []
     content {
@@ -112,6 +116,13 @@ resource "aws_transfer_server" "transfer_server" {
       security_group_ids     = var.endpoint_details.security_group_ids
       subnet_ids             = var.endpoint_details.subnet_ids
       vpc_id                 = var.endpoint_details.vpc_id
+    }
+  }
+
+  dynamic "s3_storage_options" {
+    for_each = var.s3_storage_options != null ? [1] : []
+    content {
+      directory_listing_optimization = var.s3_storage_options.directory_listing_optimization
     }
   }
 
