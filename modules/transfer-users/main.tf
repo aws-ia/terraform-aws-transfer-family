@@ -4,7 +4,7 @@
 
 resource "random_pet" "name" {
   prefix = "aws-ia"
-  length = 1
+  length = 2
 }
 
 locals {
