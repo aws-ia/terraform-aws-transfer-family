@@ -10,7 +10,7 @@
 data "aws_caller_identity" "current" {}
 locals {
   should_scan = false
-  logging_role = length(aws_iam_role.connector_logging_role) > 0 ? aws_iam_role.connector_logging_role[0].arn : null
+  logging_role = var.logging_role != null ? var.logging_role : (length(aws_iam_role.connector_logging_role) > 0 ? aws_iam_role.connector_logging_role[0].arn : null)
   
   # Use provided secret ID or create new one
   effective_secret_id = var.user_secret_id != null ? var.user_secret_id : (local.create_secret ? aws_secretsmanager_secret.sftp_credentials[0].arn : null)
