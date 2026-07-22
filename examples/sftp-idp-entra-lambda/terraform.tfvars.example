@@ -1,0 +1,16 @@
+aws_region              = "us-east-1" 
+name_prefix             = "sftp-entra" 
+
+# Entra ID Configuration
+entra_provider_name     = "example.onmicrosoft.com" 
+entra_client_id         = "a11aaaa1-1111-1a11-111a-11a11a1a11aa" 
+entra_authority_url     = "https://login.microsoftonline.com/your-tenant-id" 
+entra_client_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:entra-id-client-secret" 
+entra_usernames         = ["user@example.onmicrosoft.com"] 
+ 
+# Optional: S3 encryption with KMS (default is AES256) 
+# s3_sse_algorithm = "aws:kms" 
+# s3_kms_key_id    = "arn:aws:kms:us-east-1:123456789012:key/your-key-id" 
+ 
+# Optional: Restrict IP access for default users 
+# default_user_ipv4_allow_list = ["10.0.0.0/8"] 
