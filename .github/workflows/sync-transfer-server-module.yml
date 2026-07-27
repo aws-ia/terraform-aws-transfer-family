@@ -43,8 +43,10 @@ jobs:
       - name: Commit all changes
         env:
           HEAD_REF: ${{ github.head_ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
           git add modules/transfer-server/
-          git diff --staged --quiet || (git commit -m "chore: sync transfer-server module files and update documentation" && git push origin "$HEAD_REF")
+          git diff --staged --quiet || (git commit -m "chore: sync transfer-server module files and update documentation" && git push origin "HEAD:refs/heads/${HEAD_REF}")
