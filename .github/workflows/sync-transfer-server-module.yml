@@ -27,24 +27,21 @@ jobs:
         run: |
           cp main.tf outputs.tf variables.tf versions.tf modules/transfer-server/
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: latest
+      - name: Install terraform-docs
+        run: |
+          curl -sSLo terraform-docs.tar.gz https://github.com/terraform-docs/terraform-docs/releases/download/v0.20.0/terraform-docs-v0.20.0-linux-amd64.tar.gz
+          tar -xzf terraform-docs.tar.gz
+          chmod +x terraform-docs
+          sudo mv terraform-docs /usr/local/bin/
 
       - name: Generate terraform-docs
-        uses: terraform-docs/gh-actions@v1.2.0
-        with:
-          working-dir: modules/transfer-server
-          output-file: README.md
-          output-method: inject
-          git-push: false  # Important: Don't push here, we'll do it in the next step
+        run: |
+          terraform-docs markdown table --output-file README.md --output-mode inject modules/transfer-server
 
       - name: Commit all changes
         env:
           HEAD_REF: ${{ github.head_ref }}
         run: |
-          sudo chown -R $(id -u):$(id -g) .
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add modules/transfer-server/
