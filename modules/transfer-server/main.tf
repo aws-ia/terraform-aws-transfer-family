@@ -85,9 +85,9 @@ check "vpc_endpoint_requirements" {
   }
 }
 
-#########################################################
+############################################################
 # Transfer Module (also in modules/transfer-server)
-#########################################################
+############################################################
 
 resource "aws_transfer_server" "transfer_server" {
   #checkov:skip=CKV_AWS_380: "At the moment the default security policy must be TransferSecurityPolicy-2024-01 but will be updated to TransferSecurityPolicy-2025-03"
@@ -105,6 +105,9 @@ resource "aws_transfer_server" "transfer_server" {
   url             = var.identity_provider == "API_GATEWAY" ? var.api_gateway_url : null
   invocation_role = var.identity_provider == "API_GATEWAY" ? var.api_gateway_invocation_role : null
 
+  # Banners (optional)
+  pre_authentication_login_banner  = var.pre_authentication_login_banner
+  post_authentication_login_banner = var.post_authentication_login_banner
 
   dynamic "endpoint_details" {
     for_each = var.endpoint_details != null ? [1] : []
