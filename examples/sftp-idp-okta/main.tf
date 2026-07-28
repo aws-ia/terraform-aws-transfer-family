@@ -19,36 +19,8 @@ locals {
   server_name = "transfer-server-${random_pet.name.id}"
 
   # Okta configuration
-  okta_domain           = var.okta_domain
-  okta_app_client_id    = var.okta_app_client_id
-  okta_user_email       = var.okta_user_email
-
-  # List of Transfer Family users with their entitlements
-  transfer_users = [
-    {
-      username              = var.okta_user_email
-      identity_provider_key = local.okta_domain
-      role_arn              = aws_iam_role.transfer_session.arn
-      home_directory_mappings = [
-        {
-          entry  = "/"
-          target = "/${module.s3_bucket.s3_bucket_id}"
-        }
-      ]
-    },
-    {
-      username              = "$default$"
-      identity_provider_key = local.okta_domain
-      role_arn              = aws_iam_role.transfer_session.arn
-      home_directory_mappings = [
-        {
-          entry  = "/home"
-          target = "/${module.s3_bucket.s3_bucket_id}/users/$${transfer:UserName}"
-        }
-      ]
-      ipv4_allow_list = var.default_user_ipv4_allow_list
-    }
-  ]
+  okta_domain        = var.okta_domain
+  okta_app_client_id = var.okta_app_client_id
 }
 
 ###################################################################
@@ -64,7 +36,7 @@ module "custom_idp" {
   use_vpc                       = false
   provision_api                 = var.provision_api
   enable_deletion_protection    = var.enable_deletion_protection
-  
+
   tags = var.tags
 }
 
@@ -73,7 +45,7 @@ module "custom_idp" {
 ###################################################################
 module "transfer_server" {
   source = "../../modules/transfer-server"
-  
+
   domain                      = "S3"
   protocols                   = ["SFTP"]
   endpoint_type               = "PUBLIC"
@@ -84,7 +56,7 @@ module "transfer_server" {
   api_gateway_invocation_role = var.provision_api ? module.custom_idp.api_gateway_role_arn : null
   security_policy_name        = "TransferSecurityPolicy-2024-01"
   enable_logging              = true
-  
+
   tags = var.tags
 }
 
@@ -131,9 +103,56 @@ resource "aws_dynamodb_table_item" "okta_provider" {
   })
 }
 
-# Create user records for Transfer Family users
-resource "aws_dynamodb_table_item" "transfer_user_records" {
-  for_each = { for user in local.transfer_users : user.username => user }
+# Create user record for the default Transfer Family user (catch-all).
+# Any authenticated user not explicitly listed lands in their own folder.
+resource "aws_dynamodb_table_item" "default_user" {
+  table_name = module.custom_idp.users_table_name
+  hash_key   = "user"
+  range_key  = "identity_provider_key"
+
+  depends_on = [module.custom_idp]
+
+  item = jsonencode({
+    user = {
+      S = "$default$"
+    }
+    identity_provider_key = {
+      S = local.okta_domain
+    }
+    config = {
+      M = {
+        HomeDirectoryDetails = {
+          L = [
+            {
+              M = {
+                Entry = {
+                  S = "/home"
+                }
+                Target = {
+                  S = "/${module.s3_bucket.s3_bucket_id}/users/$${transfer:UserName}"
+                }
+              }
+            }
+          ]
+        }
+        HomeDirectoryType = {
+          S = "LOGICAL"
+        }
+        Role = {
+          S = aws_iam_role.transfer_session.arn
+        }
+      }
+    }
+    ipv4_allow_list = {
+      SS = var.default_user_ipv4_allow_list
+    }
+  })
+}
+
+# Create user records for the Okta users. Each listed user gets their own
+# home directory at the bucket root under their username.
+resource "aws_dynamodb_table_item" "okta_users" {
+  for_each = toset(var.okta_users)
 
   table_name = module.custom_idp.users_table_name
   hash_key   = "user"
@@ -141,45 +160,38 @@ resource "aws_dynamodb_table_item" "transfer_user_records" {
 
   depends_on = [module.custom_idp]
 
-  item = jsonencode(merge(
-    {
-      user = {
-        S = lower(each.value.username)
-      }
-      identity_provider_key = {
-        S = each.value.identity_provider_key
-      }
-      config = {
-        M = {
-          HomeDirectoryDetails = {
-            L = [
-              for mapping in each.value.home_directory_mappings : {
-                M = {
-                  Entry = {
-                    S = mapping.entry
-                  }
-                  Target = {
-                    S = mapping.target
-                  }
+  item = jsonencode({
+    user = {
+      S = lower(each.value)
+    }
+    identity_provider_key = {
+      S = local.okta_domain
+    }
+    config = {
+      M = {
+        HomeDirectoryDetails = {
+          L = [
+            {
+              M = {
+                Entry = {
+                  S = "/"
+                }
+                Target = {
+                  S = "/${module.s3_bucket.s3_bucket_id}/$${transfer:UserName}"
                 }
               }
-            ]
-          }
-          HomeDirectoryType = {
-            S = "LOGICAL"
-          }
-          Role = {
-            S = each.value.role_arn
-          }
+            }
+          ]
+        }
+        HomeDirectoryType = {
+          S = "LOGICAL"
+        }
+        Role = {
+          S = aws_iam_role.transfer_session.arn
         }
       }
-    },
-    can(each.value.ipv4_allow_list) ? {
-      ipv4_allow_list = {
-        SS = each.value.ipv4_allow_list
-      }
-    } : {}
-  ))
+    }
+  })
 }
 
 ###################################################################
@@ -210,7 +222,7 @@ module "s3_bucket" {
       }
     }
   }
-  
+
   tags = var.tags
 }
 

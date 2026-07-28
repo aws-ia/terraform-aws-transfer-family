@@ -31,13 +31,21 @@ variable "okta_app_client_id" {
   default     = ""
 }
 
-variable "okta_user_email" {
-  description = "Email address of the Okta user for SFTP access"
-  type        = string
+variable "okta_users" {
+  description = "List of Okta user email addresses to grant SFTP access. Each user gets their own home directory under the S3 bucket."
+  type        = list(string)
 
   validation {
-    condition     = can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", var.okta_user_email))
-    error_message = "okta_user_email must be a valid email address."
+    condition     = length(var.okta_users) > 0
+    error_message = "At least one Okta user email must be provided."
+  }
+
+  validation {
+    condition = alltrue([
+      for email in var.okta_users :
+      can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", email))
+    ])
+    error_message = "Every entry in okta_users must be a valid email address."
   }
 }
 
