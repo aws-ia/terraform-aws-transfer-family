@@ -85,9 +85,9 @@ check "vpc_endpoint_requirements" {
   }
 }
 
-######################################
-# Transfer Module
-######################################
+############################################################
+# Transfer Module (also in modules/transfer-server)
+############################################################
 
 resource "aws_transfer_server" "transfer_server" {
   #checkov:skip=CKV_AWS_380: "At the moment the default security policy must be TransferSecurityPolicy-2024-01 but will be updated to TransferSecurityPolicy-2025-03"
