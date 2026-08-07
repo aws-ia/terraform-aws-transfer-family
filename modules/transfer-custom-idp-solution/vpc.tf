@@ -138,7 +138,7 @@ resource "aws_security_group" "lambda" {
 resource "aws_vpc_endpoint" "s3" {
   count             = var.create_vpc ? 1 : 0
   vpc_id            = aws_vpc.main[0].id
-  service_name      = "com.amazonaws.${data.aws_region.current.id}.s3"
+  service_name      = "com.amazonaws.${data.aws_region.current.region}.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = aws_route_table.private[*].id
 
@@ -150,7 +150,7 @@ resource "aws_vpc_endpoint" "s3" {
 resource "aws_vpc_endpoint" "dynamodb" {
   count             = var.create_vpc ? 1 : 0
   vpc_id            = aws_vpc.main[0].id
-  service_name      = "com.amazonaws.${data.aws_region.current.id}.dynamodb"
+  service_name      = "com.amazonaws.${data.aws_region.current.region}.dynamodb"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = aws_route_table.private[*].id
 

@@ -77,7 +77,7 @@ data "external" "connector_ips" {
     fi
     
     # Try to describe the connector and extract any IP information
-    connector_info=$(aws transfer describe-connector --connector-id "${aws_transfer_connector.sftp_connector.id}" --region "${data.aws_region.current.id}" 2>/dev/null || echo "{}")
+    connector_info=$(aws transfer describe-connector --connector-id "${aws_transfer_connector.sftp_connector.id}" --region "${data.aws_region.current.region}" 2>/dev/null || echo "{}")
     
     # Extract IP addresses if they exist and format as comma-separated string
     ips=$(echo "$connector_info" | jq -r '.Connector.ServiceManagedEgressIpAddresses // [] | join(",")')
@@ -232,7 +232,7 @@ resource "terraform_data" "discover_and_test_connector" {
         
         DISCOVERY_RESULT=$(aws transfer test-connection \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
-          --region ${data.aws_region.current.id} \
+          --region ${data.aws_region.current.region} \
           --output json 2>/dev/null || echo '{}')
         
         echo "DEBUG - Discovery Result: $DISCOVERY_RESULT"
@@ -272,7 +272,7 @@ resource "terraform_data" "discover_and_test_connector" {
         echo "Updating connector with discovered host key..."
         UPDATE_RESULT=$(aws transfer update-connector \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
-          --region ${data.aws_region.current.id} \
+          --region ${data.aws_region.current.region} \
           --url "${local.sftp_url}" \
           --access-role "${var.access_role}" \
           --logging-role "${local.logging_role}" \
@@ -284,7 +284,7 @@ resource "terraform_data" "discover_and_test_connector" {
         echo "Testing final connection with trusted host key..."
         FINAL_TEST=$(aws transfer test-connection \
           --connector-id ${aws_transfer_connector.sftp_connector.id} \
-          --region ${data.aws_region.current.id} \
+          --region ${data.aws_region.current.region} \
           --output json)
         
         echo "DEBUG - Final Test Result: $FINAL_TEST"
