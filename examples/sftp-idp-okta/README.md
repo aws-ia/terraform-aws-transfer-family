@@ -159,42 +159,24 @@ okta_mfa_token_length = 6  # Default: 6 digits
 
 ### 1. Configure Terraform Variables
 
-Create a `terraform.tfvars` file:
+Copy the provided example file and edit it with your own values:
 
-```hcl
-aws_region     = "us-east-1"
-name_prefix    = "sftp-okta-example"
-
-# Okta Configuration
-okta_domain = "your-org-name.okta.com"
-
-# One entry per Okta user. Each user gets their own folder under the S3 bucket.
-okta_users = [
-  "user@example.com",
-  # "second.user@example.com",
-]
-
-# Optional: Okta application client ID
-# okta_app_client_id = "0oax..."
-
-# Optional: Enable MFA (default: false)
-# okta_mfa_required      = true
-# okta_mfa_token_length  = 6
-
-# Optional: S3 Encryption (default: AES256)
-# s3_encryption_algorithm = "aws:kms"
-# s3_kms_key_id          = "arn:aws:kms:us-east-1:123456789012:key/..."
-
-# Optional: IP allowlist for default user (default: 0.0.0.0/0)
-# default_user_ipv4_allow_list = ["10.0.0.0/8", "192.168.1.0/24"]
-
-# Optional: Tags for all resources
-# tags = {
-#   Environment = "demo"
-#   Project     = "transfer-family-okta"
-# }
-
+```bash
+cp terraform.tfvars.example terraform.tfvars
 ```
+
+Then open `terraform.tfvars` and set at least the required values:
+
+- `okta_domain` — your full Okta domain (e.g. `your-org.okta.com`)
+- `okta_users` — the list of Okta user emails to grant SFTP access. Each
+  listed user must be an active user in your Okta org, and each gets their
+  own home directory under the S3 bucket.
+
+All other variables (MFA, S3 encryption, API Gateway, IP allowlists, tags)
+are optional and documented inline in `terraform.tfvars.example`. See the
+[Inputs](#inputs) section below for the full list.
+
+> `terraform.tfvars` is gitignored, so your real values are never committed.
 
 ### 2. Deploy the Infrastructure
 
@@ -210,13 +192,13 @@ terraform apply
 # Get the server endpoint
 SERVER_ENDPOINT=$(terraform output -raw server_endpoint)
 
-# Get the first configured user email (repeat for other users as needed)
-USER_EMAIL=$(terraform output -json okta_users | jq -r '.[0]')
+# Get the username (one of the emails in your okta_users list)
+USER=user@example.com
 
 # Connect via SFTP
 # - Without MFA: Use your Okta password
 # - With MFA: Use your Okta password + TOTP code (e.g., MyPassword123456)
-sftp $USER_EMAIL@$SERVER_ENDPOINT
+sftp $USER@$SERVER_ENDPOINT
 
 # Once connected, you'll see the root of the S3 bucket
 sftp> ls
