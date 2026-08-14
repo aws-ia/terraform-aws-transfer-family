@@ -11,7 +11,7 @@ okta_users = [
 ]
 
 # Optional: Enable MFA
-# okta_mfa_required     = true
+# okta_mfa_required     = true  # Only works if MFA enrollment policy and Global Session Policy is active in Okta
 # okta_mfa_token_length = 6
 
 # Optional: Use API Gateway instead of Lambda
