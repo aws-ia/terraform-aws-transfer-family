@@ -152,7 +152,10 @@ resource "aws_dynamodb_table_item" "default_user" {
 # Create user records for the Okta users. Each listed user gets their own
 # home directory at the bucket root under their username.
 resource "aws_dynamodb_table_item" "okta_users" {
-  for_each = toset(var.okta_users)
+  # Lowercase before toset() so case-only duplicate emails (e.g. "User@x.com"
+  # and "user@x.com") collapse to a single record instead of colliding on the
+  # lowercased DynamoDB key.
+  for_each = toset([for email in var.okta_users : lower(email)])
 
   table_name = module.custom_idp.users_table_name
   hash_key   = "user"
@@ -162,7 +165,7 @@ resource "aws_dynamodb_table_item" "okta_users" {
 
   item = jsonencode({
     user = {
-      S = lower(each.value)
+      S = each.value
     }
     identity_provider_key = {
       S = local.okta_domain
