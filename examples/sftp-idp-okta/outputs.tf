@@ -8,9 +8,9 @@ output "server_endpoint" {
   value       = module.transfer_server.server_endpoint
 }
 
-output "okta_user_email" {
-  description = "Email address of the Okta user"
-  value       = var.okta_user_email
+output "okta_users" {
+  description = "Email addresses of the Okta users granted SFTP access"
+  value       = var.okta_users
 }
 
 output "okta_domain" {
@@ -44,16 +44,20 @@ output "connection_instructions" {
     <<-EOT
     Connect via SFTP using your existing Okta credentials with MFA:
 
-    sftp ${var.okta_user_email}@${module.transfer_server.server_endpoint}
+    sftp <USER-EMAIL>@${module.transfer_server.server_endpoint}
+
+    Replace <USER-EMAIL> with one of the emails in your okta_users list.
 
     When prompted for password, enter: YourOktaPassword + TOTP code
     Example: If password is "MyPass123" and TOTP is "456789", enter "MyPass123456789"
     EOT
-  ) : (
+    ) : (
     <<-EOT
     Connect via SFTP using your existing Okta credentials:
 
-    sftp ${var.okta_user_email}@${module.transfer_server.server_endpoint}
+    sftp <USER-EMAIL>@${module.transfer_server.server_endpoint}
+
+    Replace <USER-EMAIL> with one of the emails in your okta_users list.
 
     Use your Okta password when prompted.
     EOT
