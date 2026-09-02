@@ -33,7 +33,7 @@ This example creates a complete SFTP solution with Okta-based authentication:
 
 - AWS credentials with permissions to create the required resources
 - Terraform >= 1.5
-- Okta account with an existing user for SFTP access
+- Okta account with one or more existing users for SFTP access
 
 ## Setting Up Okta Users and MFA
 
@@ -159,37 +159,24 @@ okta_mfa_token_length = 6  # Default: 6 digits
 
 ### 1. Configure Terraform Variables
 
-Create a `terraform.tfvars` file:
+Copy the provided example file and edit it with your own values:
 
-```hcl
-aws_region     = "us-east-1"
-name_prefix    = "sftp-okta-example"
-
-# Okta Configuration
-okta_domain     = "your-org-name.okta.com"
-okta_user_email = "user@example.com"  # Email of Okta user for SFTP
-
-# Optional: Okta application client ID
-# okta_app_client_id = "0oax..."
-
-# Optional: Enable MFA (default: false)
-# okta_mfa_required      = true
-# okta_mfa_token_length  = 6
-
-# Optional: S3 Encryption (default: AES256)
-# s3_encryption_algorithm = "aws:kms"
-# s3_kms_key_id          = "arn:aws:kms:us-east-1:123456789012:key/..."
-
-# Optional: IP allowlist for default user (default: 0.0.0.0/0)
-# default_user_ipv4_allow_list = ["10.0.0.0/8", "192.168.1.0/24"]
-
-# Optional: Tags for all resources
-# tags = {
-#   Environment = "demo"
-#   Project     = "transfer-family-okta"
-# }
-
+```bash
+cp terraform.tfvars.example terraform.tfvars
 ```
+
+Then open `terraform.tfvars` and set at least the required values:
+
+- `okta_domain` — your full Okta domain (e.g. `your-org.okta.com`)
+- `okta_users` — the list of Okta user emails to grant SFTP access. Each
+  listed user must be an active user in your Okta org, and each gets their
+  own home directory under the S3 bucket.
+
+All other variables (MFA, S3 encryption, API Gateway, IP allowlists, tags)
+are optional and documented inline in `terraform.tfvars.example`. See the
+[Inputs](#inputs) section below for the full list.
+
+> `terraform.tfvars` is gitignored, so your real values are never committed.
 
 ### 2. Deploy the Infrastructure
 
@@ -205,13 +192,13 @@ terraform apply
 # Get the server endpoint
 SERVER_ENDPOINT=$(terraform output -raw server_endpoint)
 
-# Get the user email
-USER_EMAIL=$(terraform output -raw okta_user_email)
+# Get the username (one of the emails in your okta_users list)
+USER=user@example.com
 
 # Connect via SFTP
 # - Without MFA: Use your Okta password
 # - With MFA: Use your Okta password + TOTP code (e.g., MyPassword123456)
-sftp $USER_EMAIL@$SERVER_ENDPOINT
+sftp $USER@$SERVER_ENDPOINT
 
 # Once connected, you'll see the root of the S3 bucket
 sftp> ls
@@ -221,17 +208,17 @@ sftp> get testfile.txt
 
 ## User Configuration
 
-The example retrieves an existing Okta user and creates the following configurations in DynamoDB:
+The example creates the following configurations in DynamoDB:
 
-1. **Primary User** (from Okta):
-   - Home directory: Root of S3 bucket
-   - Full access to all files
+1. **Okta Users** (one record per entry in `okta_users`):
+   - Home directory: their own folder at the bucket root, mapped to `/{username}` in S3
    - Uses existing Okta password
+   - Add or remove users by editing the `okta_users` list in `terraform.tfvars`
 
 2. **Default User** (`$default$`):
-   - Fallback configuration for any Okta user not explicitly configured
+   - Fallback configuration for any Okta user not explicitly listed in `okta_users`
    - Home directory: `/home` mapped to `/users/{username}` in S3
-   - IP allowlist: `0.0.0.0/0` (all IPs allowed)
+   - IP allowlist: from `default_user_ipv4_allow_list` (default `0.0.0.0/0`, all IPs allowed)
 
 ## Security Considerations
 
@@ -261,7 +248,7 @@ terraform destroy
 
 - Verify the Okta user password is correct
 - Ensure the user exists in Okta and is active
-- Check that the user email matches the configured `okta_user_email`
+- Check that the user email matches an entry in the configured `okta_users` list
 - Review CloudWatch logs for the Lambda function to see authentication details
 
 #### With MFA Enabled
@@ -297,7 +284,7 @@ terraform destroy
 
 - `server_id`: The ID of the Transfer Family server
 - `server_endpoint`: The SFTP endpoint to connect to
-- `okta_user_email`: Email address of the Okta user
+- `okta_users`: Email addresses of the Okta users granted SFTP access
 - `okta_domain`: Okta domain for identity provider
 - `s3_bucket_name`: Name of the S3 bucket for file storage
 - `identity_providers_table_name`: DynamoDB identity providers table name (for testing/verification)
@@ -339,8 +326,9 @@ terraform destroy
 
 | Name | Type |
 |------|------|
+| [aws_dynamodb_table_item.default_user](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
 | [aws_dynamodb_table_item.okta_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
-| [aws_dynamodb_table_item.transfer_user_records](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
+| [aws_dynamodb_table_item.okta_users](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table_item) | resource |
 | [aws_iam_role.transfer_session](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.transfer_session_s3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [random_id.suffix](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/id) | resource |
@@ -353,7 +341,7 @@ terraform destroy
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_okta_domain"></a> [okta\_domain](#input\_okta\_domain) | Okta domain (e.g., integrator-7292670.okta.com) | `string` | n/a | yes |
-| <a name="input_okta_user_email"></a> [okta\_user\_email](#input\_okta\_user\_email) | Email address of the Okta user for SFTP access | `string` | n/a | yes |
+| <a name="input_okta_users"></a> [okta\_users](#input\_okta\_users) | List of Okta user email addresses to grant SFTP access. Each user gets their own home directory under the S3 bucket. | `list(string)` | n/a | yes |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | AWS region to deploy resources | `string` | `"us-east-1"` | no |
 | <a name="input_default_user_ipv4_allow_list"></a> [default\_user\_ipv4\_allow\_list](#input\_default\_user\_ipv4\_allow\_list) | List of IPv4 CIDR blocks allowed for the default user | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | <a name="input_enable_deletion_protection"></a> [enable\_deletion\_protection](#input\_enable\_deletion\_protection) | Enable deletion protection for DynamoDB tables | `bool` | `false` | no |
@@ -374,7 +362,7 @@ terraform destroy
 | <a name="output_identity_providers_table_name"></a> [identity\_providers\_table\_name](#output\_identity\_providers\_table\_name) | Name of the DynamoDB identity providers table |
 | <a name="output_lambda_function_name"></a> [lambda\_function\_name](#output\_lambda\_function\_name) | Name of the custom identity provider Lambda function |
 | <a name="output_okta_domain"></a> [okta\_domain](#output\_okta\_domain) | Okta domain for identity provider |
-| <a name="output_okta_user_email"></a> [okta\_user\_email](#output\_okta\_user\_email) | Email address of the Okta user |
+| <a name="output_okta_users"></a> [okta\_users](#output\_okta\_users) | Email addresses of the Okta users granted SFTP access |
 | <a name="output_s3_bucket_name"></a> [s3\_bucket\_name](#output\_s3\_bucket\_name) | Name of the S3 bucket for file storage |
 | <a name="output_server_endpoint"></a> [server\_endpoint](#output\_server\_endpoint) | The endpoint of the Transfer Family server |
 | <a name="output_server_id"></a> [server\_id](#output\_server\_id) | The ID of the Transfer Family server |
