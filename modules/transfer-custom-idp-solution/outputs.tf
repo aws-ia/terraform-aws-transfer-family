@@ -20,7 +20,7 @@ output "transfer_invocation_role_arn" {
 
 output "api_gateway_url" {
   description = "API Gateway URL (if provisioned)"
-  value       = var.provision_api ? "https://${aws_api_gateway_rest_api.identity_provider[0].id}.execute-api.${data.aws_region.current.name}.amazonaws.com/prod" : null
+  value       = var.provision_api ? "https://${aws_api_gateway_rest_api.identity_provider[0].id}.execute-api.${data.aws_region.current.region}.amazonaws.com/prod" : null
 }
 
 output "api_gateway_role_arn" {
@@ -45,7 +45,7 @@ output "users_table_name" {
 
 output "users_table_arn" {
   description = "DynamoDB users table ARN"
-  value       = var.users_table_name == "" ? aws_dynamodb_table.users[0].arn : "arn:aws:dynamodb:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:table/${var.users_table_name}"
+  value       = var.users_table_name == "" ? aws_dynamodb_table.users[0].arn : "arn:aws:dynamodb:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.users_table_name}"
 }
 
 output "identity_providers_table_name" {
@@ -55,7 +55,7 @@ output "identity_providers_table_name" {
 
 output "identity_providers_table_arn" {
   description = "DynamoDB identity providers table ARN"
-  value       = var.identity_providers_table_name == "" ? aws_dynamodb_table.identity_providers[0].arn : "arn:aws:dynamodb:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:table/${var.identity_providers_table_name}"
+  value       = var.identity_providers_table_name == "" ? aws_dynamodb_table.identity_providers[0].arn : "arn:aws:dynamodb:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:table/${var.identity_providers_table_name}"
 }
 
 output "vpc_id" {

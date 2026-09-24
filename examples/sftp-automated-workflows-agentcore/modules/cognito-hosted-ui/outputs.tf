@@ -28,7 +28,7 @@ output "cognito_domain" {
 
 output "cognito_domain_url" {
   description = "Full Cognito hosted UI URL"
-  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.id}.amazoncognito.com"
+  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.region}.amazoncognito.com"
 }
 
 # Landing page outputs

@@ -300,7 +300,7 @@ resource "aws_kms_key_policy" "cloudtrail" {
         Resource = aws_kms_key.cloudtrail.arn
         Condition = {
           ArnEquals = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"
           }
         }
       },
@@ -332,7 +332,7 @@ resource "aws_kms_key_policy" "cloudtrail" {
         Sid    = "Allow CloudWatch Logs to use the key"
         Effect = "Allow"
         Principal = {
-          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          Service = "logs.${data.aws_region.current.region}.amazonaws.com"
         }
         Action = [
           "kms:Encrypt",
@@ -344,7 +344,7 @@ resource "aws_kms_key_policy" "cloudtrail" {
         Resource = aws_kms_key.cloudtrail.arn
         Condition = {
           ArnEquals = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/cloudtrail/${random_pet.name.id}"
+            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/cloudtrail/${random_pet.name.id}"
           }
         }
       }

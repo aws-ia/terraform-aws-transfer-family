@@ -229,12 +229,12 @@ resource "aws_cloudwatch_log_resource_policy" "xray_transaction_search" {
       }
       Action = "logs:PutLogEvents"
       Resource = [
-        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:aws/spans:*",
-        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/application-signals/data:*"
+        "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:aws/spans:*",
+        "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/application-signals/data:*"
       ]
       Condition = {
         ArnLike = {
-          "aws:SourceArn" = "arn:aws:xray:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+          "aws:SourceArn" = "arn:aws:xray:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"
         }
         StringEquals = {
           "aws:SourceAccount" = data.aws_caller_identity.current.account_id
@@ -297,7 +297,7 @@ resource "aws_cloudwatch_log_resource_policy" "agent_log_delivery" {
           "aws:SourceAccount" = data.aws_caller_identity.current.account_id
         }
         ArnLike = {
-          "aws:SourceArn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+          "aws:SourceArn" = "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"
         }
       }
     }]
