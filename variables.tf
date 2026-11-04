@@ -68,6 +68,7 @@ variable "security_policy_name" {
       "TransferSecurityPolicy-2023-05",
       "TransferSecurityPolicy-2024-01",
       "TransferSecurityPolicy-2025-03",
+      "TransferSecurityPolicy-AS2Restricted-2025-07",
       "TransferSecurityPolicy-FIPS-2020-06",
       "TransferSecurityPolicy-FIPS-2023-05",
       "TransferSecurityPolicy-FIPS-2024-01",
