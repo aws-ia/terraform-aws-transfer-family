@@ -10,7 +10,8 @@
 data "aws_caller_identity" "current" {}
 locals {
   should_scan = false
-  logging_role = length(aws_iam_role.connector_logging_role) > 0 ? aws_iam_role.connector_logging_role[0].arn : null
+  # Use provided logging role ARN, otherwise the module-created role
+  logging_role = var.logging_role != null ? var.logging_role : aws_iam_role.connector_logging_role[0].arn
   
   # Use provided secret ID or create new one
   effective_secret_id = var.user_secret_id != null ? var.user_secret_id : (local.create_secret ? aws_secretsmanager_secret.sftp_credentials[0].arn : null)
@@ -329,6 +330,13 @@ resource "aws_iam_role" "connector_logging_role" {
   })
 
   tags = var.tags
+
+  lifecycle {
+    precondition {
+      condition     = length("transfer-connector-logging-role-${var.connector_name}") <= 64
+      error_message = "connector_name must be 32 characters or fewer when the module creates the logging role (IAM role names are limited to 64 characters). Use a shorter connector_name or provide an existing role ARN via logging_role."
+    }
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "connector_logging_policy" {
