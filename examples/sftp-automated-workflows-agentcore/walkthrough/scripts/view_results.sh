@@ -13,6 +13,9 @@
 #
 # Requirements: aws CLI, jq, a deployed agentic stack in the current account/region.
 
+# Mask AWS account IDs in all output (set SHOW_ACCOUNT_IDS=1 to disable)
+source "$(dirname "${BASH_SOURCE[0]}")/mask-account-ids.sh"
+
 set -euo pipefail
 
 AWS_REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"

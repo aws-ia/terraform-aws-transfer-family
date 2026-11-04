@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Mask AWS account IDs in all output (set SHOW_ACCOUNT_IDS=1 to disable)
+source "$(dirname "${BASH_SOURCE[0]}")/mask-account-ids.sh"
+
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'

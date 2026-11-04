@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Mask AWS account IDs in all output (set SHOW_ACCOUNT_IDS=1 to disable)
+source "$(dirname "${BASH_SOURCE[0]}")/mask-account-ids.sh"
+
 ################################################################################
 # Stage 4 Deployment Script
 # Deploys Transfer Family Web App with S3 Access Grants
