@@ -3,6 +3,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 data "aws_availability_zones" "available" {
+  #checkov:skip=CKV_AWS_394:Module is region-agnostic so zone names/IDs cannot be pinned; only the first two AZs (names[0], names[1]) are used, and adding a filter would change AZ selection and replace existing subnets
   state = "available"
 }
 
