@@ -11,6 +11,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/mask-account-ids.sh"
 #   2. The claim buckets and the claims table are reset (no claim-* left over).
 #      If not, it asks once [y/N] and deletes the leftover objects and records.
 #   3. The local seed files (data/claim-N, data/zipped) are in place
+# Then it opens the demo's AWS console tabs (after you log in and press Enter).
 # Exits 1 if any check fails.
 #
 # Usage: ./demo-preflight.sh
@@ -374,6 +375,45 @@ else
 fi
 
 ################################################################################
+# AWS console tabs, in demo order. Waits for the presenter to log in first;
+# `open` adds them to the browser's front window, so log in in the window you'll
+# present from. Without a terminal (or without `open`) it prints the URLs.
+################################################################################
+open_console_tabs() {
+    local r="${STACK_REGION:-us-east-1}"
+    local c="https://${r}.console.aws.amazon.com"
+    # Identity Center users page of the instance this stack created
+    # (arn:aws:sso:::instance/ssoins-<id> -> #/instances/<id>/users).
+    local sso_arn sso_id u_sso="$c/singlesignon/home?region=$r#/instances"
+    sso_arn=$(tf_out identity_center_instance_arn)
+    sso_id=${sso_arn##*/ssoins-}
+    [ -n "$sso_arn" ] && [ "$sso_id" != "$sso_arn" ] && u_sso="$c/singlesignon/home?region=$r#/instances/$sso_id/users"
+    local urls="$c/transfer/home?region=$r#/
+$c/s3/buckets?region=$r
+$c/bedrock-agentcore/agents?region=$r
+$c/dynamodbv2/home?region=$r#tables
+$u_sso"
+    local n
+    n=$(echo "$urls" | grep -c .)
+
+    section "AWS console tabs ($n, demo order, region $r)"
+    if ! command -v open >/dev/null 2>&1 || ! [ -t 0 ]; then
+        echo "$urls" | sed 's/^/  /'
+        return 0
+    fi
+    echo "Log in to the AWS console (account …${STACK_ACCOUNT: -4}, region $r) in the browser window you'll present from."
+    local ans
+    printf '%s' "Press Enter to open the tabs, or s + Enter to skip: "
+    read -r ans </dev/tty || return 0
+    case "$ans" in s|S) echo "Skipped."; return 0 ;; esac
+    while IFS= read -r u; do
+        open "$u"
+        sleep 0.4   # keeps the tabs in order
+    done <<<"$urls"
+    echo "Opened $n tabs: Transfer Family, S3 buckets, AgentCore agents, DynamoDB tables, Identity Center users."
+}
+
+################################################################################
 # Summary
 ################################################################################
 echo ""
@@ -383,6 +423,7 @@ if [ "$FAILED" -eq 0 ]; then
         echo -e "${YELLOW}Optional:${NC}"
         echo -e "$FIXES" | awk 'NF && !seen[$0]++'
     fi
+    open_console_tabs
     exit 0
 fi
 
@@ -391,4 +432,5 @@ echo -e "${YELLOW}To fix:${NC}"
 echo -e "$FIXES" | awk 'NF && !seen[$0]++' | while IFS= read -r line; do
     echo -e "${CYAN}${line}${NC}"
 done
+open_console_tabs
 exit 1
