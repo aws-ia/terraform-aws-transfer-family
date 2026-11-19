@@ -74,9 +74,10 @@ cd examples/sftp-automated-workflows-agentcore/walkthrough/scripts
 
 ## Demo helpers
 
-Three additional scripts support live demo flows:
+These scripts support live demo flows:
 
 ```bash
+./demo-preflight.sh       # Check the iPad (Sidecar), buckets/table reset, seed files (asks y/N to clear leftovers)
 ./run_demo.sh             # Starter narration for a presented demo
 ./monitor_agents.sh all   # Tail all agent + orchestrator logs (color-coded)
 ./view_results.sh         # List processed claims + open summary.html
